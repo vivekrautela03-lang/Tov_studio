@@ -35,10 +35,16 @@ export default function Home() {
   // Set up auth state change listener
   useEffect(() => {
     // 1. Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAuthLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+      })
+      .catch((err) => {
+        console.error("Supabase session check failed:", err);
+      })
+      .finally(() => {
+        setAuthLoading(false);
+      });
 
     // 2. Listen for auth changes
     const {
