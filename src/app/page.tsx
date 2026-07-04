@@ -94,22 +94,7 @@ export default function Home() {
     }
   };
 
-  // 1. Loading State Screen
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-[#121212] flex flex-col justify-center items-center gap-4 text-white">
-        <BrainCircuit className="w-10 h-10 text-primary animate-pulse" />
-        <span className="text-xs font-mono text-text-secondary tracking-widest uppercase">
-          Initializing TOV Studio OS...
-        </span>
-      </div>
-    );
-  }
-
-  // 2. Unauthenticated State: Mount Login/Signup Screen
-  if (!session) {
-    return <AuthView />;
-  }
+  // Authentication checks bypassed for now
 
   // 3. Authenticated State: Mount Dashboard Sidebar Shell
   return (
