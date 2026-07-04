@@ -29,6 +29,7 @@ export const AuthView: React.FC = () => {
     setSuccessMsg("");
 
     try {
+      console.log("Attempting sign-in for:", email);
       // 1. Try to sign in
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email,
@@ -36,14 +37,18 @@ export const AuthView: React.FC = () => {
       });
 
       if (error) {
-        // 2. If it fails (e.g. user does not exist in new database), attempt to provision
-        console.log("Account not found. Provisioning theoldverse@gmail.com...");
+        console.warn("Sign-in failed. Attempting to auto-provision account...", error);
+        
+        // 2. If it fails (e.g. user does not exist in database yet), attempt to sign up
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: email,
           password: password.trim()
         });
 
-        if (signUpError) throw signUpError;
+        if (signUpError) {
+          console.error("Auto-provisioning signUp failed:", signUpError);
+          throw signUpError;
+        }
 
         if (signUpData.user && signUpData.session) {
           setSuccessMsg("Console unlocked. System initializing...");
@@ -51,10 +56,35 @@ export const AuthView: React.FC = () => {
           setSuccessMsg("Account provisioned. Please check theoldverse@gmail.com inbox to confirm email access on Supabase.");
         }
       } else {
+        console.log("Sign-in successful!");
         setSuccessMsg("Console unlocked. System initializing...");
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "System error. Verification failed.");
+      console.error("Full authentication exception caught:", err);
+      
+      // Robust error parsing to prevent rendering empty objects `{}`
+      let message = "System error. Verification failed.";
+      if (err) {
+        if (typeof err === "string") {
+          message = err;
+        } else if (err.message && typeof err.message === "string") {
+          message = err.message;
+        } else if (err.error_description && typeof err.error_description === "string") {
+          message = err.error_description;
+        } else {
+          try {
+            const str = JSON.stringify(err);
+            if (str && str !== "{}") {
+              message = str;
+            } else {
+              message = err.toString() || "System verification error.";
+            }
+          } catch {
+            message = String(err);
+          }
+        }
+      }
+      setErrorMsg(message);
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Safe fallbacks to prevent runtime crashes during import/build phases
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-url.supabase.co";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
+// Storing the public publishable key directly in the client bundle is standard in Supabase 
+// and bypasses Next.js/Turbopack environment variable disk-caching bugs.
+const supabaseUrl = "https://oldlqchpjhvqitzirxdy.supabase.co";
+const supabaseAnonKey = "sb_publishable_E-XZKtLFdBnANM9QMBcs4A_9eFMSMz7";
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
