@@ -8,8 +8,7 @@ import { Sparkles, Mail, Lock, ShieldAlert, CheckCircle, BrainCircuit } from "lu
 import { motion, AnimatePresence } from "framer-motion";
 
 export const AuthView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("");
+  const [email] = useState("theoldverse@gmail.com");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -17,36 +16,45 @@ export const AuthView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) return;
+    if (!password.trim()) return;
+
+    // Enforce front-end credentials block immediately
+    if (password.trim() !== "oldversestudio2025") {
+      setErrorMsg("Security Violation: Access key does not match console records.");
+      return;
+    }
 
     setLoading(true);
     setErrorMsg("");
     setSuccessMsg("");
 
     try {
-      if (activeTab === "signin") {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
+      // 1. Try to sign in
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password.trim()
+      });
+
+      if (error) {
+        // 2. If it fails (e.g. user does not exist in new database), attempt to provision
+        console.log("Account not found. Provisioning theoldverse@gmail.com...");
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: email,
           password: password.trim()
         });
-        if (error) throw error;
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: password.trim()
-        });
-        if (error) throw error;
-        
-        // Supabase sign-up behavior depends on email confirmation configuration:
-        if (data.user && data.session) {
-          // Auto-logged in
-          setSuccessMsg("Account created successfully!");
+
+        if (signUpError) throw signUpError;
+
+        if (signUpData.user && signUpData.session) {
+          setSuccessMsg("Console unlocked. System initializing...");
         } else {
-          setSuccessMsg("Registration successful! Check your email inbox for a verification link.");
+          setSuccessMsg("Account provisioned. Please check theoldverse@gmail.com inbox to confirm email access on Supabase.");
         }
+      } else {
+        setSuccessMsg("Console unlocked. System initializing...");
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "An unexpected authentication error occurred.");
+      setErrorMsg(err.message || "System error. Verification failed.");
     } finally {
       setLoading(false);
     }
@@ -64,7 +72,7 @@ export const AuthView: React.FC = () => {
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-md z-10 space-y-6"
+        className="w-full max-w-sm z-10 space-y-6"
       >
         {/* Brand Header */}
         <div className="text-center space-y-2">
@@ -83,46 +91,8 @@ export const AuthView: React.FC = () => {
         <Card className="border border-white/5 bg-[#171717]/85 backdrop-blur-md shadow-2xl shadow-black/80">
           <CardContent className="p-6 space-y-5">
             
-            {/* Tabs for Signin / Signup */}
-            <div className="flex border-b border-white/5 pb-1 gap-4 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("signin");
-                  setErrorMsg("");
-                  setSuccessMsg("");
-                }}
-                className={`pb-2.5 relative cursor-pointer transition-colors ${
-                  activeTab === "signin" ? "text-primary" : "text-text-secondary hover:text-white"
-                }`}
-              >
-                Sign In
-                {activeTab === "signin" && (
-                  <motion.div
-                    layoutId="authActiveTabLine"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full"
-                  />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("signup");
-                  setErrorMsg("");
-                  setSuccessMsg("");
-                }}
-                className={`pb-2.5 relative cursor-pointer transition-colors ${
-                  activeTab === "signup" ? "text-primary" : "text-text-secondary hover:text-white"
-                }`}
-              >
-                Create Account
-                {activeTab === "signup" && (
-                  <motion.div
-                    layoutId="authActiveTabLine"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full"
-                  />
-                )}
-              </button>
+            <div className="border-b border-white/5 pb-2 text-[10px] text-text-secondary font-mono uppercase font-bold tracking-wider">
+              Private Terminal Session
             </div>
 
             {/* Error alerts */}
@@ -156,40 +126,37 @@ export const AuthView: React.FC = () => {
             {/* Auth Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               
-              {/* Email Input */}
+              {/* Locked Email Input */}
               <div className="space-y-1.5">
                 <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
-                  Email Address
+                  Admin Account Email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
+                  <Mail className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary/50" />
                   <input
                     type="email"
-                    required
-                    placeholder="you@domain.com"
+                    disabled
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={loading}
-                    className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
+                    className="w-full bg-black/40 border border-white/5 rounded-lg pl-10 pr-4 py-2 text-xs text-white/50 cursor-not-allowed font-mono"
                   />
                 </div>
               </div>
 
-              {/* Password Input */}
+              {/* Access Key Input */}
               <div className="space-y-1.5">
                 <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
-                  Password
+                  Access Key (Password)
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
                   <input
                     type="password"
                     required
-                    placeholder="••••••••"
+                    placeholder="Enter security key..."
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={loading}
-                    className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
+                    className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors font-mono"
                   />
                 </div>
               </div>
@@ -205,7 +172,7 @@ export const AuthView: React.FC = () => {
                   {loading ? (
                     <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <span>{activeTab === "signin" ? "Sign In" : "Register Credentials"}</span>
+                    <span>Unlock Console</span>
                   )}
                 </Button>
               </div>
