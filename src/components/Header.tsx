@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/utils/supabaseClient";
 import { useProjectStore, Project } from "@/store/useProjectStore";
 import {
   Search,
@@ -36,6 +37,24 @@ export const Header: React.FC = () => {
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   const [isNotifyDropdownOpen, setIsNotifyDropdownOpen] = useState(false);
   const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   // Dialog State
   const [isNewProjOpen, setIsNewProjOpen] = useState(false);
@@ -295,14 +314,46 @@ export const Header: React.FC = () => {
           </div>
 
           {/* User Profile */}
-          <div className="flex items-center gap-2 pl-2 border-l border-white/5">
-            <div className="w-8 h-8 rounded-full bg-[#FF6A00] flex items-center justify-center font-bold text-black text-sm cursor-pointer ring-2 ring-primary/20 select-none">
-              V
-            </div>
-            <div className="hidden lg:flex flex-col text-left">
-              <span className="text-xs font-semibold text-white">Vivek Roy</span>
-              <span className="text-[9px] text-text-secondary font-mono">Producer</span>
-            </div>
+          <div className="relative">
+            <button
+              onClick={() => {
+                setIsProfileDropdownOpen(!isProfileDropdownOpen);
+                setIsProjectDropdownOpen(false);
+                setIsNotifyDropdownOpen(false);
+                setIsCreateDropdownOpen(false);
+              }}
+              className="flex items-center gap-2 pl-2 border-l border-white/5 cursor-pointer hover:opacity-85 select-none"
+            >
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center font-bold text-black text-sm ring-2 ring-primary/20">
+                {user?.email?.[0].toUpperCase() || "V"}
+              </div>
+              <div className="hidden lg:flex flex-col text-left">
+                <span className="text-xs font-semibold text-white truncate max-w-[100px]">
+                  {user?.email?.split("@")[0] || "Vivek Roy"}
+                </span>
+                <span className="text-[9px] text-text-secondary font-mono">Producer</span>
+              </div>
+              <ChevronDown className="w-3 h-3 text-text-secondary hidden lg:inline" />
+            </button>
+
+            {isProfileDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-card border border-white/5 rounded-lg shadow-2xl z-50 p-1">
+                <div className="px-3 py-2 text-[10px] text-text-secondary border-b border-white/5 break-all">
+                  Logged in as:
+                  <div className="text-white font-medium mt-0.5">{user?.email || "vivek@tovstudio.ai"}</div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsProfileDropdownOpen(false);
+                    handleLogout();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-danger/10 text-danger text-xs text-left cursor-pointer transition-colors mt-1"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Log Out</span>
+                </button>
+              </div>
+            )}
           </div>
 
         </div>

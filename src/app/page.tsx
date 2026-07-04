@@ -1,11 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/utils/supabaseClient";
 import { useProjectStore } from "@/store/useProjectStore";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { cn } from "@/components/ui/button";
+import { AuthView } from "@/components/views/AuthView";
+import { BrainCircuit } from "lucide-react";
 
 // Views
 import { DashboardView } from "@/components/views/DashboardView";
@@ -26,6 +29,27 @@ import { SettingsView } from "@/components/views/SettingsView";
 
 export default function Home() {
   const { activeView, sidebarCollapsed } = useProjectStore();
+  const [session, setSession] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Set up auth state change listener
+  useEffect(() => {
+    // 1. Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    // 2. Listen for auth changes
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Map active view names to component nodes
   const renderViewContent = () => {
@@ -64,8 +88,26 @@ export default function Home() {
     }
   };
 
+  // 1. Loading State Screen
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#121212] flex flex-col justify-center items-center gap-4 text-white">
+        <BrainCircuit className="w-10 h-10 text-primary animate-pulse" />
+        <span className="text-xs font-mono text-text-secondary tracking-widest uppercase">
+          Initializing TOV Studio OS...
+        </span>
+      </div>
+    );
+  }
+
+  // 2. Unauthenticated State: Mount Login/Signup Screen
+  if (!session) {
+    return <AuthView />;
+  }
+
+  // 3. Authenticated State: Mount Dashboard Sidebar Shell
   return (
-    <div className="min-h-screen bg-[#09090B] text-white flex">
+    <div className="min-h-screen bg-[#121212] text-white flex">
       {/* Sidebar - Collapsible */}
       <Sidebar />
 

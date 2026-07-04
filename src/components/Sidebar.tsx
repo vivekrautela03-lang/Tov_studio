@@ -59,7 +59,7 @@ export const Sidebar: React.FC = () => {
       {/* Brand Logo & Tagline */}
       <div className="flex flex-col border-b border-white/5 p-4 overflow-hidden h-[73px] justify-center">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-orange-400 font-bold text-black text-sm shrink-0">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-emerald-400 font-bold text-black text-sm shrink-0">
             TOV
           </div>
           {!sidebarCollapsed && (
