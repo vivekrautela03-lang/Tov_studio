@@ -42,14 +42,35 @@ export const Header: React.FC = () => {
   const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+
+  const fetchProfile = async (currentUser: any) => {
+    if (!currentUser) {
+      setProfile(null);
+      return;
+    }
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", currentUser.id)
+        .single();
+      if (data) setProfile(data);
+    } catch (err) {
+      console.error("Error loading user profile details:", err);
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user);
+      fetchProfile(user);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
+      const currentUser = session?.user || null;
+      setUser(currentUser);
+      fetchProfile(currentUser);
     });
 
     return () => subscription.unsubscribe();
@@ -335,14 +356,22 @@ export const Header: React.FC = () => {
               }}
               className="flex items-center gap-2 pl-2 border-l border-white/5 cursor-pointer hover:opacity-85 select-none"
             >
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center font-bold text-black text-sm ring-2 ring-primary/20">
-                {user?.email?.[0].toUpperCase() || "V"}
-              </div>
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt=""
+                  className="w-8 h-8 rounded-full object-cover ring-2 ring-primary/20"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center font-bold text-black text-sm ring-2 ring-primary/20">
+                  {profile?.full_name?.[0].toUpperCase() || user?.email?.[0].toUpperCase() || "V"}
+                </div>
+              )}
               <div className="hidden lg:flex flex-col text-left">
                 <span className="text-xs font-semibold text-white truncate max-w-[100px]">
-                  {user?.email?.split("@")[0] || "Vivek Roy"}
+                  {profile?.full_name || user?.email?.split("@")[0] || "Vivek Roy"}
                 </span>
-                <span className="text-[9px] text-text-secondary font-mono">Producer</span>
+                <span className="text-[9px] text-text-secondary font-mono">{profile?.role || "Producer"}</span>
               </div>
               <ChevronDown className="w-3 h-3 text-text-secondary hidden lg:inline" />
             </button>
