@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useProjectStore } from "@/store/useProjectStore";
+import { supabase } from "@/utils/supabaseClient";
 import { cn } from "@/components/ui/button";
 import {
   Film,
@@ -17,7 +18,23 @@ import {
   Wrench,
   Search,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  User,
+  Scissors,
+  FileText,
+  MapPin,
+  Truck,
+  Layers,
+  FileCheck,
+  CreditCard,
+  CheckSquare,
+  Volume2,
+  Brush,
+  Camera,
+  Play,
+  UploadCloud,
+  FileCode2,
+  Sliders
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,7 +49,8 @@ export const DashboardView: React.FC = () => {
     crew,
     equipment,
     calendarEvents,
-    shotPlans
+    shotPlans,
+    memberRole
   } = useProjectStore();
 
   const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0];
@@ -95,38 +113,31 @@ export const DashboardView: React.FC = () => {
     action: "Reschedule Shot Plan"
   };
 
-  return (
-    <div className="space-y-8 animate-fade-in">
-      
-      {/* Hero Welcome Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-card to-card/50 border border-white/5 rounded-2xl p-6 md:p-8 relative overflow-hidden shadow-2xl">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-primary/5 to-transparent pointer-events-none" />
-        <div className="z-10 space-y-2">
-          <div className="flex items-center gap-2 text-primary font-mono text-xs uppercase tracking-widest font-semibold">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>AI Studio OS Active</span>
-          </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
-            Good Evening, Vivek
-          </h1>
-          <p className="text-text-secondary text-sm max-w-xl leading-relaxed">
-            Welcome back. Production for <span className="text-white font-medium">"{activeProject.title}"</span> is currently active at <span className="text-white font-medium">{activeProject.location}</span>. 
-          </p>
-        </div>
-        <div className="flex gap-3 z-10 shrink-0">
-          <Button variant="secondary" onClick={() => setActiveView("projects")} className="cursor-pointer">
-            All Projects
-          </Button>
-          <Button variant="primary" onClick={() => setActiveView("ai-studio")} className="flex items-center gap-2 cursor-pointer">
-            <Sparkles className="w-4 h-4 text-black" />
-            <span>Open AI Studio</span>
-          </Button>
-        </div>
-      </div>
+  // Render department widgets based on selected user role
+  const renderRoleDashboard = () => {
+    switch (memberRole) {
+      case "Actor":
+        return renderActorDashboard();
+      case "Cinematographer (DOP)":
+      case "Camera Department":
+        return renderCameraDashboard();
+      case "Editor":
+      case "VFX Team":
+        return renderEditorVFXDashboard();
+      case "Client":
+        return renderClientDashboard();
+      case "Owner":
+      case "Production Manager":
+        return renderAdminDashboard();
+      default:
+        return renderGenericCrewDashboard();
+    }
+  };
 
-      {/* Grid Dashboard Widget Cards */}
+  // 1. ADMIN & MANAGER PANEL
+  const renderAdminDashboard = () => {
+    return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        
         {/* Today's Shoot Call Sheet */}
         <Card className="flex flex-col justify-between">
           <CardHeader>
@@ -366,8 +377,450 @@ export const DashboardView: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-
       </div>
+    );
+  };
+
+  // 2. ACTOR PANEL
+  const renderActorDashboard = () => {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Character Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="w-5 h-5 text-primary" />
+              <span>Character Profile</span>
+            </CardTitle>
+            <CardDescription>Assigned Role Details</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-xl border border-primary/20">
+                CR
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white">Detective Cyber-Roy</h4>
+                <p className="text-xs text-text-secondary">Lead Actor • Scene 1, 2, 4</p>
+              </div>
+            </div>
+            <div className="border-t border-white/5 pt-3 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Rehearsal Call</span>
+                <span className="text-white font-medium">July 06, 14:00</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Travel Coordinator</span>
+                <span className="text-white">Marcus Vance (+65 9182 8221)</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Callsheet Call Time & Details */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Daily Call Time</CardTitle>
+              <span className="text-[9px] px-2 py-0.5 rounded bg-primary/20 text-primary font-bold uppercase">
+                Active Call
+              </span>
+            </div>
+            <CardDescription>Today's shooting plan</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-center py-4 bg-white/[0.02] border border-white/5 rounded-xl">
+              <span className="text-[10px] text-text-secondary uppercase">Your Personal Call</span>
+              <div className="text-3xl font-extrabold text-white mt-1">18:30</div>
+              <span className="text-[10px] text-text-secondary">Location Call: 18:00</span>
+            </div>
+            <div className="space-y-2 text-xs">
+              <div className="flex items-start gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                <span className="text-text-secondary">Set Location: {activeProject.location}</span>
+              </div>
+              <div className="flex items-start gap-1.5">
+                <Truck className="w-3.5 h-3.5 text-text-secondary shrink-0 mt-0.5" />
+                <span className="text-text-secondary">Transport pick-up: 17:30 (Hotel Lobby)</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Costume & Makeup Schedule */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Scissors className="w-4 h-4 text-secondary" />
+              <span>Costume & Makeup</span>
+            </CardTitle>
+            <CardDescription>Wardrobe coordinates</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-xs">
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <span className="text-text-secondary">Costume Fitting</span>
+              <span className="text-white font-medium">Fit #3: Techwear Cloak</span>
+            </div>
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <span className="text-text-secondary">Makeup Timing</span>
+              <span className="text-white font-medium">19:00 - Soundstage A</span>
+            </div>
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <span className="text-text-secondary">Wardrobe Status</span>
+              <span className="text-success font-medium">Ready (Rack 2)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-text-secondary">Assigned Scene Sheets</span>
+              <span className="text-primary font-bold underline cursor-pointer" onClick={() => setActiveView("scripts")}>
+                View Scene 1 PDF
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  // 3. CINEMATOGRAPHER & CAMERA PANEL
+  const renderCameraDashboard = () => {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Active Camera Setup */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="w-5 h-5 text-primary" />
+              <span>Camera Setup Spec</span>
+            </CardTitle>
+            <CardDescription>Cinematography Setup</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-xs">
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <span className="text-text-secondary">Camera body</span>
+              <span className="text-white font-medium">ARRI ALEXA 35</span>
+            </div>
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <span className="text-text-secondary">Lens kit</span>
+              <span className="text-white font-medium">Cooke Anamorphic/i SF (50mm)</span>
+            </div>
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <span className="text-text-secondary">Target Aspect</span>
+              <span className="text-white font-mono">2.39:1 (Cinematic Wide)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-text-secondary">Active LUT</span>
+              <span className="text-primary font-bold">OldVerse_BladeRunner_v4.cube</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Shot List & Setup Goals */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-secondary" />
+              <span>Today's Shot Goals</span>
+            </CardTitle>
+            <CardDescription>Setup checklists</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2.5 text-xs">
+              <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded">
+                <span className="text-white font-medium">Shot 1A: Wide Alley Panning</span>
+                <span className="text-success font-semibold">Completed</span>
+              </div>
+              <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded">
+                <span className="text-white font-medium">Shot 1B: Close-up Cyber Eye</span>
+                <span className="text-primary font-semibold">Next Setup</span>
+              </div>
+              <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded text-text-secondary">
+                <span>Shot 1C: Tracking Low-Angle run</span>
+                <span>Queued</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Lighting Plan details */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-warning" />
+              <span>Grip & Lighting Plan</span>
+            </CardTitle>
+            <CardDescription>Set lighting specs</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-xs">
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <span className="text-text-secondary">Key Light</span>
+              <span className="text-white">Aputure 600d (Lantern Softbox)</span>
+            </div>
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <span className="text-text-secondary">Fill Light</span>
+              <span className="text-white">Nova P600c (Cool Cyan gel)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-text-secondary">Backlight rig</span>
+              <span className="text-white">Astera Titan Tubes (Neon Pink glow)</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  // 4. EDITOR & VFX PANEL
+  const renderEditorVFXDashboard = () => {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Timeline Lock Details */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileCheck className="w-5 h-5 text-primary" />
+              <span>Timeline lock drafts</span>
+            </CardTitle>
+            <CardDescription>VFX plate tracking</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-xs">
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <span className="text-text-secondary">Assembly Cut</span>
+              <span className="text-success font-medium">Approved (July 02)</span>
+            </div>
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <span className="text-text-secondary">Rough Cut v1</span>
+              <span className="text-primary font-bold">In Review (July 05)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-text-secondary">Fine Cut lock</span>
+              <span className="text-text-secondary">Pending scenes 3 & 4</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Footage Upload Portal */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UploadCloud className="w-5 h-5 text-secondary" />
+              <span>Footage Transfers</span>
+            </CardTitle>
+            <CardDescription>Upload proxies</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-4 border border-dashed border-white/10 rounded-xl text-center flex flex-col items-center gap-2 cursor-pointer hover:bg-white/[0.01] transition-all">
+              <UploadCloud className="w-8 h-8 text-text-secondary animate-pulse" />
+              <span className="text-xs text-white font-medium">Drag proxy dailies here</span>
+              <span className="text-[10px] text-text-secondary">Supports Apple ProRes Proxy & H.264</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* VFX Asset Tracking */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileCode2 className="w-4 h-4 text-warning" />
+              <span>VFX Plates & CGI Assets</span>
+            </CardTitle>
+            <CardDescription>Queued VFX shots</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2.5 text-xs">
+            <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded">
+              <span>Scene 1 - Sky Neon Glow replace</span>
+              <span className="text-warning font-semibold">CGI Render</span>
+            </div>
+            <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded">
+              <span>Scene 2 - Hologram billboard insert</span>
+              <span className="text-success font-semibold">Complete</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  // 5. CLIENT DASHBOARD
+  const renderClientDashboard = () => {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Approved Deliverables */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Play className="w-5 h-5 text-primary" />
+              <span>Approved Deliverables</span>
+            </CardTitle>
+            <CardDescription>Campaign review packages</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-3 rounded-lg">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center text-primary">
+                  <Play className="w-4 h-4" />
+                </div>
+                <div>
+                  <h5 className="text-xs font-bold text-white">First Look Teaser (v2)</h5>
+                  <p className="text-[9px] text-text-secondary">30s • 4K ProRes Proxy</p>
+                </div>
+              </div>
+              <Button size="sm" variant="ghost" className="text-[10px] text-primary">
+                Open Review
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Payments, Milestones & Contracts */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-secondary" />
+              <span>Contracts & Payments</span>
+            </CardTitle>
+            <CardDescription>Ledger balances</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-xs">
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <span className="text-text-secondary">Milestone 1 (Pre-Prod)</span>
+              <span className="text-success font-semibold">Paid ($25,000)</span>
+            </div>
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <span className="text-text-secondary">Milestone 2 (Principal Wrap)</span>
+              <span className="text-warning font-semibold">Pending ($30,000)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-text-secondary">Production Service Contract</span>
+              <span className="text-primary font-bold underline cursor-pointer">Signed PDF</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Feedback Channel */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-warning" />
+              <span>Submit Review Notes</span>
+            </CardTitle>
+            <CardDescription>Dailies feedback</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <textarea
+              rows={3}
+              placeholder="Type your feedback notes for the editing room here..."
+              className="w-full bg-[#09090B] border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-primary focus:outline-none transition-all resize-none"
+            />
+            <Button size="sm" variant="primary" className="w-full text-xs">
+              Dispatch Feedback
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  // 6. GENERIC CREW DASHBOARD (Sound, Art, Makeup, Costume, etc.)
+  const renderGenericCrewDashboard = () => {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Call time */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Daily Call Time</CardTitle>
+            <CardDescription>{memberRole} Department</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-center py-4 bg-white/[0.02] border border-white/5 rounded-xl">
+              <span className="text-[10px] text-text-secondary uppercase">Your Set Call</span>
+              <div className="text-3xl font-extrabold text-white mt-1">18:00</div>
+              <span className="text-[10px] text-text-secondary">Today, Sunday July 5</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs">
+              <MapPin className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-text-secondary">Set Location: {activeProject.location}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Assigned tasks */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckSquare className="w-5 h-5 text-secondary" />
+              <span>Assigned Checklist</span>
+            </CardTitle>
+            <CardDescription>Department Tasks</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs">
+            <div className="flex items-center justify-between p-2.5 rounded bg-white/[0.02] border border-white/5">
+              <span>Setup equipment inventory checklist</span>
+              <span className="text-success font-semibold">Done</span>
+            </div>
+            <div className="flex items-center justify-between p-2.5 rounded bg-white/[0.02] border border-white/5">
+              <span>Stand by for Scene 1 shoot blocks</span>
+              <span className="text-primary font-semibold">Pending</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Weather status */}
+        <Card>
+          <CardHeader>
+            <CardTitle>On-Set Weather Monitor</CardTitle>
+            <CardDescription>Continuous Sync</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {weatherData ? (
+              <div className="text-center py-4 bg-white/[0.02] border border-white/5 rounded-xl">
+                <span className="text-[10px] text-text-secondary uppercase">Live Temperature ({weatherData.name})</span>
+                <div className="text-2xl font-black text-white mt-1">{Math.round(weatherData.main.temp)}°C</div>
+                <span className="text-[10px] text-primary mt-1 block uppercase font-mono tracking-wider">
+                  {weatherData.weather[0].main}
+                </span>
+              </div>
+            ) : (
+              <div className="text-center py-6 text-xs text-text-secondary">
+                Weather parameters loading...
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      
+      {/* Hero Welcome Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-card to-card/50 border border-white/5 rounded-2xl p-6 md:p-8 relative overflow-hidden shadow-2xl">
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-primary/5 to-transparent pointer-events-none" />
+        <div className="z-10 space-y-2">
+          <div className="flex items-center gap-2 text-primary font-mono text-xs uppercase tracking-widest font-semibold">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>AI Studio OS Active</span>
+          </div>
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
+            Dashboard View: {memberRole}
+          </h1>
+          <p className="text-text-secondary text-sm max-w-xl leading-relaxed">
+            Welcome back. Workspace for <span className="text-white font-medium">"{activeProject.title}"</span> is currently active at <span className="text-white font-medium">{activeProject.location}</span>. 
+          </p>
+        </div>
+        <div className="flex gap-3 z-10 shrink-0">
+          <Button variant="secondary" onClick={() => setActiveView("projects")} className="cursor-pointer">
+            All Projects
+          </Button>
+          <Button variant="primary" onClick={() => setActiveView("ai-studio")} className="flex items-center gap-2 cursor-pointer">
+            <Sparkles className="w-4 h-4 text-black" />
+            <span>Open AI Studio</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Render selected role specific dashboard widgets */}
+      {renderRoleDashboard()}
 
       {/* active productions horizontal list */}
       <Card>

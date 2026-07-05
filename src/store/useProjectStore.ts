@@ -156,6 +156,7 @@ interface ProjectStoreState {
   sidebarCollapsed: boolean;
   activeProjectTab: string;
   mobileSidebarOpen: boolean;
+  memberRole: string;
   
   // Projects
   projects: Project[];
@@ -184,6 +185,7 @@ interface ProjectStoreState {
   setActiveProjectTab: (tab: string) => void;
   setActiveProjectId: (id: string) => void;
   setMobileSidebarOpen: (open: boolean) => void;
+  setMemberRole: (role: string) => void;
   
   // Data Modifying Actions
   addProject: (project: Omit<Project, "id" | "progress" | "completion" | "crewCount" | "castCount">) => void;
@@ -712,6 +714,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   sidebarCollapsed: false,
   activeProjectTab: "Overview",
   mobileSidebarOpen: false,
+  memberRole: "Owner",
   
   // Projects Lists
   projects: initialProjects,
@@ -740,6 +743,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   setActiveProjectTab: (tab) => set({ activeProjectTab: tab }),
   setActiveProjectId: (id) => set({ activeProjectId: id }),
   setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
+  setMemberRole: (role) => set({ memberRole: role }),
   
   addProject: (proj) => set((state) => {
     const newId = `proj-${state.projects.length + 1}`;

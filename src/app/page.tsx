@@ -28,10 +28,25 @@ import { AIStudioView } from "@/components/views/AIStudioView";
 import { SettingsView } from "@/components/views/SettingsView";
 
 export default function Home() {
-  const { activeView, sidebarCollapsed } = useProjectStore();
+  const { activeView, sidebarCollapsed, setMemberRole } = useProjectStore();
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authSubstate, setAuthSubstate] = useState<"signin" | "signup" | "forgot" | "reset" | "verify">("signin");
+
+  const fetchUserRole = async (userId: string) => {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .single();
+      if (data) {
+        setMemberRole(data.role);
+      }
+    } catch (err) {
+      console.error("Error loading user profile role:", err);
+    }
+  };
 
   // Set up auth state change listener and check session
   useEffect(() => {
@@ -47,6 +62,9 @@ export default function Home() {
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         setSession(session);
+        if (session?.user) {
+          fetchUserRole(session.user.id);
+        }
       })
       .catch((err) => {
         console.error("Supabase session check failed:", err);
@@ -60,6 +78,9 @@ export default function Home() {
       data: { subscription }
     } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (session?.user) {
+        fetchUserRole(session.user.id);
+      }
       if (event === "PASSWORD_RECOVERY") {
         setAuthSubstate("reset");
       }

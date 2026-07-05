@@ -41,6 +41,27 @@ drop policy if exists "Allow authenticated actions for tasks" on public.tasks;
 drop policy if exists "Allow authenticated actions for budgets" on public.budgets;
 drop policy if exists "Allow authenticated actions for files" on public.files;
 
+-- Drop new policies to guarantee idempotency on retry
+drop policy if exists "Allow select productions for members only" on public.productions;
+drop policy if exists "Allow modify productions for owners/producers" on public.productions;
+drop policy if exists "Allow select projects for members only" on public.projects;
+drop policy if exists "Allow modify projects for creatives" on public.projects;
+drop policy if exists "Allow select crew for members" on public.crew;
+drop policy if exists "Allow modify crew for producers" on public.crew;
+drop policy if exists "Allow select cast for members" on public.cast_members;
+drop policy if exists "Allow modify cast for producers" on public.cast_members;
+drop policy if exists "Allow select scripts for members" on public.scripts;
+drop policy if exists "Allow modify scripts for creatives" on public.scripts;
+drop policy if exists "Allow select storyboard for members" on public.storyboard_shots;
+drop policy if exists "Allow modify storyboard for editors/creatives" on public.storyboard_shots;
+drop policy if exists "Allow access to budgets for producers only" on public.budgets;
+drop policy if exists "Allow select files for members" on public.files;
+drop policy if exists "Allow modify files for members" on public.files;
+drop policy if exists "Allow select schedules for members" on public.schedules;
+drop policy if exists "Allow modify schedules for creatives" on public.schedules;
+drop policy if exists "Allow select tasks for members" on public.tasks;
+drop policy if exists "Allow modify tasks for members" on public.tasks;
+
 
 -- 3. Create Isolation & Role-Based Access Control Policies
 

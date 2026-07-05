@@ -88,6 +88,12 @@ async function runMigrations() {
     await client.query(sql4);
     console.log("✓ 0004_isolation_and_rbac_policies.sql applied successfully!");
 
+    // 5. Apply Enterprise RBAC Schema (always safe & idempotent)
+    console.log("Applying 0005_enterprise_rbac_schema.sql...");
+    const sql5 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0005_enterprise_rbac_schema.sql"), "utf8");
+    await client.query(sql5);
+    console.log("✓ 0005_enterprise_rbac_schema.sql applied successfully!");
+
     // Verify all tables in public schema
     console.log("\nVerifying current public tables:");
     const res = await client.query(`
