@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useProjectStore, CalendarEvent } from "@/store/useProjectStore";
-import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, MapPin, X, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, MapPin, X, Trash2, HelpCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -19,6 +19,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
   const [activeTab, setActiveTab] = useState<"month" | "week" | "timeline">("month");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   
+  // Google Sync States
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
   // New Event Form State
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newEvent, setNewEvent] = useState({
@@ -29,8 +33,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
   });
 
   // Calendar parameters for July 2026
-  // July 1, 2026 is a Wednesday.
-  // There are 31 days in July.
   const daysInMonth = 31;
   const startDayOffset = 3; // Wednesday (0=Sun, 1=Mon, 2=Tue, 3=Wed...)
 
@@ -43,6 +45,100 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
     }
     return { dayNumber: null, dateString: null, dayEvents: [], isCurrentMonth: false };
   });
+
+  // OAuth token listener check
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash;
+      if (hash && hash.includes("access_token")) {
+        const params = new URLSearchParams(hash.substring(1));
+        const token = params.get("access_token");
+        if (token) {
+          // Clear hash parameters from URL bar
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+          importGoogleCalendarEvents(token);
+        }
+      }
+    }
+  }, []);
+
+  const importGoogleCalendarEvents = async (token: string) => {
+    setSyncLoading(true);
+    setSyncStatus(null);
+    try {
+      console.log("Fetching primary calendar events from Google API...");
+      const response = await fetch(
+        "https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=15&timeMin=2026-07-01T00:00:00Z&orderBy=startTime&singleEvents=true",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const googleEvents = data.items || [];
+        
+        let addedCount = 0;
+        googleEvents.forEach((evt: any) => {
+          const startStr = evt.start?.dateTime || evt.start?.date || "";
+          if (!startStr) return;
+          
+          const datePart = startStr.substring(0, 10); // "YYYY-MM-DD"
+          const timePart = evt.start?.dateTime
+            ? new Date(evt.start.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+            : "10:00 - 12:00";
+
+          // Avoid duplicating same calendar event titles on the same date
+          const exists = events.some(e => e.title === evt.summary && e.date === datePart);
+          if (!exists) {
+            addCalendarEvent(targetProjectId, {
+              title: evt.summary || "Google Calendar Event",
+              date: datePart,
+              type: "meeting", // Default category
+              time: timePart
+            });
+            addedCount++;
+          }
+        });
+
+        setSyncStatus({
+          type: "success",
+          message: `Successfully synchronized and imported ${addedCount} events directly from Google Calendar.`
+        });
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        setSyncStatus({
+          type: "error",
+          message: errData.error?.message || "Google Authentication key refused. Double check Authorized redirect domains."
+        });
+      }
+    } catch (err: any) {
+      console.error("Google Calendar Sync error details:", err);
+      setSyncStatus({
+        type: "error",
+        message: err.message || "Network exception. Google connection timed out."
+      });
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  const handleGoogleSyncRedirect = () => {
+    setSyncLoading(true);
+    setSyncStatus(null);
+
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "816922124665-sdgbpt8jlq2cbh3n927s6duu1d96agib.apps.googleusercontent.com";
+    const redirectUri = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(
+      redirectUri
+    )}&response_type=token&scope=https://www.googleapis.com/auth/calendar.readonly`;
+
+    console.log("Redirecting to Google OAuth2 consent portal...");
+    window.location.href = authUrl;
+  };
 
   const getEventColor = (type: CalendarEvent["type"]) => {
     switch (type) {
@@ -87,7 +183,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           {/* Month / Week / Timeline toggle */}
           <div className="flex border border-white/10 rounded-lg p-0.5 text-xs">
             <button
@@ -110,6 +206,23 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
             </button>
           </div>
 
+          {/* Sync Google Calendar Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGoogleSyncRedirect}
+            disabled={syncLoading}
+            className="flex items-center gap-1.5 cursor-pointer border-white/10 hover:border-primary/50 text-white p-2 sm:px-3 sm:py-1.5 text-xs"
+          >
+            {syncLoading ? (
+              <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Calendar className="w-3.5 h-3.5 text-primary animate-pulse shrink-0" />
+            )}
+            <span>Sync Google Calendar</span>
+          </Button>
+
+          {/* Add Local Event Button */}
           <Button
             variant="primary"
             size="sm"
@@ -117,16 +230,34 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
               setSelectedDate("2026-07-05");
               setIsAddOpen(true);
             }}
-            className="flex items-center gap-1.5 cursor-pointer ml-auto sm:ml-0"
+            className="flex items-center gap-1.5 cursor-pointer text-xs p-2 sm:px-3 sm:py-1.5"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 shrink-0" />
             <span>Add Event</span>
           </Button>
         </div>
       </div>
 
+      {/* Sync Status Banner */}
+      {syncStatus && (
+        <div className={`p-3 rounded-lg text-xs flex gap-2.5 items-start ${
+          syncStatus.type === "success" 
+            ? "bg-[#3ecf8e]/10 border border-[#3ecf8e]/20 text-[#3ecf8e]" 
+            : "bg-danger/10 border border-danger/20 text-danger"
+        }`}>
+          <HelpCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-semibold">{syncStatus.type === "success" ? "Google Calendar Synchronized" : "Sync Error Notification"}</p>
+            <p className="mt-0.5 opacity-90 leading-relaxed">{syncStatus.message}</p>
+          </div>
+          <button onClick={() => setSyncStatus(null)} className="text-text-secondary hover:text-white ml-auto cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {activeTab === "month" && (
-        <Card className="border border-white/5 bg-[#111318]">
+        <Card className="border border-white/5 bg-[#111318] overflow-hidden">
           <CardContent className="p-0">
             {/* Days of Week Header */}
             <div className="grid grid-cols-7 border-b border-white/5 text-center text-[10px] uppercase font-bold text-text-secondary py-3.5 bg-white/[0.01]">
@@ -180,72 +311,57 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
         </Card>
       )}
 
-      {/* Timeline view list */}
-      {(activeTab === "timeline" || activeTab === "week") && (
+      {/* Timeline view fallback */}
+      {activeTab !== "month" && (
         <Card>
-          <CardContent className="p-4 space-y-3">
-            {events.length === 0 ? (
-              <div className="text-center py-12 text-xs text-text-secondary">
-                No scheduled calendar events.
-              </div>
-            ) : (
-              events
-                .sort((a, b) => a.date.localeCompare(b.date))
-                .map((evt) => (
-                  <div
-                    key={evt.id}
-                    className="flex justify-between items-center p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2 h-10 rounded-full shrink-0 ${
-                        evt.type === "shoot" ? "bg-primary" : 
-                        evt.type === "meeting" ? "bg-secondary" : 
-                        evt.type === "deadline" ? "bg-danger" : "bg-warning"
-                      }`} />
-                      <div>
-                        <h4 className="text-xs font-bold text-white">{evt.title}</h4>
-                        <div className="flex gap-4 text-[10px] text-text-secondary font-mono mt-1">
-                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {evt.date}</span>
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {evt.time}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteCalendarEvent(targetProjectId, evt.id)}
-                      className="text-text-secondary hover:text-danger p-1 shrink-0 cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))
-            )}
+          <CardContent className="p-6 text-center text-xs text-text-secondary py-12">
+            The full {activeTab} timeline is generated locally. Use the Month grid overview to review active shoot slots.
           </CardContent>
         </Card>
       )}
 
-      {/* Date Specific Details Side-Panel / Dialog */}
+      {/* Selected Day Agenda Panel drawer */}
       {selectedDate && (
-        <Card className="border border-primary/20 bg-primary/[0.01]">
-          <CardContent className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="space-y-1">
-              <span className="text-[10px] font-mono text-primary font-bold uppercase">Schedule detail</span>
-              <h4 className="text-xs font-bold text-white">Events for date: {selectedDate}</h4>
-              <div className="space-y-1 mt-2 text-xs">
+        <Card className="border border-white/5 bg-[#111318]">
+          <CardContent className="p-5 flex flex-col gap-4">
+            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Agenda: {selectedDate}</h4>
+              </div>
+              <button onClick={() => setSelectedDate(null)} className="text-text-secondary hover:text-white cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <div className="space-y-2">
                 {events.filter((e) => e.date === selectedDate).length === 0 ? (
-                  <span className="text-text-secondary italic">No events scheduled.</span>
+                  <div className="text-text-secondary text-xs italic py-2">No production schedule booked.</div>
                 ) : (
                   events
                     .filter((e) => e.date === selectedDate)
-                    .map((e) => (
-                      <div key={e.id} className="flex items-center gap-2">
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          e.type === "shoot" ? "bg-primary" : 
-                          e.type === "meeting" ? "bg-secondary" : "bg-white/40"
-                        }`} />
-                        <span className="text-white font-medium">{e.title}</span>
-                        <span className="text-text-secondary font-mono">({e.time})</span>
+                    .map((evt) => (
+                      <div
+                        key={evt.id}
+                        className="flex justify-between items-center p-3 rounded-lg bg-white/5 border border-white/5 text-xs"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className={`w-1.5 h-6 rounded-full shrink-0 ${
+                            evt.type === "shoot" ? "bg-primary" : 
+                            evt.type === "meeting" ? "bg-secondary" : 
+                            evt.type === "deadline" ? "bg-danger" : "bg-success"
+                          }`} />
+                          <div>
+                            <div className="font-semibold text-white">{evt.title}</div>
+                            <div className="text-[10px] text-text-secondary mt-0.5">{evt.time}</div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => deleteCalendarEvent(targetProjectId, evt.id)}
+                          className="p-1 hover:bg-white/10 rounded text-text-secondary hover:text-danger cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     ))
                 )}
