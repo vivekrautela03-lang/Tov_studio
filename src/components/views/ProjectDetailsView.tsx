@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useProjectStore } from "@/store/useProjectStore";
+import { supabase } from "@/utils/supabaseClient";
 import { ArrowLeft, Film, Calendar, DollarSign, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,6 +31,13 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
   const { projects } = useProjectStore();
   const project = projects.find((p) => p.id === projectId) || projects[0];
 
+  const getDbProductionId = (projId: string) => {
+    if (projId === "proj-1") return "d3b07384-d113-4ec6-a558-7e289bf449f1";
+    if (projId === "proj-2") return "44b6c33c-35cd-43ff-90a6-c956b7cdb10d";
+    if (projId === "proj-3") return "5c84a861-26be-45a2-9ad6-2ea8fb60a5ad";
+    return projId;
+  };
+
   const tabs = [
     "Overview",
     "Script",
@@ -46,6 +54,65 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
   ];
 
   const [activeTab, setActiveTab] = useState("Overview");
+  const [memberRole, setMemberRole] = useState<string>("Crew");
+
+  // Load user role for this production to enable RBAC
+  useEffect(() => {
+    const fetchMemberRole = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Query production_members first
+        const { data: pmData } = await supabase
+          .from("production_members")
+          .select("role")
+          .eq("production_id", getDbProductionId(projectId))
+          .eq("user_id", user.id)
+          .single();
+
+        if (pmData) {
+          setMemberRole(pmData.role);
+        } else {
+          // Fallback to global profile role
+          const { data: pData } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .single();
+          if (pData) {
+            setMemberRole(pData.role);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching member role:", err);
+      }
+    };
+
+    fetchMemberRole();
+  }, [projectId]);
+
+  // Filter tabs dynamically based on user role permissions
+  const filteredTabs = tabs.filter((tab) => {
+    if (memberRole === "Client") {
+      return ["Overview", "Storyboard", "Files", "Release"].includes(tab);
+    }
+    if (memberRole === "Crew") {
+      return tab !== "Budget" && tab !== "Marketing";
+    }
+    // Only Owners and Producers can see financial Budget ledgers
+    if (tab === "Budget") {
+      return ["Owner", "Producer"].includes(memberRole);
+    }
+    return true;
+  });
+
+  // Ensure active tab fallback if filtered out by role change
+  useEffect(() => {
+    if (!filteredTabs.includes(activeTab)) {
+      setActiveTab("Overview");
+    }
+  }, [memberRole]);
 
   // Render content based on selected tab
   const renderTabContent = () => {
@@ -98,88 +165,26 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
                   <div className="text-white font-medium mt-1">{project.location}</div>
                 </div>
                 <div>
-                  <span className="text-[10px] text-text-secondary uppercase">Est. Release</span>
-                  <div className="text-white font-medium mt-1">{project.deadline}</div>
+                  <span className="text-[10px] text-text-secondary uppercase">Active Workspace Role</span>
+                  <div className="text-primary font-bold mt-1 uppercase tracking-wider">{memberRole}</div>
                 </div>
               </div>
             </CardContent>
           </Card>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <Card>
-              <CardContent className="p-5 space-y-3">
-                <h4 className="text-xs font-semibold text-white uppercase tracking-wider">Shoot Details</h4>
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between border-b border-white/5 pb-1">
-                    <span className="text-text-secondary">First Unit Call</span>
-                    <span className="text-white font-semibold">Tomorrow 18:00</span>
-                  </div>
-                  <div className="flex justify-between border-b border-white/5 pb-1">
-                    <span className="text-text-secondary">Atmospherics</span>
-                    <span className="text-warning">Heavy Haze, H2O Rain</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-secondary">Focus Sync</span>
-                    <span className="text-white">Active (RED LiveGrade)</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-5 space-y-3">
-                <h4 className="text-xs font-semibold text-white uppercase tracking-wider">Finance Breakdown</h4>
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between border-b border-white/5 pb-1">
-                    <span className="text-text-secondary">Total Budget</span>
-                    <span className="text-white font-bold">{project.budget}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-white/5 pb-1">
-                    <span className="text-text-secondary">Spent (Est.)</span>
-                    <span className="text-white font-semibold">${(project.spentVal / 1000000).toFixed(2)}M</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-secondary">Committed Funds</span>
-                    <span className="text-success font-semibold">92%</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
 
         <div className="space-y-6">
-          <Card className="bg-gradient-to-b from-card to-primary/5 border-primary/10">
-            <CardContent className="p-5 space-y-3">
-              <div className="flex items-center gap-1 text-[10px] text-primary uppercase font-mono font-bold tracking-wider">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>AI Continuity Engine</span>
-              </div>
-              <h4 className="text-xs font-bold text-white">Active Continuity Warning</h4>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                "Plasma Blaster prop in Scene 1 (Sunset street) requires blue luminescent batteries. Verify with Prop Master Marcus V. to prevent tone mismatched color grades with VFX renders."
-              </p>
-            </CardContent>
-          </Card>
-
           <Card>
-            <CardContent className="p-5 space-y-3">
-              <h4 className="text-xs font-semibold text-white uppercase tracking-wider">Project Timeline</h4>
-              <div className="space-y-3 text-xs border-l border-white/5 pl-3 py-1">
-                <div className="relative">
-                  <div className="absolute -left-[16.5px] top-1 w-2.5 h-2.5 rounded-full bg-success ring-4 ring-success/15" />
-                  <span className="text-success font-medium">Pre-Production Done</span>
-                  <p className="text-[10px] text-text-secondary mt-0.5">Finished casting and screenplay lock.</p>
+            <CardContent className="p-6 space-y-4">
+              <h3 className="text-base font-bold text-white">Campaign Details</h3>
+              <div className="space-y-3 text-xs border-b border-white/5 pb-4">
+                <div className="flex justify-between">
+                  <span className="text-text-secondary">Release Date</span>
+                  <span className="text-white font-medium">{project.deadline}</span>
                 </div>
-                <div className="relative">
-                  <div className="absolute -left-[16.5px] top-1 w-2.5 h-2.5 rounded-full bg-primary ring-4 ring-primary/15" />
-                  <span className="text-white font-medium">Production (Active)</span>
-                  <p className="text-[10px] text-text-secondary mt-0.5">Currently filming Scene 1 blocks.</p>
-                </div>
-                <div className="relative opacity-50">
-                  <div className="absolute -left-[16.5px] top-1 w-2.5 h-2.5 rounded-full bg-white/10" />
-                  <span className="text-text-secondary">Post-Production</span>
-                  <p className="text-[10px] text-text-secondary mt-0.5">Scheduled to start October 15.</p>
+                <div className="flex justify-between">
+                  <span className="text-text-secondary">Current Stage</span>
+                  <span className="text-primary font-bold">{project.status}</span>
                 </div>
               </div>
             </CardContent>
@@ -191,10 +196,11 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
 
   const renderLocationsTab = () => {
     const locations = [
-      { name: "Neo-Tokyo Alleyways", address: "Backlot Stage 4, Tokyo Studios", status: "Permits Approved", type: "Outdoor" },
-      { name: "Apartment 404 Room Set", address: "Soundstage B, Culver City", status: "Rigs Under Construction", type: "Indoor" },
-      { name: "Cyber City Corporate Lobby", address: "Plaza Towers, Shinjuku", status: "Pending Insurance Lock", type: "Location" }
+      { name: "Neo-Tokyo Alleyways Set", type: "Studio Stage 4", address: "Tokyo, Koto City, Aomi 2-chome", status: "Active" },
+      { name: "Shibuya Crossing Cyber Overlay", type: "On-Location Permits", address: "Tokyo, Shibuya Crossing", status: "Permit Approved" },
+      { name: "Rainforest Soundstage B", type: "Indoor Soundstage", address: "London, Pinewood Studios", status: "Booked" }
     ];
+
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
         {locations.map((loc, idx) => (
@@ -282,7 +288,7 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
 
       {/* Horizontal Sub tabs */}
       <div className="w-full overflow-x-auto scrollbar-none border-b border-white/5 flex items-center gap-1 py-1">
-        {tabs.map((tab) => {
+        {filteredTabs.map((tab) => {
           const isActive = activeTab === tab;
           return (
             <button

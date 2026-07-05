@@ -82,6 +82,12 @@ async function runMigrations() {
     await client.query(sql3);
     console.log("✓ 0003_fix_auth_trigger.sql applied successfully!");
 
+    // 4. Apply Isolation and RBAC Policies (always safe & idempotent)
+    console.log("Applying 0004_isolation_and_rbac_policies.sql...");
+    const sql4 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0004_isolation_and_rbac_policies.sql"), "utf8");
+    await client.query(sql4);
+    console.log("✓ 0004_isolation_and_rbac_policies.sql applied successfully!");
+
     // Verify all tables in public schema
     console.log("\nVerifying current public tables:");
     const res = await client.query(`
