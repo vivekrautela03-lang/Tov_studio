@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useProjectStore } from "@/store/useProjectStore";
+import { cn } from "@/components/ui/button";
 import {
   Film,
   Calendar,
@@ -35,6 +36,38 @@ export const DashboardView: React.FC = () => {
   } = useProjectStore();
 
   const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0];
+
+  // Real-time weather integration using OWM API
+  const [weatherData, setWeatherData] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchWeather = async () => {
+      const apiKey = process.env.NEXT_PUBLIC_WEATHER_API_KEY;
+      if (!apiKey) return;
+      
+      try {
+        let city = "Singapore";
+        const locLower = activeProject.location.toLowerCase();
+        if (locLower.includes("tokyo")) {
+          city = "Tokyo";
+        } else if (locLower.includes("london")) {
+          city = "London";
+        }
+        
+        const response = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setWeatherData(data);
+        }
+      } catch (err) {
+        console.error("Error fetching weather:", err);
+      }
+    };
+
+    fetchWeather();
+  }, [activeProject.location]);
 
   // Helper metrics
   const activeCrew = crew[activeProject.id] || [];
@@ -120,15 +153,37 @@ export const DashboardView: React.FC = () => {
                 <span className="text-white font-semibold">ARRI Steadicam (Anamorphic)</span>
               </div>
             </div>
-            <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3 flex items-start gap-2.5">
-              <CloudRain className="w-5 h-5 text-warning shrink-0 mt-0.5" />
-              <div>
-                <span className="text-xs font-semibold text-warning">Weather Warning</span>
-                <p className="text-[10px] text-text-secondary leading-relaxed mt-0.5">
-                  Overcast skies, light showers predicted at 22:00. Crew should stand by with waterproof camera covers.
-                </p>
+            {weatherData ? (
+              <div className="bg-[#3ecf8e]/5 border border-[#3ecf8e]/10 rounded-lg p-3 flex items-start gap-2.5">
+                <CloudRain className={cn("w-5 h-5 shrink-0 mt-0.5", 
+                  weatherData.weather[0].main.toLowerCase().includes("rain") || weatherData.weather[0].main.toLowerCase().includes("drizzle") 
+                    ? "text-danger" 
+                    : "text-primary"
+                )} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center text-xs font-semibold">
+                    <span className="text-white">Live Weather: {weatherData.name}</span>
+                    <span className="text-primary font-mono">{Math.round(weatherData.main.temp)}°C</span>
+                  </div>
+                  <p className="text-[10px] text-text-secondary leading-relaxed mt-1">
+                    {weatherData.weather[0].main} ({weatherData.weather[0].description}).{" "}
+                    {weatherData.weather[0].main.toLowerCase().includes("rain") || weatherData.weather[0].main.toLowerCase().includes("drizzle") || weatherData.weather[0].main.toLowerCase().includes("thunderstorm")
+                      ? "Precipitation detected. Stand by with waterproof shrouds and rain covers."
+                      : "Optimal shooting conditions. Clear skies forecast."}
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3 flex items-start gap-2.5">
+                <CloudRain className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-xs font-semibold text-warning">Weather Warning</span>
+                  <p className="text-[10px] text-text-secondary leading-relaxed mt-0.5">
+                    Overcast skies, light showers predicted at 22:00. Crew should stand by with waterproof camera covers.
+                  </p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
