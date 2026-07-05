@@ -34,7 +34,8 @@ import {
   Play,
   UploadCloud,
   FileCode2,
-  Sliders
+  Sliders,
+  FolderPlus
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,11 +56,14 @@ export const DashboardView: React.FC = () => {
 
   const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0];
 
-  // Real-time weather integration using OWM API
+  // Weather States
   const [weatherData, setWeatherData] = useState<any>(null);
+  const [forecastData, setForecastData] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchWeather = async () => {
+    if (!activeProject) return;
+
+    const fetchWeatherAndForecast = async () => {
       const apiKey = process.env.NEXT_PUBLIC_WEATHER_API_KEY;
       if (!apiKey) return;
       
@@ -72,6 +76,7 @@ export const DashboardView: React.FC = () => {
           city = "London";
         }
         
+        // 1. Current Weather
         const response = await fetch(
           `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`
         );
@@ -79,13 +84,55 @@ export const DashboardView: React.FC = () => {
           const data = await response.json();
           setWeatherData(data);
         }
+
+        // 2. 3-Day Forecast
+        const forecastResponse = await fetch(
+          `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric`
+        );
+        if (forecastResponse.ok) {
+          const fData = await forecastResponse.json();
+          // Filter to get index at +24h (8), +48h (16), +72h (24)
+          const daily = [fData.list[8], fData.list[16], fData.list[24]].filter(Boolean);
+          setForecastData(daily);
+        }
       } catch (err) {
-        console.error("Error fetching weather:", err);
+        console.error("Error fetching weather/forecast data:", err);
       }
     };
 
-    fetchWeather();
-  }, [activeProject.location]);
+    fetchWeatherAndForecast();
+  }, [activeProject?.location]);
+
+  // Empty state rendering
+  if (projects.length === 0) {
+    return (
+      <div className="space-y-6 animate-fade-in py-12">
+        <Card className="max-w-xl mx-auto border-primary/20 bg-gradient-to-b from-card to-primary/[0.02]">
+          <CardContent className="p-8 text-center space-y-6">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary animate-bounce">
+              <Film className="w-8 h-8" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-extrabold text-white tracking-tight">WELCOME TO TOV STUDIO</h2>
+              <p className="text-xs text-text-secondary leading-relaxed max-w-sm mx-auto">
+                Your clean slate production console is ready. Initialize your first film campaign workspace to unlock dashboards, screenplay editors, DIT telemetry, and AI continuity assistants.
+              </p>
+            </div>
+            <div className="pt-2">
+              <Button
+                variant="primary"
+                onClick={() => setActiveView("projects")}
+                className="mx-auto flex items-center gap-2 cursor-pointer shadow-lg shadow-primary/20 py-5"
+              >
+                <FolderPlus className="w-4 h-4 text-black" />
+                <span>Initialize First Campaign Workspace</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Helper metrics
   const activeCrew = crew[activeProject.id] || [];
@@ -111,6 +158,28 @@ export const DashboardView: React.FC = () => {
     warning: "Rain Alert on Sunday",
     text: "Heavy rain is forecast for Sunday afternoon during the scheduled outdoor shoot of 'Scene 1: Neon Alley'. I suggest moving this block to Saturday night, or swapping it with the indoor scene 'Scene 2: Apartment Racks' (Stage 4) to maintain continuity.",
     action: "Reschedule Shot Plan"
+  };
+
+  // Render 3-Day Forecast UI segment
+  const render3DayForecastSection = () => {
+    if (forecastData.length === 0) return null;
+    return (
+      <div className="border-t border-white/5 pt-3 mt-3 space-y-2">
+        <span className="text-[10px] text-text-secondary uppercase font-semibold">3-Day Shooting Forecast</span>
+        <div className="grid grid-cols-3 gap-2">
+          {forecastData.map((day, idx) => {
+            const date = new Date(day.dt * 1000).toLocaleDateString([], { weekday: 'short', month: 'numeric', day: 'numeric' });
+            return (
+              <div key={idx} className="bg-white/[0.01] border border-white/5 rounded p-2 text-center text-[10px]">
+                <div className="text-text-secondary">{date}</div>
+                <div className="text-white font-bold mt-1">{Math.round(day.main.temp)}°C</div>
+                <div className="text-primary font-medium mt-0.5">{day.weather[0].main}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   // Render department widgets based on selected user role
@@ -165,24 +234,27 @@ export const DashboardView: React.FC = () => {
               </div>
             </div>
             {weatherData ? (
-              <div className="bg-[#3ecf8e]/5 border border-[#3ecf8e]/10 rounded-lg p-3 flex items-start gap-2.5">
-                <CloudRain className={cn("w-5 h-5 shrink-0 mt-0.5", 
-                  weatherData.weather[0].main.toLowerCase().includes("rain") || weatherData.weather[0].main.toLowerCase().includes("drizzle") 
-                    ? "text-danger" 
-                    : "text-primary"
-                )} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center text-xs font-semibold">
-                    <span className="text-white">Live Weather: {weatherData.name}</span>
-                    <span className="text-primary font-mono">{Math.round(weatherData.main.temp)}°C</span>
+              <div className="bg-[#3ecf8e]/5 border border-[#3ecf8e]/10 rounded-lg p-3 flex flex-col gap-2.5">
+                <div className="flex items-start gap-2.5">
+                  <CloudRain className={cn("w-5 h-5 shrink-0 mt-0.5", 
+                    weatherData.weather[0].main.toLowerCase().includes("rain") || weatherData.weather[0].main.toLowerCase().includes("drizzle") 
+                      ? "text-danger" 
+                      : "text-primary"
+                  )} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-center text-xs font-semibold">
+                      <span className="text-white">Live Weather: {weatherData.name}</span>
+                      <span className="text-primary font-mono">{Math.round(weatherData.main.temp)}°C</span>
+                    </div>
+                    <p className="text-[10px] text-text-secondary leading-relaxed mt-1">
+                      {weatherData.weather[0].main} ({weatherData.weather[0].description}).{" "}
+                      {weatherData.weather[0].main.toLowerCase().includes("rain") || weatherData.weather[0].main.toLowerCase().includes("drizzle") || weatherData.weather[0].main.toLowerCase().includes("thunderstorm")
+                        ? "Precipitation detected. Stand by with waterproof shrouds and rain covers."
+                        : "Optimal shooting conditions. Clear skies forecast."}
+                    </p>
                   </div>
-                  <p className="text-[10px] text-text-secondary leading-relaxed mt-1">
-                    {weatherData.weather[0].main} ({weatherData.weather[0].description}).{" "}
-                    {weatherData.weather[0].main.toLowerCase().includes("rain") || weatherData.weather[0].main.toLowerCase().includes("drizzle") || weatherData.weather[0].main.toLowerCase().includes("thunderstorm")
-                      ? "Precipitation detected. Stand by with waterproof shrouds and rain covers."
-                      : "Optimal shooting conditions. Clear skies forecast."}
-                  </p>
                 </div>
+                {render3DayForecastSection()}
               </div>
             ) : (
               <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3 flex items-start gap-2.5">
@@ -241,9 +313,9 @@ export const DashboardView: React.FC = () => {
             <div className="space-y-2">
               <div className="flex justify-between items-end text-xs">
                 <span className="text-text-secondary">Production Expense Burn</span>
-                <span className="text-white font-bold">{Math.round((activeProject.spentVal / activeProject.budgetVal) * 100)}%</span>
+                <span className="text-white font-bold">{activeProject.budgetVal > 0 ? Math.round((activeProject.spentVal / activeProject.budgetVal) * 100) : 0}%</span>
               </div>
-              <Progress value={Math.round((activeProject.spentVal / activeProject.budgetVal) * 100)} color="primary" size="md" />
+              <Progress value={activeProject.budgetVal > 0 ? Math.round((activeProject.spentVal / activeProject.budgetVal) * 100) : 0} color="primary" size="md" />
             </div>
             <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-4">
               <div>
@@ -466,7 +538,6 @@ export const DashboardView: React.FC = () => {
               <span className="text-white font-medium">19:00 - Soundstage A</span>
             </div>
             <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-text-secondary">Wardrobe Status</span>
               <span className="text-success font-medium">Ready (Rack 2)</span>
             </div>
             <div className="flex justify-between">
@@ -772,12 +843,12 @@ export const DashboardView: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             {weatherData ? (
-              <div className="text-center py-4 bg-white/[0.02] border border-white/5 rounded-xl">
-                <span className="text-[10px] text-text-secondary uppercase">Live Temperature ({weatherData.name})</span>
-                <div className="text-2xl font-black text-white mt-1">{Math.round(weatherData.main.temp)}°C</div>
-                <span className="text-[10px] text-primary mt-1 block uppercase font-mono tracking-wider">
-                  {weatherData.weather[0].main}
-                </span>
+              <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-text-secondary">Live Temp ({weatherData.name})</span>
+                  <span className="text-white font-black">{Math.round(weatherData.main.temp)}°C</span>
+                </div>
+                {render3DayForecastSection()}
               </div>
             ) : (
               <div className="text-center py-6 text-xs text-text-secondary">

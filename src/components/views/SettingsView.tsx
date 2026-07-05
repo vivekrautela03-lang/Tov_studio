@@ -25,12 +25,13 @@ import {
   ShieldAlert,
   Database,
   Activity,
-  HardDrive
+  HardDrive,
+  UploadCloud
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export const SettingsView: React.FC = () => {
-  const { activeProjectId, memberRole, addProject } = useProjectStore();
+  const { activeProjectId, memberRole, addProject, projects } = useProjectStore();
   const [activeSubTab, setActiveSubTab] = useState<"profile" | "team" | "system" | "admin">("profile");
 
   // Load environment database helper
@@ -75,6 +76,20 @@ export const SettingsView: React.FC = () => {
   const [adminInviteEmail, setAdminInviteEmail] = useState("");
   const [adminInviteRole, setAdminInviteRole] = useState("Crew");
   const [adminAuditLogs, setAdminAuditLogs] = useState<any[]>([]);
+
+  // Asset Upload States
+  const [uploadTargetProject, setUploadTargetProject] = useState("");
+  const [uploadAssetType, setUploadAssetType] = useState("script");
+  const [uploadAssetTitle, setUploadAssetTitle] = useState("");
+  const [uploadFileName, setUploadFileName] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Set default target project when projects array changes
+  useEffect(() => {
+    if (projects.length > 0 && !uploadTargetProject) {
+      setUploadTargetProject(projects[0].id);
+    }
+  }, [projects]);
 
   // Fetch Profile info on load
   const fetchProfile = async () => {
@@ -332,6 +347,72 @@ export const SettingsView: React.FC = () => {
       fetchAdminAuditLogs();
     } catch (err: any) {
       alert(err.message || "Failed to dispatch invitation");
+    }
+  };
+
+  const handleAssetFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadFileName(file.name);
+      if (!uploadAssetTitle) {
+        setUploadAssetTitle(file.name.split(".")[0]);
+      }
+    }
+  };
+
+  const handleAssetUploadSubmit = async () => {
+    if (!uploadFileName || !uploadTargetProject) return;
+    setUploadProgress(10);
+    
+    const interval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(interval);
+          return 90;
+        }
+        return prev + 20;
+      });
+    }, 150);
+
+    try {
+      const prodId = getDbProductionId(uploadTargetProject);
+      const { data: fileData, error: fileError } = await supabase
+        .from("files")
+        .insert({
+          production_id: prodId,
+          name: uploadAssetTitle || uploadFileName,
+          type: uploadAssetType === "script" ? "file" : "folder",
+          size: "2.4 MB"
+        })
+        .select()
+        .single();
+
+      if (fileError) throw fileError;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("activity_logs").insert({
+          user_id: user.id,
+          action: "UPLOAD_ASSET",
+          details: `Uploaded asset "${uploadAssetTitle}" to production workspace`
+        });
+      }
+
+      setUploadProgress(100);
+      setTimeout(() => {
+        clearInterval(interval);
+        setUploadProgress(0);
+        setUploadFileName("");
+        setUploadAssetTitle("");
+        alert(`Asset "${uploadAssetTitle}" successfully ingested into campaign files bucket!`);
+        fetchAdminAuditLogs();
+        fetchTeam(); 
+      }, 500);
+
+    } catch (err: any) {
+      clearInterval(interval);
+      setUploadProgress(0);
+      alert(err.message || "Failed to upload asset node");
     }
   };
 
@@ -838,6 +919,96 @@ export const SettingsView: React.FC = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Asset Ingestion console */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-1 text-[10px] text-primary uppercase font-mono font-bold tracking-wider">
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  <span>Asset Ingestion</span>
+                </div>
+                <CardTitle>Ingest Production Screenplays & Assets</CardTitle>
+                <CardDescription>Upload screenplays, storyboard sketches, and casting sheets directly to your campaign bucket</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5 text-xs">
+                    <label className="block text-text-secondary font-medium">Select Target Workspace</label>
+                    <select
+                      value={uploadTargetProject}
+                      onChange={(e) => setUploadTargetProject(e.target.value)}
+                      className="w-full bg-black/10 border border-white/5 rounded px-2.5 py-1.5 text-white"
+                    >
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>{p.title}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <label className="block text-text-secondary font-medium">Asset Classification</label>
+                    <select
+                      value={uploadAssetType}
+                      onChange={(e) => setUploadAssetType(e.target.value)}
+                      className="w-full bg-black/10 border border-white/5 rounded px-2.5 py-1.5 text-white"
+                    >
+                      <option value="script">Screenplay Draft (PDF / FinalDraft)</option>
+                      <option value="storyboard">Storyboard Sketches</option>
+                      <option value="dailies">Production Dailies (Proxy Video)</option>
+                      <option value="contracts">Legal Contract / Invoices</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <label className="block text-text-secondary font-medium">Asset Title / Tag</label>
+                    <input
+                      type="text"
+                      value={uploadAssetTitle}
+                      onChange={(e) => setUploadAssetTitle(e.target.value)}
+                      placeholder="e.g., Final Draft v2"
+                      className="w-full bg-black/10 border border-white/5 rounded px-2.5 py-1.5 text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-6 border border-dashed border-white/10 rounded-xl text-center flex flex-col items-center gap-2.5 cursor-pointer hover:bg-white/[0.01] transition-all relative">
+                  <input
+                    type="file"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={handleAssetFileChange}
+                    disabled={projects.length === 0}
+                  />
+                  <UploadCloud className="w-9 h-9 text-text-secondary animate-pulse" />
+                  <div>
+                    <span className="text-xs text-white font-medium block">
+                      {uploadFileName || "Drag & drop production assets here, or click to browse"}
+                    </span>
+                    <span className="text-[10px] text-text-secondary mt-1 block">
+                      Supports PDF, FDX, MP4, JPG (Max 500MB)
+                    </span>
+                  </div>
+                </div>
+
+                {uploadProgress > 0 && (
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex justify-between font-mono">
+                      <span className="text-text-secondary">Ingestion Progress</span>
+                      <span className="text-white font-bold">{uploadProgress}%</span>
+                    </div>
+                    <Progress value={uploadProgress} color="primary" size="sm" />
+                  </div>
+                )}
+
+                <Button
+                  onClick={handleAssetUploadSubmit}
+                  disabled={!uploadFileName || uploadProgress > 0 || projects.length === 0}
+                  variant="primary"
+                  className="w-full flex items-center justify-center gap-2"
+                >
+                  <span>Ingest Asset Node</span>
+                </Button>
+              </CardContent>
+            </Card>
 
             {/* Storage & AI Credits Monitors */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

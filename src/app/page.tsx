@@ -29,7 +29,7 @@ import { AIStudioView } from "@/components/views/AIStudioView";
 import { SettingsView } from "@/components/views/SettingsView";
 
 export default function Home() {
-  const { activeView, sidebarCollapsed, setMemberRole } = useProjectStore();
+  const { activeView, sidebarCollapsed, setMemberRole, setActiveView } = useProjectStore();
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authSubstate, setAuthSubstate] = useState<"signin" | "signup" | "forgot" | "reset" | "verify">("signin");
@@ -55,11 +55,14 @@ export default function Home() {
 
   // Set up auth state change listener and check session
   useEffect(() => {
-    // Parse recovery links from hashes
+    // Parse recovery links and Google Calendar sync redirects
     if (typeof window !== "undefined") {
       const hash = window.location.hash;
       if (hash && (hash.includes("type=recovery") || hash.includes("recovery"))) {
         setAuthSubstate("reset");
+      } else if (hash && hash.includes("access_token") && !hash.includes("type=signup") && !hash.includes("type=invite")) {
+        // Google Calendar OAuth redirect
+        setActiveView("calendar");
       }
     }
 
