@@ -52,7 +52,7 @@ async function testFlow() {
   });
 
   if (signUpError) {
-    console.error("❌ Sign up failed:", signUpError.message);
+    console.error("❌ Sign up failed:", JSON.stringify(signUpError, null, 2));
     process.exit(1);
   }
 

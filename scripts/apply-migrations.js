@@ -94,6 +94,12 @@ async function runMigrations() {
     await client.query(sql5);
     console.log("✓ 0005_enterprise_rbac_schema.sql applied successfully!");
 
+    // 6. Apply Default Productions Seeder (always safe & idempotent)
+    console.log("Applying 0006_seed_default_productions.sql...");
+    const sql6 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0006_seed_default_productions.sql"), "utf8");
+    await client.query(sql6);
+    console.log("✓ 0006_seed_default_productions.sql applied successfully!");
+
     // Verify all tables in public schema
     console.log("\nVerifying current public tables:");
     const res = await client.query(`

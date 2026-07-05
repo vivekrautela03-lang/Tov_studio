@@ -16,6 +16,7 @@ create table if not exists public.organizations (
 );
 alter table public.organizations enable row level security;
 
+drop policy if exists "Allow select access to organizations for authenticated" on public.organizations;
 create policy "Allow select access to organizations for authenticated" on public.organizations
   for select using (auth.role() = 'authenticated');
 
@@ -27,6 +28,7 @@ create table if not exists public.roles (
 );
 alter table public.roles enable row level security;
 
+drop policy if exists "Allow select access to roles for authenticated" on public.roles;
 create policy "Allow select access to roles for authenticated" on public.roles
   for select using (auth.role() = 'authenticated');
 
@@ -37,6 +39,7 @@ create table if not exists public.permissions (
 );
 alter table public.permissions enable row level security;
 
+drop policy if exists "Allow select access to permissions for authenticated" on public.permissions;
 create policy "Allow select access to permissions for authenticated" on public.permissions
   for select using (auth.role() = 'authenticated');
 
@@ -47,6 +50,7 @@ create table if not exists public.role_permissions (
 );
 alter table public.role_permissions enable row level security;
 
+drop policy if exists "Allow select access to role_permissions for authenticated" on public.role_permissions;
 create policy "Allow select access to role_permissions for authenticated" on public.role_permissions
   for select using (auth.role() = 'authenticated');
 
@@ -62,6 +66,7 @@ create table if not exists public.script_versions (
 );
 alter table public.script_versions enable row level security;
 
+drop policy if exists "Allow select scripts_versions for production members" on public.script_versions;
 create policy "Allow select scripts_versions for production members" on public.script_versions
   for select using (
     exists (
@@ -83,6 +88,7 @@ create table if not exists public.scenes (
 );
 alter table public.scenes enable row level security;
 
+drop policy if exists "Allow select scenes for production members" on public.scenes;
 create policy "Allow select scenes for production members" on public.scenes
   for select using (
     exists (
@@ -103,6 +109,7 @@ create table if not exists public.call_sheets (
 );
 alter table public.call_sheets enable row level security;
 
+drop policy if exists "Allow select call_sheets for production members" on public.call_sheets;
 create policy "Allow select call_sheets for production members" on public.call_sheets
   for select using (
     exists (
@@ -125,6 +132,7 @@ create table if not exists public.approvals (
 );
 alter table public.approvals enable row level security;
 
+drop policy if exists "Allow select approvals for production members" on public.approvals;
 create policy "Allow select approvals for production members" on public.approvals
   for select using (
     exists (
@@ -143,6 +151,7 @@ create table if not exists public.messages (
 );
 alter table public.messages enable row level security;
 
+drop policy if exists "Allow select messages for production members" on public.messages;
 create policy "Allow select messages for production members" on public.messages
   for select using (
     exists (
@@ -161,6 +170,7 @@ create table if not exists public.device_login_history (
 );
 alter table public.device_login_history enable row level security;
 
+drop policy if exists "Allow select device history for profile owner" on public.device_login_history;
 create policy "Allow select device history for profile owner" on public.device_login_history
   for select using (auth.uid() = user_id);
 
