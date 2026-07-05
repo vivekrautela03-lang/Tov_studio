@@ -8,6 +8,7 @@ import { Header } from "@/components/Header";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { cn } from "@/components/ui/button";
 import { AuthView } from "@/components/views/AuthView";
+import { RoleSelectionView } from "@/components/views/RoleSelectionView";
 import { BrainCircuit } from "lucide-react";
 
 // Views
@@ -32,6 +33,7 @@ export default function Home() {
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authSubstate, setAuthSubstate] = useState<"signin" | "signup" | "forgot" | "reset" | "verify">("signin");
+  const [roleSelected, setRoleSelected] = useState<boolean>(false);
 
   const fetchUserRole = async (userId: string) => {
     try {
@@ -42,6 +44,9 @@ export default function Home() {
         .single();
       if (data) {
         setMemberRole(data.role);
+        if (data.role) {
+          setRoleSelected(true);
+        }
       }
     } catch (err) {
       console.error("Error loading user profile role:", err);
@@ -144,6 +149,16 @@ export default function Home() {
   // 4. Redirect Gate: Show Auth portal if unauthenticated
   if (!session) {
     return <AuthView initialState={authSubstate} />;
+  }
+
+  // 4.5 Role Selection Gate: Prompt new users or allow testing clearances
+  if (!roleSelected) {
+    return (
+      <RoleSelectionView
+        userId={session.user.id}
+        onComplete={() => setRoleSelected(true)}
+      />
+    );
   }
 
   // 5. Authenticated State: Mount Dashboard Sidebar Shell
