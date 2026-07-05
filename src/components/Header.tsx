@@ -5,6 +5,7 @@ import { supabase } from "@/utils/supabaseClient";
 import { useProjectStore, Project } from "@/store/useProjectStore";
 import {
   Search,
+  Menu,
   Bell,
   Plus,
   Sparkles,
@@ -30,7 +31,9 @@ export const Header: React.FC = () => {
     clearNotifications,
     setSearchOpen,
     addProject,
-    setActiveView
+    setActiveView,
+    mobileSidebarOpen,
+    setMobileSidebarOpen
   } = useProjectStore();
 
   // Dropdowns States
@@ -101,10 +104,18 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      <header className="h-[73px] sticky top-0 z-30 bg-[#09090B]/80 backdrop-blur-md border-b border-white/5 px-6 flex items-center justify-between">
+      <header className="h-[73px] sticky top-0 z-30 bg-[#121212]/85 backdrop-blur-md border-b border-white/5 px-4 md:px-6 flex items-center justify-between">
         
-        {/* Left Side: Search Trigger & Project Switcher */}
-        <div className="flex items-center gap-4">
+        {/* Left Side: Hamburger (Mobile), Project Switcher, and Search */}
+        <div className="flex items-center gap-2.5 md:gap-4">
+          
+          {/* Hamburger Menu Toggle (Mobile) */}
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            className="md:hidden p-2 bg-white/5 hover:bg-white/10 text-white rounded-lg cursor-pointer border border-white/5"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
           
           {/* Project Switcher */}
           <div className="relative">
@@ -161,16 +172,16 @@ export const Header: React.FC = () => {
             )}
           </div>
 
-          {/* Global Search Button */}
+          {/* Global Search Button (Responsive width) */}
           <button
             onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-white px-3 py-2 rounded-lg text-xs border border-white/5 transition-all duration-200 cursor-pointer w-48 text-left justify-between"
+            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-white p-2.5 sm:px-3 sm:py-2 rounded-lg text-xs border border-white/5 transition-all duration-200 cursor-pointer w-9.5 h-9.5 sm:w-48 text-left justify-center sm:justify-between"
           >
             <div className="flex items-center gap-2">
-              <Search className="w-3.5 h-3.5" />
-              <span>Search everything...</span>
+              <Search className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden sm:inline">Search everything...</span>
             </div>
-            <kbd className="text-[9px] bg-neutral-900 border border-white/10 px-1 py-0.5 rounded text-text-secondary font-mono">
+            <kbd className="hidden sm:inline text-[9px] bg-neutral-900 border border-white/10 px-1 py-0.5 rounded text-text-secondary font-mono">
               Ctrl+K
             </kbd>
           </button>
@@ -189,10 +200,10 @@ export const Header: React.FC = () => {
               }}
               variant="secondary"
               size="sm"
-              className="flex items-center gap-1.5"
+              className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5"
             >
-              <Plus className="w-4 h-4" />
-              <span>Quick Create</span>
+              <Plus className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">Quick Create</span>
             </Button>
 
             {isCreateDropdownOpen && (
@@ -249,9 +260,9 @@ export const Header: React.FC = () => {
             onClick={() => setActiveView("ai-studio")}
             variant="outline"
             size="sm"
-            className="flex items-center gap-1.5 hover:border-primary/50 text-white"
+            className="flex items-center gap-1.5 hover:border-primary/50 text-white p-2 sm:px-3 sm:py-1.5"
           >
-            <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+            <Sparkles className="w-4 h-4 text-primary animate-pulse shrink-0" />
             <span className="hidden sm:inline">AI Studio</span>
           </Button>
 
@@ -272,7 +283,7 @@ export const Header: React.FC = () => {
             </button>
 
             {isNotifyDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-card border border-white/5 rounded-lg shadow-2xl z-50 p-1 flex flex-col max-h-[400px]">
+              <div className="absolute right-0 mt-2 w-80 max-sm:w-72 bg-card border border-white/5 rounded-lg shadow-2xl z-50 p-1 flex flex-col max-h-[400px]">
                 <div className="px-3 py-2.5 border-b border-white/5 flex items-center justify-between">
                   <span className="text-xs font-semibold text-white">Notifications ({unreadCount} new)</span>
                   <button

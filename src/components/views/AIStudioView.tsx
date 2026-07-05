@@ -85,11 +85,11 @@ Scope: High altitude tracking shot of supercar speedways.
         aiResponse = `### 🎨 AI TEASER POSTER CONCEPT SCHEMATICS
 
 *   **Concept 1: The Cyber Eye (High Contrast)**
-    A extreme macro close up of Kael's face, splitting the frame. Left side is natural skin, right side is dark cybernetic armor with the eye glowing sunset orange (\`#FF6A00\`). The reflection in the eye shows the flickering neon skyscrapers of Neo Tokyo.
+    A extreme macro close up of Kael's face, splitting the frame. Left side is natural skin, right side is dark cybernetic armor with the eye glowing emerald green (\`#3ecf8e\`). The reflection in the eye shows the flickering neon skyscrapers of Neo Tokyo.
 *   **Concept 2: Silhouette in the Rain**
     A wide shot of Kael standing under a street light, seen from behind. Backlight from a neon billboard silhouette's Kael, creating long shadows on a wet street. Rain falls diagonally. Glowing blue plasma emitter smoke rises from Kael's hand.
 *   **Concept 3: Code stream**
-    A sleek, abstract dark design. Thin white lines representing screenplays and shoot schedules overlaying a faint silhouette of a camera lens. Minimal orange typography centered: *TOV Studio Presents. The Midnight Code. Create. Shoot. Deliver.*`;
+    A sleek, abstract dark design. Thin white lines representing screenplays and shoot schedules overlaying a faint silhouette of a camera lens. Minimal green typography centered: *TOV Studio Presents. The Midnight Code. Create. Shoot. Deliver.*`;
       } else {
         aiResponse = `### 🤖 ASSISTANT ANALYSIS COMPLETE
 I've analyzed your prompt regarding: "${text}". 

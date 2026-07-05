@@ -105,8 +105,8 @@ export default function Home() {
       {/* Main Panel Content Container */}
       <div
         className={cn(
-          "flex-1 flex flex-col min-w-0 transition-all duration-300",
-          sidebarCollapsed ? "pl-16" : "pl-64"
+          "flex-1 flex flex-col min-w-0 transition-all duration-300 pl-0",
+          sidebarCollapsed ? "md:pl-16" : "md:pl-64"
         )}
       >
         {/* Top Header Navigation */}

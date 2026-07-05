@@ -124,8 +124,8 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ projectScope }) => {
               >
                 <defs>
                   <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FF6A00" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#FF6A00" stopOpacity="0.0" />
+                    <stop offset="0%" stopColor="#3ecf8e" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#3ecf8e" stopOpacity="0.0" />
                   </linearGradient>
                 </defs>
 
@@ -140,7 +140,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ projectScope }) => {
                 {/* Line Path */}
                 <polyline
                   fill="none"
-                  stroke="#FF6A00"
+                  stroke="#3ecf8e"
                   strokeWidth="2.5"
                   points={pointsString}
                 />
