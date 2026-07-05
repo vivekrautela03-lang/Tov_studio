@@ -13,6 +13,18 @@ interface AuthViewProps {
 
 export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) => {
   const [authState, setAuthState] = useState<"signin" | "signup" | "forgot" | "reset" | "verify">(initialState);
+
+  const parseError = (err: any): string => {
+    if (!err) return "Authentication command failed.";
+    if (typeof err === "string") return err;
+    if (err.message) return err.message;
+    if (err.error_description) return err.error_description;
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err);
+    }
+  };
   
   // Fields state
   const [email, setEmail] = useState("");
@@ -85,7 +97,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
       }
     } catch (err: any) {
       console.error("Auth submit error:", err);
-      setErrorMsg(err.message || "Authentication command failed.");
+      setErrorMsg(parseError(err));
     } finally {
       setLoading(false);
     }
@@ -104,7 +116,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
       if (error) throw error;
     } catch (err: any) {
       console.error("Google OAuth error:", err);
-      setErrorMsg(err.message || "Google OAuth redirect failed.");
+      setErrorMsg(parseError(err));
       setLoading(false);
     }
   };

@@ -76,6 +76,12 @@ async function runMigrations() {
       console.log("✓ 0002_profiles_and_rbac.sql already applied (skipped).");
     }
 
+    // 3. Apply Auth Trigger Repair (always safe & idempotent)
+    console.log("Applying 0003_fix_auth_trigger.sql...");
+    const sql3 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0003_fix_auth_trigger.sql"), "utf8");
+    await client.query(sql3);
+    console.log("✓ 0003_fix_auth_trigger.sql applied successfully!");
+
     // Verify all tables in public schema
     console.log("\nVerifying current public tables:");
     const res = await client.query(`
