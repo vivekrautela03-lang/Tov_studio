@@ -22,17 +22,16 @@ if (fs.existsSync(envPath)) {
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  console.error("❌ Error: DATABASE_URL is not defined in .env.local. Add Remote PostgreSQL Database Connection URL first.");
+  console.error("❌ Error: DATABASE_URL is not defined in .env.local.");
   process.exit(1);
 }
 
-async function applyMigrations() {
+async function runMigrations() {
   console.log("Connecting to remote Supabase PostgreSQL database...");
-  
   const client = new Client({
     connectionString,
     ssl: {
-      rejectUnauthorized: false // Required for Supabase remote connections
+      rejectUnauthorized: false
     }
   });
 
@@ -40,38 +39,56 @@ async function applyMigrations() {
     await client.connect();
     console.log("✓ Connected successfully!");
 
-    // Read the migration SQL file
-    const sqlFilePath = path.join(__dirname, "../supabase/migrations/0001_initial_schema.sql");
-    console.log(`Reading schema migration file from: ${sqlFilePath}`);
-    
-    if (!fs.existsSync(sqlFilePath)) {
-      throw new Error(`Migration SQL file not found at ${sqlFilePath}`);
+    // Helper: check if a table exists
+    const checkTableExists = async (tableName) => {
+      const res = await client.query(`
+        SELECT EXISTS (
+          SELECT 1 
+          FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = $1
+        );
+      `, [tableName]);
+      return res.rows[0].exists;
+    };
+
+    const hasUsersTable = await checkTableExists("users");
+    const hasProfilesTable = await checkTableExists("profiles");
+    const hasMembersTable = await checkTableExists("production_members");
+
+    // 1. Apply Initial Schema if neither users nor profiles exists
+    if (!hasUsersTable && !hasProfilesTable) {
+      console.log("Applying 0001_initial_schema.sql...");
+      const sql1 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0001_initial_schema.sql"), "utf8");
+      await client.query(sql1);
+      console.log("✓ 0001_initial_schema.sql applied successfully!");
+    } else {
+      console.log("✓ 0001_initial_schema.sql already applied (skipped).");
     }
 
-    const migrationSql = fs.readFileSync(sqlFilePath, "utf8");
+    // 2. Apply RBAC Schema if profiles table does not exist or members table doesn't exist
+    if ((hasUsersTable && !hasProfilesTable) || !hasMembersTable) {
+      console.log("Applying 0002_profiles_and_rbac.sql...");
+      const sql2 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0002_profiles_and_rbac.sql"), "utf8");
+      await client.query(sql2);
+      console.log("✓ 0002_profiles_and_rbac.sql applied successfully!");
+    } else {
+      console.log("✓ 0002_profiles_and_rbac.sql already applied (skipped).");
+    }
 
-    console.log("Applying initial schema DDL migrations...");
-    // Execute DDL statements
-    await client.query(migrationSql);
-    console.log("✓ DDL Schema applied successfully!");
-
-    // Verify created tables
-    console.log("\nVerifying table structure in 'public' schema:");
+    // Verify all tables in public schema
+    console.log("\nVerifying current public tables:");
     const res = await client.query(`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
       ORDER BY table_name;
     `);
-
-    if (res.rows.length === 0) {
-      console.warn("⚠ Warning: No tables were found in the public schema.");
-    } else {
-      console.log(`✓ Found ${res.rows.length} tables in public schema:`);
-      res.rows.forEach((row, idx) => {
-        console.log(`  ${idx + 1}. ${row.table_name}`);
-      });
-    }
+    
+    console.log(`✓ Found ${res.rows.length} tables:`);
+    res.rows.forEach((row, idx) => {
+      console.log(`  ${idx + 1}. ${row.table_name}`);
+    });
 
   } catch (error) {
     console.error("❌ Migration failed with error:", error);
@@ -82,4 +99,4 @@ async function applyMigrations() {
   }
 }
 
-applyMigrations();
+runMigrations();

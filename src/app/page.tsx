@@ -31,9 +31,18 @@ export default function Home() {
   const { activeView, sidebarCollapsed } = useProjectStore();
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [authSubstate, setAuthSubstate] = useState<"signin" | "signup" | "forgot" | "reset" | "verify">("signin");
 
-  // Set up auth state change listener
+  // Set up auth state change listener and check session
   useEffect(() => {
+    // Parse recovery links from hashes
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash;
+      if (hash && (hash.includes("type=recovery") || hash.includes("recovery"))) {
+        setAuthSubstate("reset");
+      }
+    }
+
     // 1. Check current session
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
@@ -49,8 +58,11 @@ export default function Home() {
     // 2. Listen for auth changes
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (event === "PASSWORD_RECOVERY") {
+        setAuthSubstate("reset");
+      }
       setAuthLoading(false);
     });
 
@@ -94,9 +106,26 @@ export default function Home() {
     }
   };
 
-  // Authentication checks bypassed for now
+  // 3. Loading Overlay Gate
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#121212] text-white flex flex-col items-center justify-center gap-4 select-none">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-emerald-400 font-extrabold text-black flex items-center justify-center animate-bounce">
+          TOV
+        </div>
+        <p className="text-[10px] font-mono text-text-secondary uppercase tracking-widest animate-pulse">
+          Initializing OS Session Shield...
+        </p>
+      </div>
+    );
+  }
 
-  // 3. Authenticated State: Mount Dashboard Sidebar Shell
+  // 4. Redirect Gate: Show Auth portal if unauthenticated
+  if (!session) {
+    return <AuthView initialState={authSubstate} />;
+  }
+
+  // 5. Authenticated State: Mount Dashboard Sidebar Shell
   return (
     <div className="min-h-screen bg-[#121212] text-white flex">
       {/* Sidebar - Collapsible */}

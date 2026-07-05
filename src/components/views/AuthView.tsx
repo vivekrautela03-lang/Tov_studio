@@ -1,91 +1,110 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles, Mail, Lock, ShieldAlert, CheckCircle, BrainCircuit } from "lucide-react";
+import { Sparkles, Mail, Lock, ShieldAlert, CheckCircle, BrainCircuit, User, ArrowLeft, RefreshCw, Globe } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export const AuthView: React.FC = () => {
-  const [email] = useState("theoldverse@gmail.com");
+interface AuthViewProps {
+  initialState?: "signin" | "signup" | "forgot" | "reset" | "verify";
+}
+
+export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) => {
+  const [authState, setAuthState] = useState<"signin" | "signup" | "forgot" | "reset" | "verify">(initialState);
+  
+  // Fields state
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  
+  // UI States
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Sync state if initial prop changes
+  useEffect(() => {
+    setAuthState(initialState);
+  }, [initialState]);
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password.trim()) return;
-
-    // Enforce front-end credentials block immediately
-    if (password.trim() !== "oldversestudio2025") {
-      setErrorMsg("Security Violation: Access key does not match console records.");
-      return;
-    }
-
     setLoading(true);
     setErrorMsg("");
     setSuccessMsg("");
 
     try {
-      console.log("Attempting sign-in for:", email);
-      // 1. Try to sign in
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password.trim()
-      });
-
-      if (error) {
-        console.warn("Sign-in failed. Attempting to auto-provision account...", error);
-        
-        // 2. If it fails (e.g. user does not exist in database yet), attempt to sign up
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: email,
+      if (authState === "signin") {
+        // Sign In
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
           password: password.trim()
         });
+        if (error) throw error;
+      } else if (authState === "signup") {
+        // Sign Up with profile Metadata
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password: password.trim(),
+          options: {
+            data: {
+              full_name: fullName.trim()
+            }
+          }
+        });
+        if (error) throw error;
 
-        if (signUpError) {
-          console.error("Auto-provisioning signUp failed:", signUpError);
-          throw signUpError;
-        }
-
-        if (signUpData.user && signUpData.session) {
-          setSuccessMsg("Console unlocked. System initializing...");
+        // Check if session is established or if email verification is pending
+        if (data.user && data.session) {
+          setSuccessMsg("Account registered! Opening dashboard...");
         } else {
-          setSuccessMsg("Account provisioned. Please check theoldverse@gmail.com inbox to confirm email access on Supabase.");
+          setAuthState("verify");
         }
-      } else {
-        console.log("Sign-in successful!");
-        setSuccessMsg("Console unlocked. System initializing...");
+      } else if (authState === "forgot") {
+        // Forgot Password link dispatch
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/#recovery`
+        });
+        if (error) throw error;
+        setSuccessMsg("Reset link dispatched. Please check your email inbox.");
+      } else if (authState === "reset") {
+        // Reset Password update
+        const { error } = await supabase.auth.updateUser({
+          password: newPassword.trim()
+        });
+        if (error) throw error;
+        setSuccessMsg("Password reset successfully. Sign in with your new key.");
+        setTimeout(() => {
+          setAuthState("signin");
+          setPassword("");
+          setNewPassword("");
+        }, 2000);
       }
     } catch (err: any) {
-      console.error("Full authentication exception caught:", err);
-      
-      // Robust error parsing to prevent rendering empty objects `{}`
-      let message = "System error. Verification failed.";
-      if (err) {
-        if (typeof err === "string") {
-          message = err;
-        } else if (err.message && typeof err.message === "string") {
-          message = err.message;
-        } else if (err.error_description && typeof err.error_description === "string") {
-          message = err.error_description;
-        } else {
-          try {
-            const str = JSON.stringify(err);
-            if (str && str !== "{}") {
-              message = str;
-            } else {
-              message = err.toString() || "System verification error.";
-            }
-          } catch {
-            message = String(err);
-          }
-        }
-      }
-      setErrorMsg(message);
+      console.error("Auth submit error:", err);
+      setErrorMsg(err.message || "Authentication command failed.");
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleOAuth = async () => {
+    setLoading(true);
+    setErrorMsg("");
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Google OAuth error:", err);
+      setErrorMsg(err.message || "Google OAuth redirect failed.");
       setLoading(false);
     }
   };
@@ -93,11 +112,11 @@ export const AuthView: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#121212] text-white flex flex-col justify-center items-center p-4 relative overflow-hidden select-none">
       
-      {/* Decorative Grid Background and Glow */}
+      {/* Background radial glow */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(62,207,142,0.08),rgba(255,255,255,0))]" />
       <div className="absolute w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full top-1/4 -left-1/4 pointer-events-none" />
 
-      {/* Auth Container Card */}
+      {/* Main card panel container */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
@@ -109,20 +128,40 @@ export const AuthView: React.FC = () => {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-tr from-primary to-emerald-400 font-extrabold text-black text-lg shadow-lg shadow-primary/10">
             TOV
           </div>
-          <h2 className="text-2xl font-black tracking-tight text-white mt-4">
-            TOV STUDIO OS
+          <h2 className="text-2xl font-black tracking-tight text-white mt-4 uppercase">
+            TOV Studio OS
           </h2>
           <p className="text-xs text-text-secondary uppercase tracking-widest font-mono">
             Create. Shoot. Deliver.
           </p>
         </div>
 
-        {/* Auth Box */}
+        {/* Form Box */}
         <Card className="border border-white/5 bg-[#171717]/85 backdrop-blur-md shadow-2xl shadow-black/80">
           <CardContent className="p-6 space-y-5">
             
-            <div className="border-b border-white/5 pb-2 text-[10px] text-text-secondary font-mono uppercase font-bold tracking-wider">
-              Private Terminal Session
+            {/* Form state title */}
+            <div className="flex justify-between items-center border-b border-white/5 pb-2 text-[10px] text-text-secondary font-mono uppercase font-bold tracking-wider">
+              <span>
+                {authState === "signin" && "Sign In Session"}
+                {authState === "signup" && "Register Credentials"}
+                {authState === "forgot" && "Reset Key Dispatch"}
+                {authState === "reset" && "Configure New Password"}
+                {authState === "verify" && "Pending Verification"}
+              </span>
+              
+              {authState !== "signin" && authState !== "verify" && (
+                <button
+                  onClick={() => {
+                    setAuthState("signin");
+                    setErrorMsg("");
+                    setSuccessMsg("");
+                  }}
+                  className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3 h-3" /> Back
+                </button>
+              )}
             </div>
 
             {/* Error alerts */}
@@ -153,68 +192,197 @@ export const AuthView: React.FC = () => {
               )}
             </AnimatePresence>
 
-            {/* Auth Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              
-              {/* Locked Email Input */}
-              <div className="space-y-1.5">
-                <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
-                  Admin Account Email
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary/50" />
-                  <input
-                    type="email"
-                    disabled
-                    value={email}
-                    className="w-full bg-black/40 border border-white/5 rounded-lg pl-10 pr-4 py-2 text-xs text-white/50 cursor-not-allowed font-mono"
-                  />
+            {/* Form bodies */}
+            {authState === "verify" ? (
+              <div className="space-y-4 text-center py-4">
+                <Mail className="w-10 h-10 text-primary mx-auto animate-pulse" />
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-white">Verification Email Dispatched</h4>
+                  <p className="text-[10px] text-text-secondary leading-relaxed max-w-[280px] mx-auto">
+                    We sent a registration link to your email address. Verify the link to activate your profile.
+                  </p>
                 </div>
-              </div>
-
-              {/* Access Key Input */}
-              <div className="space-y-1.5">
-                <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
-                  Access Key (Password)
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
-                  <input
-                    type="password"
-                    required
-                    placeholder="Enter security key..."
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={loading}
-                    className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <div className="pt-2">
                 <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={loading}
-                  className="w-full text-xs font-bold py-2.5 h-10 rounded-lg cursor-pointer flex items-center justify-center gap-2"
+                  onClick={() => setAuthState("signin")}
+                  variant="outline"
+                  className="w-full text-xs cursor-pointer"
                 >
-                  {loading ? (
-                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <span>Unlock Console</span>
-                  )}
+                  Return to Sign In
                 </Button>
               </div>
+            ) : (
+              <form onSubmit={handleEmailAuth} className="space-y-4">
+                
+                {/* Full name input (SignUp only) */}
+                {authState === "signup" && (
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
+                      Full Name
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Elena Rostova"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        disabled={loading}
+                        className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+                )}
 
-            </form>
+                {/* Email input (No reset state) */}
+                {authState !== "reset" && (
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
+                      <input
+                        type="email"
+                        required
+                        placeholder="you@domain.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        disabled={loading}
+                        className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Password input (SignIn and SignUp only) */}
+                {(authState === "signin" || authState === "signup") && (
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
+                        Password
+                      </label>
+                      {authState === "signin" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthState("forgot");
+                            setErrorMsg("");
+                            setSuccessMsg("");
+                          }}
+                          className="text-[9px] text-primary hover:underline font-mono"
+                        >
+                          Forgot Key?
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
+                      <input
+                        type="password"
+                        required
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={loading}
+                        className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* New Password input (Reset only) */}
+                {authState === "reset" && (
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
+                      Configure New Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
+                      <input
+                        type="password"
+                        required
+                        placeholder="Enter new password key..."
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        disabled={loading}
+                        className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Main Auth Submit Button */}
+                <div className="pt-2">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={loading}
+                    className="w-full text-xs font-bold py-2.5 h-10 rounded-lg cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <RefreshCw className="w-4 h-4 animate-spin text-black" />
+                    ) : (
+                      <span>
+                        {authState === "signin" && "Sign In"}
+                        {authState === "signup" && "Register Account"}
+                        {authState === "forgot" && "Dispatch Reset Link"}
+                        {authState === "reset" && "Unlock & Reset Key"}
+                      </span>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Switch to SignUp link */}
+                {authState === "signin" && (
+                  <div className="text-center text-[10px] text-text-secondary pt-2">
+                    Don't have access?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthState("signup");
+                        setErrorMsg("");
+                        setSuccessMsg("");
+                      }}
+                      className="text-primary hover:underline font-bold cursor-pointer"
+                    >
+                      Request Registration
+                    </button>
+                  </div>
+                )}
+
+              </form>
+            )}
+
+            {/* Social logins separator */}
+            {authState === "signin" && (
+              <div className="space-y-4 pt-4 border-t border-white/5">
+                <div className="relative flex justify-center text-[9px] font-mono text-text-secondary uppercase">
+                  <span className="bg-[#171717] px-2 z-10">Or collaborate via OAuth</span>
+                  <div className="absolute top-1/2 left-0 right-0 h-px bg-white/5" />
+                </div>
+
+                {/* Google Sign-in */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleGoogleOAuth}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2 text-xs font-medium border-white/10 hover:border-primary/50 text-white cursor-pointer h-10"
+                >
+                  <Globe className="w-4 h-4 text-primary shrink-0" />
+                  <span>Google Account Login</span>
+                </Button>
+              </div>
+            )}
+
           </CardContent>
         </Card>
 
         {/* Footer info */}
         <div className="text-center text-[10px] text-text-secondary font-mono flex items-center justify-center gap-1.5">
           <BrainCircuit className="w-3.5 h-3.5 text-primary" />
-          <span>Secured by Supabase Authentication Layer</span>
+          <span>Production-grade Supabase RLS Session Shield</span>
         </div>
 
       </motion.div>
