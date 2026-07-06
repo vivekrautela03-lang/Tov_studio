@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useProjectStore, ScriptScene } from "@/store/useProjectStore";
-import { Sparkles, BrainCircuit, AlertCircle, Clock, Film, FileEdit, Plus, Trash2 } from "lucide-react";
+import { Sparkles, BrainCircuit, AlertCircle, Clock, Film, FileEdit, Plus, Trash2, UploadCloud, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button, cn } from "@/components/ui/button";
 
@@ -21,7 +21,8 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({ projectScope }) => {
   // Mobile Columns Switcher State
   const [mobileActiveTab, setMobileActiveTab] = useState<"editor" | "ai">("editor");
 
-  // Empty State scene creation
+  // Empty State options
+  const [emptyStateTab, setEmptyStateTab] = useState<"upload" | "manual">("upload");
   const [newSceneTitle, setNewSceneTitle] = useState("");
   const [newSceneNum, setNewSceneNum] = useState(1);
   const [isCreating, setIsCreating] = useState(false);
@@ -47,6 +48,40 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({ projectScope }) => {
     }
   };
 
+  const handleUploadScript = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsCreating(true);
+    
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      if (!text) {
+        setIsCreating(false);
+        return;
+      }
+      
+      const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ").toUpperCase();
+      try {
+        const nextNum = projectScenes.length + 1;
+        await addScriptScene(targetProjectId, cleanName, nextNum);
+        
+        // Query latest state to set content
+        const latestScenes = useProjectStore.getState().scripts[targetProjectId] || [];
+        const createdScene = latestScenes.find(s => s.title === cleanName);
+        if (createdScene) {
+          await updateScriptContent(targetProjectId, createdScene.id, text);
+        }
+        setSelectedSceneIdx(latestScenes.length - 1);
+      } catch (err) {
+        console.error("Error exchanging uploaded script:", err);
+      } finally {
+        setIsCreating(false);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleAddAdditionalScene = async () => {
     const title = prompt("Enter scene title (e.g., EXT. PARKING LOT - DAY):");
     if (!title || !title.trim()) return;
@@ -67,43 +102,94 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({ projectScope }) => {
       <div className="space-y-6 animate-fade-in max-w-lg mx-auto py-8">
         <Card className="border-white/5 bg-card">
           <CardContent className="p-8 text-center space-y-6">
+            
+            {/* Header */}
             <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mx-auto text-text-secondary">
               <FileEdit className="w-6 h-6" />
             </div>
             <div className="space-y-2">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">No screenplay scenes drafted</h3>
               <p className="text-xs text-text-secondary leading-relaxed max-w-xs mx-auto">
-                Select or create a screenplay scene to begin compiling insights and formatting continuity cards.
+                Begin by uploading an existing screenplay file or draft your scenes manually in the editor console.
               </p>
             </div>
 
-            <form onSubmit={handleCreateFirstScene} className="space-y-3.5 text-left border-t border-white/5 pt-6">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-1">
-                  <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Scene No.</label>
+            {/* Custom Tab Switcher */}
+            <div className="flex bg-black/40 border border-white/5 p-1 rounded-lg gap-1 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setEmptyStateTab("upload")}
+                className={cn(
+                  "flex-1 py-1.5 text-center rounded-md font-semibold cursor-pointer transition-all",
+                  emptyStateTab === "upload" ? "bg-primary text-black" : "text-text-secondary hover:text-white"
+                )}
+              >
+                Upload Screenplay (.txt)
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmptyStateTab("manual")}
+                className={cn(
+                  "flex-1 py-1.5 text-center rounded-md font-semibold cursor-pointer transition-all",
+                  emptyStateTab === "manual" ? "bg-primary text-black" : "text-text-secondary hover:text-white"
+                )}
+              >
+                Create Scene Manually
+              </button>
+            </div>
+
+            {/* Tab Body Contents */}
+            {emptyStateTab === "upload" ? (
+              <div className="space-y-4 pt-2">
+                <div className="border border-dashed border-white/10 hover:border-primary/20 rounded-xl p-8 transition-colors bg-black/20 flex flex-col items-center justify-center gap-3 relative">
                   <input
-                    type="number"
-                    value={newSceneNum}
-                    onChange={(e) => setNewSceneNum(Number(e.target.value))}
-                    className="w-full bg-[#09090B] border border-white/10 rounded px-2.5 py-1.5 text-xs text-white"
+                    type="file"
+                    accept=".txt"
+                    onChange={handleUploadScript}
+                    disabled={isCreating}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
                   />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Scene Heading</label>
-                  <input
-                    type="text"
-                    required
-                    value={newSceneTitle}
-                    onChange={(e) => setNewSceneTitle(e.target.value)}
-                    placeholder="e.g., INT. ALLEY - NIGHT"
-                    className="w-full bg-[#09090B] border border-white/10 rounded px-2.5 py-1.5 text-xs text-white"
-                  />
+                  <UploadCloud className="w-8 h-8 text-text-secondary animate-pulse" />
+                  <div className="space-y-1">
+                    <span className="text-xs font-semibold text-white block">
+                      {isCreating ? "Reading document..." : "Choose Screenplay File"}
+                    </span>
+                    <span className="text-[10px] text-text-secondary block">
+                      Supports plain text files (.txt)
+                    </span>
+                  </div>
                 </div>
               </div>
-              <Button type="submit" variant="primary" disabled={isCreating} className="w-full text-xs py-2">
-                {isCreating ? "Initializing Scene..." : "Create First Scene"}
-              </Button>
-            </form>
+            ) : (
+              <form onSubmit={handleCreateFirstScene} className="space-y-3.5 text-left pt-2">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-1">
+                    <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Scene No.</label>
+                    <input
+                      type="number"
+                      value={newSceneNum}
+                      onChange={(e) => setNewSceneNum(Number(e.target.value))}
+                      className="w-full bg-[#09090B] border border-white/10 rounded px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Scene Heading</label>
+                    <input
+                      type="text"
+                      required
+                      value={newSceneTitle}
+                      onChange={(e) => setNewSceneTitle(e.target.value)}
+                      placeholder="e.g., INT. ALLEY - NIGHT"
+                      className="w-full bg-[#09090B] border border-white/10 rounded px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                </div>
+                <Button type="submit" variant="primary" disabled={isCreating} className="w-full text-xs py-2 h-9">
+                  {isCreating ? "Creating..." : "Initialize Scene"}
+                </Button>
+              </form>
+            )}
+
           </CardContent>
         </Card>
       </div>
@@ -164,7 +250,8 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({ projectScope }) => {
             
             <button
               onClick={handleAddAdditionalScene}
-              className="px-2.5 py-1.5 rounded-lg bg-black/40 border border-dashed border-white/10 hover:border-white/20 text-text-secondary hover:text-white transition-all shrink-0 cursor-pointer flex items-center justify-center"
+              title="Add Manual Scene"
+              className="px-2.5 py-1.5 rounded-lg bg-black/40 border border-dashed border-white/10 hover:border-white/20 text-text-secondary hover:text-white transition-all shrink-0 cursor-pointer flex items-center justify-center h-8"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -177,7 +264,28 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({ projectScope }) => {
             <div className="px-5 py-3 border-b border-white/5 bg-white/[0.01] flex items-center justify-between text-xs text-text-secondary font-mono">
               <span className="text-white font-semibold">{activeScene.title}</span>
               <div className="flex items-center gap-3">
-                <span>Draft Locked</span>
+                <Button variant="outline" className="h-6 px-2 text-[10px] relative cursor-pointer flex items-center gap-1">
+                  <input
+                    type="file"
+                    accept=".txt"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = async (evt) => {
+                        const txt = evt.target?.result as string;
+                        if (txt) {
+                          updateScriptContent(targetProjectId, activeScene.id, txt);
+                        }
+                      };
+                      reader.readAsText(file);
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                  />
+                  <UploadCloud className="w-3 h-3" />
+                  <span>Upload File Content</span>
+                </Button>
+                
                 <button
                   onClick={async () => {
                     if (confirm(`Are you sure you want to delete Scene ${activeScene.sceneNumber}?`)) {
@@ -196,7 +304,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({ projectScope }) => {
             <textarea
               value={activeScene.content}
               onChange={handleTextChange}
-              placeholder={`Write Scene ${activeScene.sceneNumber} script here...`}
+              placeholder={`Write or paste Scene ${activeScene.sceneNumber} script here...`}
               className="flex-1 w-full p-6 md:p-8 bg-transparent text-sm md:text-base font-mono text-white placeholder-white/15 focus:outline-none resize-none leading-relaxed border-0 select-text"
               style={{ minHeight: "450px" }}
             />
