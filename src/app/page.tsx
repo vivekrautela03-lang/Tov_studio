@@ -29,7 +29,7 @@ import { AIStudioView } from "@/components/views/AIStudioView";
 import { SettingsView } from "@/components/views/SettingsView";
 
 export default function Home() {
-  const { activeView, sidebarCollapsed, setMemberRole, setActiveView } = useProjectStore();
+  const { activeView, sidebarCollapsed, setMemberRole, setActiveView, fetchWorkspaceData } = useProjectStore();
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authSubstate, setAuthSubstate] = useState<"signin" | "signup" | "forgot" | "reset" | "verify">("signin");
@@ -72,6 +72,7 @@ export default function Home() {
         setSession(session);
         if (session?.user) {
           fetchUserRole(session.user.id);
+          fetchWorkspaceData();
         }
       })
       .catch((err) => {
@@ -88,6 +89,7 @@ export default function Home() {
       setSession(session);
       if (session?.user) {
         fetchUserRole(session.user.id);
+        fetchWorkspaceData();
       }
       if (event === "PASSWORD_RECOVERY") {
         setAuthSubstate("reset");

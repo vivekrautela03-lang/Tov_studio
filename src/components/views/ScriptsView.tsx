@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useProjectStore, ScriptScene } from "@/store/useProjectStore";
-import { Sparkles, BrainCircuit, AlertCircle, Clock, Film, FileEdit } from "lucide-react";
+import { Sparkles, BrainCircuit, AlertCircle, Clock, Film, FileEdit, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button, cn } from "@/components/ui/button";
 
@@ -11,7 +11,7 @@ interface ScriptsViewProps {
 }
 
 export const ScriptsView: React.FC<ScriptsViewProps> = ({ projectScope }) => {
-  const { activeProjectId, scripts, updateScriptContent } = useProjectStore();
+  const { activeProjectId, scripts, updateScriptContent, addScriptScene, deleteScriptScene } = useProjectStore();
   const targetProjectId = projectScope || activeProjectId;
 
   const projectScenes = scripts[targetProjectId] || [];
@@ -21,17 +21,91 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({ projectScope }) => {
   // Mobile Columns Switcher State
   const [mobileActiveTab, setMobileActiveTab] = useState<"editor" | "ai">("editor");
 
+  // Empty State scene creation
+  const [newSceneTitle, setNewSceneTitle] = useState("");
+  const [newSceneNum, setNewSceneNum] = useState(1);
+  const [isCreating, setIsCreating] = useState(false);
+
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (!activeScene) return;
     updateScriptContent(targetProjectId, activeScene.id, e.target.value);
   };
 
-  if (!activeScene) {
+  const handleCreateFirstScene = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSceneTitle.trim()) return;
+    setIsCreating(true);
+    try {
+      await addScriptScene(targetProjectId, newSceneTitle.trim(), newSceneNum);
+      setNewSceneTitle("");
+      setNewSceneNum((prev) => prev + 1);
+      setSelectedSceneIdx(0);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleAddAdditionalScene = async () => {
+    const title = prompt("Enter scene title (e.g., EXT. PARKING LOT - DAY):");
+    if (!title || !title.trim()) return;
+    const nextNum = projectScenes.length > 0 
+      ? Math.max(...projectScenes.map(s => s.sceneNumber)) + 1 
+      : 1;
+    
+    try {
+      await addScriptScene(targetProjectId, title.trim(), nextNum);
+      setSelectedSceneIdx(projectScenes.length); // switch to newly created scene
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  if (projectScenes.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-center bg-card rounded-xl border border-white/5">
-        <FileEdit className="w-10 h-10 text-text-secondary mb-3" />
-        <h3 className="text-sm font-semibold text-white">No screenplay scenes drafted</h3>
-        <p className="text-xs text-text-secondary mt-1">Select or create a screenplay in this production workspace.</p>
+      <div className="space-y-6 animate-fade-in max-w-lg mx-auto py-8">
+        <Card className="border-white/5 bg-card">
+          <CardContent className="p-8 text-center space-y-6">
+            <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mx-auto text-text-secondary">
+              <FileEdit className="w-6 h-6" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">No screenplay scenes drafted</h3>
+              <p className="text-xs text-text-secondary leading-relaxed max-w-xs mx-auto">
+                Select or create a screenplay scene to begin compiling insights and formatting continuity cards.
+              </p>
+            </div>
+
+            <form onSubmit={handleCreateFirstScene} className="space-y-3.5 text-left border-t border-white/5 pt-6">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-1">
+                  <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Scene No.</label>
+                  <input
+                    type="number"
+                    value={newSceneNum}
+                    onChange={(e) => setNewSceneNum(Number(e.target.value))}
+                    className="w-full bg-[#09090B] border border-white/10 rounded px-2.5 py-1.5 text-xs text-white"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Scene Heading</label>
+                  <input
+                    type="text"
+                    required
+                    value={newSceneTitle}
+                    onChange={(e) => setNewSceneTitle(e.target.value)}
+                    placeholder="e.g., INT. ALLEY - NIGHT"
+                    className="w-full bg-[#09090B] border border-white/10 rounded px-2.5 py-1.5 text-xs text-white"
+                  />
+                </div>
+              </div>
+              <Button type="submit" variant="primary" disabled={isCreating} className="w-full text-xs py-2">
+                {isCreating ? "Initializing Scene..." : "Create First Scene"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -73,7 +147,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({ projectScope }) => {
         <div className={cn("lg:col-span-8 flex flex-col gap-4", mobileActiveTab !== "editor" && "max-lg:hidden")}>
           
           {/* Scene Selector Row */}
-          <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none">
             {projectScenes.map((scene, idx) => (
               <button
                 key={scene.id}
@@ -87,6 +161,13 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({ projectScope }) => {
                 Scene {scene.sceneNumber}: {scene.title.split(" - ")[0]}
               </button>
             ))}
+            
+            <button
+              onClick={handleAddAdditionalScene}
+              className="px-2.5 py-1.5 rounded-lg bg-black/40 border border-dashed border-white/10 hover:border-white/20 text-text-secondary hover:text-white transition-all shrink-0 cursor-pointer flex items-center justify-center"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           {/* Screenplay Document */}
@@ -95,133 +176,142 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({ projectScope }) => {
             {/* Editor Header */}
             <div className="px-5 py-3 border-b border-white/5 bg-white/[0.01] flex items-center justify-between text-xs text-text-secondary font-mono">
               <span className="text-white font-semibold">{activeScene.title}</span>
-              <span>Draft v4.0 • Draft Locked</span>
+              <div className="flex items-center gap-3">
+                <span>Draft Locked</span>
+                <button
+                  onClick={async () => {
+                    if (confirm(`Are you sure you want to delete Scene ${activeScene.sceneNumber}?`)) {
+                      await deleteScriptScene(targetProjectId, activeScene.id);
+                      setSelectedSceneIdx(0);
+                    }
+                  }}
+                  className="p-1 hover:bg-danger/10 text-text-secondary hover:text-danger rounded cursor-pointer transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
-            {/* Screenplay Content Textarea */}
-            <div className="flex-1 p-6 md:p-8 flex justify-center bg-[#15171d] overflow-y-auto">
-              <textarea
-                value={activeScene.content}
-                onChange={handleTextChange}
-                className="w-full max-w-xl bg-transparent text-white font-mono screenplay-line text-sm leading-relaxed tracking-wide resize-none focus:outline-none min-h-[400px] screenplay-editor-textarea"
-                placeholder="Start writing screenplay format here..."
-                style={{
-                  tabSize: 4,
-                  lineHeight: "1.8em"
-                }}
-              />
-            </div>
+            {/* Fenced Text Area */}
+            <textarea
+              value={activeScene.content}
+              onChange={handleTextChange}
+              placeholder={`Write Scene ${activeScene.sceneNumber} script here...`}
+              className="flex-1 w-full p-6 md:p-8 bg-transparent text-sm md:text-base font-mono text-white placeholder-white/15 focus:outline-none resize-none leading-relaxed border-0 select-text"
+              style={{ minHeight: "450px" }}
+            />
           </div>
+
         </div>
 
-        {/* Right side: AI Extractor Panel (4 cols) */}
-        <div className={cn("lg:col-span-4 space-y-6", mobileActiveTab !== "ai" && "max-lg:hidden")}>
+        {/* Right side: AI Continuity Insights (4 cols) */}
+        <div className={cn("lg:col-span-4 flex flex-col gap-6", mobileActiveTab !== "ai" && "max-lg:hidden")}>
           
-          {/* Core AI status card */}
-          <Card className="border-primary/20 bg-gradient-to-b from-[#111318] to-primary/5">
-            <CardContent className="p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <BrainCircuit className="w-5 h-5 text-primary animate-pulse" />
-                  <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                    AI Extractor Core
-                  </span>
-                </div>
-                <Sparkles className="w-4 h-4 text-warning" />
+          {/* AI Metrics summary */}
+          <Card className="border-primary/20 bg-gradient-to-b from-card to-primary/[0.02]">
+            <CardContent className="p-5 space-y-4 text-xs">
+              <div className="flex items-center gap-1 text-[10px] text-primary uppercase font-mono font-bold tracking-wider">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>AI Breakdown Engine</span>
               </div>
+              <h4 className="text-sm font-bold text-white mt-1">Scene Continuity Cards</h4>
 
-              <p className="text-[11px] text-text-secondary leading-relaxed">
-                Analyzing script content in real-time. Automatically indexing props, character logs, and checking continuity.
-              </p>
-
-              <div className="grid grid-cols-2 gap-3 border-t border-white/5 pt-4 text-xs font-mono">
-                <div className="bg-black/20 p-2.5 rounded-lg border border-white/5">
-                  <span className="text-[9px] text-text-secondary block">Complexity</span>
-                  <span className={`text-xs font-bold ${
-                    activeScene.aiExtracted.complexity === "High" ? "text-danger" :
-                    activeScene.aiExtracted.complexity === "Medium" ? "text-warning" : "text-success"
-                  }`}>
-                    {activeScene.aiExtracted.complexity}
-                  </span>
+              <div className="grid grid-cols-2 gap-3 text-[11px] pt-1">
+                <div className="bg-white/[0.02] border border-white/5 rounded-lg p-2.5 space-y-1">
+                  <span className="text-text-secondary">Dialogue Lines</span>
+                  <div className="text-base font-bold text-white">{activeScene.aiExtracted.dialogueCount}</div>
                 </div>
-                <div className="bg-black/20 p-2.5 rounded-lg border border-white/5 flex flex-col justify-between">
-                  <span className="text-[9px] text-text-secondary block">Est. Duration</span>
-                  <span className="text-xs font-bold text-white flex items-center gap-1 mt-0.5">
-                    <Clock className="w-3.5 h-3.5 text-primary" /> {activeScene.aiExtracted.duration} min
-                  </span>
+                <div className="bg-white/[0.02] border border-white/5 rounded-lg p-2.5 space-y-1">
+                  <span className="text-text-secondary">Estimated Duration</span>
+                  <div className="text-base font-bold text-white">{activeScene.aiExtracted.duration}</div>
+                </div>
+                <div className="bg-white/[0.02] border border-white/5 rounded-lg p-2.5 space-y-1">
+                  <span className="text-text-secondary">Shoot Complexity</span>
+                  <div className="text-base font-bold text-white">{activeScene.aiExtracted.complexity}</div>
+                </div>
+                <div className="bg-white/[0.02] border border-white/5 rounded-lg p-2.5 space-y-1">
+                  <span className="text-text-secondary">Characters Count</span>
+                  <div className="text-base font-bold text-white">{activeScene.aiExtracted.characters.length}</div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Extracted Metadata list */}
+          {/* Extracted Elements */}
           <Card>
             <CardContent className="p-5 space-y-4 text-xs">
-              <h4 className="text-xs font-semibold text-white uppercase tracking-wider font-mono flex items-center gap-1.5 border-b border-white/5 pb-2">
-                <Film className="w-4 h-4 text-secondary" /> Extracted Elements
-              </h4>
-              
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <span className="font-bold text-white uppercase tracking-wider text-[10px] font-mono">Extracted Entities</span>
+                <span className="text-[10px] text-text-secondary">Auto-sync active</span>
+              </div>
+
               {/* Characters */}
               <div className="space-y-1.5">
-                <span className="text-[10px] text-text-secondary uppercase font-semibold">Speaking Characters ({activeScene.aiExtracted.dialogueCount} Dialogues)</span>
-                <div className="flex flex-wrap gap-1">
-                  {activeScene.aiExtracted.characters.map((char, i) => (
-                    <span key={i} className="px-2 py-0.5 rounded bg-secondary/15 text-secondary text-[10px] font-mono border border-secondary/10">
-                      {char}
-                    </span>
-                  ))}
+                <span className="text-text-secondary text-[10px] uppercase font-semibold">Characters Present</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {activeScene.aiExtracted.characters.length === 0 ? (
+                    <span className="text-text-secondary italic">None detected. Type character names in caps (e.g. KAEL).</span>
+                  ) : (
+                    activeScene.aiExtracted.characters.map((char, idx) => (
+                      <span key={idx} className="bg-white/5 border border-white/5 rounded px-2 py-0.5 font-medium text-white">
+                        {char}
+                      </span>
+                    ))
+                  )}
                 </div>
               </div>
 
               {/* Props */}
-              <div className="space-y-1.5">
-                <span className="text-[10px] text-text-secondary uppercase font-semibold">Scene Props</span>
-                <div className="flex flex-wrap gap-1">
-                  {activeScene.aiExtracted.props.map((prop, i) => (
-                    <span key={i} className="px-2 py-0.5 rounded bg-white/5 text-text-secondary text-[10px] font-mono border border-white/5">
-                      {prop}
+              <div className="space-y-1.5 pt-1.5 border-t border-white/5">
+                <span className="text-text-secondary text-[10px] uppercase font-semibold">Props / Set Decors</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {activeScene.aiExtracted.props.length === 0 ? (
+                    <span className="text-text-secondary italic text-[11px]">No props logged yet.</span>
+                  ) : (
+                    activeScene.aiExtracted.props.map((prop, idx) => (
+                      <span key={idx} className="bg-secondary/10 border border-secondary/20 rounded px-2 py-0.5 font-medium text-secondary">
+                        {prop}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Locations */}
+              <div className="space-y-1.5 pt-1.5 border-t border-white/5">
+                <span className="text-text-secondary text-[10px] uppercase font-semibold">Shoot Location Ref</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {activeScene.aiExtracted.locations.map((loc, idx) => (
+                    <span key={idx} className="bg-primary/10 border border-primary/20 rounded px-2 py-0.5 font-medium text-primary">
+                      {loc}
                     </span>
                   ))}
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Costumes */}
-              <div className="space-y-1.5">
-                <span className="text-[10px] text-text-secondary uppercase font-semibold">Costume Notes</span>
-                <div className="text-xs text-text-secondary leading-relaxed space-y-1 bg-white/[0.01] p-2 rounded border border-white/5">
-                  {activeScene.aiExtracted.costumes.map((cos, i) => (
-                    <p key={i}>• {cos}</p>
+          {/* Continuity alerts */}
+          {activeScene.aiExtracted.continuityWarnings && activeScene.aiExtracted.continuityWarnings.length > 0 && (
+            <Card className="border-danger/20 bg-gradient-to-b from-card to-danger/[0.01]">
+              <CardContent className="p-5 space-y-3 text-xs">
+                <div className="flex items-center gap-1.5 text-danger font-bold text-[10px] uppercase tracking-wider font-mono">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>Continuity Alerts</span>
+                </div>
+                <div className="space-y-2">
+                  {activeScene.aiExtracted.continuityWarnings.map((warning, idx) => (
+                    <p key={idx} className="text-text-secondary leading-relaxed pl-2.5 border-l border-danger/40">
+                      {warning}
+                    </p>
                   ))}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Continuity & Warning block */}
-          <Card>
-            <CardContent className="p-5 space-y-4 text-xs">
-              <h4 className="text-xs font-semibold text-white uppercase tracking-wider font-mono flex items-center gap-1.5 border-b border-white/5 pb-2">
-                <AlertCircle className="w-4 h-4 text-warning" /> Continuity Audits
-              </h4>
-              <div className="space-y-2.5">
-                {activeScene.aiExtracted.continuityWarnings.length === 0 ? (
-                  <div className="text-success text-xs font-mono">
-                    ✓ No continuity errors flagged.
-                  </div>
-                ) : (
-                  activeScene.aiExtracted.continuityWarnings.map((warn, i) => (
-                    <div key={i} className="flex gap-2 items-start text-xs leading-relaxed text-text-secondary">
-                      <span className="w-1.5 h-1.5 rounded-full bg-warning shrink-0 mt-1.5" />
-                      <p>{warn}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
         </div>
-        
+
       </div>
     </div>
   );

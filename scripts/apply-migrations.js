@@ -100,6 +100,12 @@ async function runMigrations() {
     await client.query(sql6);
     console.log("✓ 0006_seed_default_productions.sql applied successfully!");
 
+    // 7. Apply Schema Standardization (always safe & idempotent)
+    console.log("Applying 0007_standardize_schema_columns.sql...");
+    const sql7 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0007_standardize_schema_columns.sql"), "utf8");
+    await client.query(sql7);
+    console.log("✓ 0007_standardize_schema_columns.sql applied successfully!");
+
     // Verify all tables in public schema
     console.log("\nVerifying current public tables:");
     const res = await client.query(`

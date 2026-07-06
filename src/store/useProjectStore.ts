@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { supabase } from "@/utils/supabaseClient";
 
 // --- TYPES ---
 export interface Project {
@@ -188,7 +189,10 @@ interface ProjectStoreState {
   setMemberRole: (role: string) => void;
   
   // Data Modifying Actions
+  fetchWorkspaceData: () => Promise<void>;
   addProject: (project: Omit<Project, "id" | "progress" | "completion" | "crewCount" | "castCount">) => void;
+  addScriptScene: (projectId: string, title: string, sceneNumber: number) => Promise<void>;
+  deleteScriptScene: (projectId: string, sceneId: string) => Promise<void>;
   updateScriptContent: (projectId: string, sceneId: string, content: string) => void;
   addStoryboardShot: (projectId: string, shot: Omit<StoryboardShot, "id">) => void;
   updateStoryboardOrder: (projectId: string, newShots: StoryboardShot[]) => void;
@@ -269,82 +273,440 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
   setMemberRole: (role) => set({ memberRole: role }),
   
-  addProject: (proj) => set((state) => {
-    const newId = `proj-${state.projects.length + 1}`;
-    const newProject: Project = {
-      ...proj,
-      id: newId,
-      progress: 0,
-      completion: 0,
-      crewCount: 0,
-      castCount: 0
-    };
-    return {
-      projects: [...state.projects, newProject],
-      activeProjectId: newId,
-      scripts: { ...state.scripts, [newId]: [] },
-      storyboards: { ...state.storyboards, [newId]: [] },
-      shotPlans: { ...state.shotPlans, [newId]: [] },
-      calendarEvents: { ...state.calendarEvents, [newId]: [] },
-      crew: { ...state.crew, [newId]: [] },
-      cast: { ...state.cast, [newId]: [] },
-      equipment: { ...state.equipment, [newId]: [] },
-      files: { ...state.files, [newId]: [
-        { id: "f-1", name: "Scripts", type: "folder", modified: new Date().toISOString().split("T")[0], version: 1 },
-        { id: "f-2", name: "Contracts", type: "folder", modified: new Date().toISOString().split("T")[0], version: 1 }
-      ] },
-      marketing: { ...state.marketing, [newId]: [] }
-    };
-  }),
+  fetchWorkspaceData: async () => {
+    // 1. Fetch productions from Supabase
+    const { data: prods, error: pError } = await supabase
+      .from("productions")
+      .select("*");
+    
+    if (pError) {
+      console.error("Error fetching productions from Supabase:", pError);
+      return;
+    }
 
-  updateScriptContent: (projectId, sceneId, content) => set((state) => {
-    const scenes = state.scripts[projectId] || [];
-    const updatedScenes = scenes.map((sc) => {
-      if (sc.id !== sceneId) return sc;
-      
-      // Perform a mock AI extraction to make it look active!
-      const lines = content.split("\n");
-      const characters = Array.from(new Set(
-        lines
-          .filter(l => l.toUpperCase() === l && l.trim().length > 1 && !l.includes("(") && !l.includes("EXT.") && !l.includes("INT."))
-          .map(l => l.trim())
-      )).slice(0, 4);
+    if (!prods || prods.length === 0) {
+      set({ projects: [] });
+      return;
+    }
 
-      const dialogueCount = lines.filter(l => l.trim().length > 0 && l === l.toUpperCase()).length;
-      
+    // Map database productions to store projects format
+    const mappedProjects: Project[] = prods.map((p) => {
+      const budgetVal = Number(p.budget) || 2500000;
+      const budgetText = p.budget ? `$${(budgetVal / 1000000).toFixed(1)}M` : "$2.5M";
       return {
-        ...sc,
-        content,
-        aiExtracted: {
-          ...sc.aiExtracted,
-          characters: characters.length > 0 ? characters : sc.aiExtracted.characters,
-          dialogueCount: dialogueCount > 0 ? dialogueCount : sc.aiExtracted.dialogueCount,
-          duration: `${Math.floor(content.length / 500) + 1}:${String(Math.floor((content.length % 500) / 10)).padStart(2, '0')}`
-        }
+        id: p.id,
+        title: p.title,
+        tagline: p.description || "A premium film production campaign.",
+        status: (p.status as Project["status"]) || "Pre-Production",
+        progress: 35,
+        budget: budgetText,
+        budgetVal: budgetVal,
+        spentVal: 0,
+        crewCount: 4,
+        castCount: 2,
+        deadline: p.end_date || new Date(Date.now() + 180*24*60*60*1000).toISOString().split("T")[0],
+        completion: 35,
+        coverImage: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&q=80",
+        director: "Director Name",
+        location: "Neo Tokyo Sets, Stage 4"
       };
     });
 
-    return {
-      scripts: {
-        ...state.scripts,
-        [projectId]: updatedScenes
+    set({ projects: mappedProjects });
+
+    // Set first project as active if not already set or invalid
+    const currentActiveId = useProjectStore.getState().activeProjectId;
+    const exists = mappedProjects.some((p) => p.id === currentActiveId);
+    const targetActiveId = exists ? currentActiveId : mappedProjects[0].id;
+    set({ activeProjectId: targetActiveId });
+
+    // Fetch related detail datasets
+    const newScripts: Record<string, ScriptScene[]> = {};
+    const newStoryboards: Record<string, StoryboardShot[]> = {};
+    const newShotPlans: Record<string, ShotPlan[]> = {};
+    const newCalendarEvents: Record<string, CalendarEvent[]> = {};
+    const newCrew: Record<string, CrewMember[]> = {};
+    const newCast: Record<string, CastMember[]> = {};
+    const newEquipment: Record<string, Equipment[]> = {};
+    const newFiles: Record<string, FileItem[]> = {};
+
+    for (const proj of mappedProjects) {
+      const prodId = proj.id;
+
+      // 1. Fetch scenes
+      const { data: scenes } = await supabase
+        .from("scenes")
+        .select("*")
+        .eq("production_id", prodId);
+      
+      newScripts[prodId] = (scenes || []).map((sc) => ({
+        id: sc.id,
+        sceneNumber: sc.scene_number,
+        title: sc.title,
+        content: sc.content || "",
+        aiExtracted: {
+          characters: [],
+          props: [],
+          costumes: [],
+          locations: [sc.title],
+          dialogueCount: 0,
+          duration: "0:00",
+          complexity: "Low",
+          continuityWarnings: []
+        }
+      }));
+
+      // 2. Fetch storyboard shots
+      const { data: shots } = await supabase
+        .from("storyboard_shots")
+        .select("*");
+      
+      newStoryboards[prodId] = (shots || []).map((sh) => ({
+        id: sh.id,
+        shotNumber: sh.shot_number,
+        previewImage: sh.photo || "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&q=80",
+        shotType: "Medium Close Up (MCU)",
+        lens: sh.lens || "50mm Prime",
+        camera: sh.camera || "ARRI Alexa 35",
+        lighting: sh.lighting || "Ambient soft key",
+        notes: sh.notes || "",
+        status: (sh.status as StoryboardShot["status"]) || "Draft"
+      }));
+
+      // 3. Fetch shot plans
+      const { data: plans } = await supabase
+        .from("shot_plans")
+        .select("*")
+        .eq("production_id", prodId);
+      
+      newShotPlans[prodId] = (plans || []).map((p) => ({
+        id: p.id,
+        scene: p.scene,
+        setup: p.setup,
+        props: p.props || [],
+        crew: p.crew || [],
+        duration: p.duration || "2 hours",
+        location: p.location || "Soundstage B",
+        weather: (p.weather as ShotPlan["weather"]) || "Indoor",
+        status: (p.status as ShotPlan["status"]) || "Todo"
+      }));
+
+      // 4. Fetch calendar events
+      const { data: calEvents } = await supabase
+        .from("calendar_events")
+        .select("*")
+        .eq("production_id", prodId);
+      
+      newCalendarEvents[prodId] = (calEvents || []).map((e) => ({
+        id: e.id,
+        title: e.title,
+        date: e.date ? e.date.substring(0, 10) : "2026-07-05",
+        type: (e.type as CalendarEvent["type"]) || "shoot",
+        time: e.time || "10:00 - 18:00"
+      }));
+
+      // 5. Fetch crew members joined with profiles
+      const { data: crewData } = await supabase
+        .from("production_members")
+        .select(`
+          id,
+          role,
+          profiles (
+            id,
+            email,
+            full_name,
+            avatar_url,
+            phone,
+            experience,
+            skills
+          )
+        `)
+        .eq("production_id", prodId);
+      
+      newCrew[prodId] = (crewData || []).map((c: any) => ({
+        id: c.id,
+        name: c.profiles?.full_name || c.profiles?.email || "Crew Member",
+        photo: c.profiles?.avatar_url || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80",
+        role: c.role || "Crew",
+        phone: c.profiles?.phone || "+1 555-0100",
+        experience: c.profiles?.experience || "Professional",
+        skills: c.profiles?.skills || [],
+        attendance: "Present",
+        availability: "On Set",
+        rate: "$800/day",
+        paymentStatus: "Paid",
+        performance: 90
+      }));
+
+      // 6. Fetch cast members
+      const { data: castData } = await supabase
+        .from("cast_members")
+        .select("*")
+        .eq("production_id", prodId);
+      
+      newCast[prodId] = (castData || []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&q=80",
+        character: c.character_name,
+        availability: "Available",
+        measurements: "Standard",
+        costumeNotes: "",
+        contractStatus: c.contract_status || "Pending Review",
+        auditionStatus: c.audition_status || "Scheduled",
+        payment: c.payment || "$1,500/day"
+      }));
+
+      // 7. Fetch equipment
+      const { data: equipData } = await supabase
+        .from("equipment")
+        .select("*");
+      
+      newEquipment[prodId] = (equipData || []).map((e) => ({
+        id: e.id,
+        name: e.name,
+        category: (e.category as Equipment["category"]) || "Camera",
+        photo: e.photo || "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=150&q=80",
+        qrCode: e.qr_code || "QR-1002",
+        status: (e.status as Equipment["status"]) || "Available",
+        assignedTo: e.assigned_to_name || "",
+        battery: e.battery_level || null,
+        maintenanceDate: e.maintenance_date || "2026-12-31",
+        location: "Studio Soundstage B"
+      }));
+
+      // 8. Fetch files
+      const { data: filesData } = await supabase
+        .from("files")
+        .select("*")
+        .eq("production_id", prodId);
+      
+      newFiles[prodId] = (filesData || []).map((f) => ({
+        id: f.id,
+        name: f.name,
+        type: f.type || "file",
+        size: f.size || "1.2 MB",
+        modified: f.created_at ? f.created_at.substring(0, 10) : "2026-07-05",
+        version: 1
+      }));
+    }
+
+    set({
+      scripts: newScripts,
+      storyboards: newStoryboards,
+      shotPlans: newShotPlans,
+      calendarEvents: newCalendarEvents,
+      crew: newCrew,
+      cast: newCast,
+      equipment: newEquipment,
+      files: newFiles
+    });
+  },
+
+  addProject: async (proj) => {
+    // 1. Insert production into Supabase database
+    const budgetVal = proj.budgetVal || 2500000;
+    const { data: data, error: error } = await supabase
+      .from("productions")
+      .insert({
+        title: proj.title,
+        description: proj.tagline,
+        status: proj.status,
+        budget: budgetVal
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating production in Supabase:", error);
+      alert(error.message);
+      return;
+    }
+
+    // 2. Seed production membership for the owner
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("production_members").insert({
+        production_id: data.id,
+        user_id: user.id,
+        role: "Owner"
+      });
+    }
+
+    // 3. Update Zustand store state
+    const newProject: Project = {
+      ...proj,
+      id: data.id,
+      progress: 0,
+      completion: 0,
+      crewCount: 1,
+      castCount: 0
+    };
+
+    set((state) => ({
+      projects: [...state.projects, newProject],
+      activeProjectId: data.id,
+      scripts: { ...state.scripts, [data.id]: [] },
+      storyboards: { ...state.storyboards, [data.id]: [] },
+      shotPlans: { ...state.shotPlans, [data.id]: [] },
+      calendarEvents: { ...state.calendarEvents, [data.id]: [] },
+      crew: { ...state.crew, [data.id]: [
+        { id: "owner-member", name: "You", photo: "", role: "Owner", phone: "", experience: "", skills: [], attendance: "Present", availability: "On Set", rate: "", paymentStatus: "Paid", performance: 100 }
+      ] },
+      cast: { ...state.cast, [data.id]: [] },
+      equipment: { ...state.equipment, [data.id]: [] },
+      files: { ...state.files, [data.id]: [] },
+      marketing: { ...state.marketing, [data.id]: [] }
+    }));
+  },
+
+  addScriptScene: async (projectId, title, sceneNumber) => {
+    const { data, error } = await supabase
+      .from("scenes")
+      .insert({
+        production_id: projectId,
+        scene_number: sceneNumber,
+        title,
+        content: ""
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating scene:", error);
+      alert(error.message);
+      return;
+    }
+
+    const newScene: ScriptScene = {
+      id: data.id,
+      sceneNumber: data.scene_number,
+      title: data.title,
+      content: "",
+      aiExtracted: {
+        characters: [],
+        props: [],
+        costumes: [],
+        locations: [data.title],
+        dialogueCount: 0,
+        duration: "0:00",
+        complexity: "Low",
+        continuityWarnings: []
       }
     };
-  }),
 
-  addStoryboardShot: (projectId, shot) => set((state) => {
-    const shots = state.storyboards[projectId] || [];
+    set((state) => {
+      const scenes = state.scripts[projectId] || [];
+      return {
+        scripts: {
+          ...state.scripts,
+          [projectId]: [...scenes, newScene]
+        }
+      };
+    });
+  },
+
+  deleteScriptScene: async (projectId, sceneId) => {
+    const { error } = await supabase
+      .from("scenes")
+      .delete()
+      .eq("id", sceneId);
+
+    if (error) {
+      console.error("Error deleting scene:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => {
+      const scenes = state.scripts[projectId] || [];
+      return {
+        scripts: {
+          ...state.scripts,
+          [projectId]: scenes.filter((sc) => sc.id !== sceneId)
+        }
+      };
+    });
+  },
+
+  updateScriptContent: async (projectId, sceneId, content) => {
+    const { error } = await supabase
+      .from("scenes")
+      .update({ content })
+      .eq("id", sceneId);
+
+    if (error) console.error("Error updating scene content:", error);
+
+    set((state) => {
+      const scenes = state.scripts[projectId] || [];
+      const updatedScenes = scenes.map((sc) => {
+        if (sc.id !== sceneId) return sc;
+        
+        const lines = content.split("\n");
+        const characters = Array.from(new Set(
+          lines
+            .filter(l => l.toUpperCase() === l && l.trim().length > 1 && !l.includes("(") && !l.includes("EXT.") && !l.includes("INT."))
+            .map(l => l.trim())
+        )).slice(0, 4);
+
+        const dialogueCount = lines.filter(l => l.trim().length > 0 && l === l.toUpperCase()).length;
+        
+        return {
+          ...sc,
+          content,
+          aiExtracted: {
+            ...sc.aiExtracted,
+            characters: characters.length > 0 ? characters : sc.aiExtracted.characters,
+            dialogueCount: dialogueCount > 0 ? dialogueCount : sc.aiExtracted.dialogueCount,
+            duration: `${Math.floor(content.length / 500) + 1}:${String(Math.floor((content.length % 500) / 10)).padStart(2, '0')}`
+          }
+        };
+      });
+
+      return {
+        scripts: {
+          ...state.scripts,
+          [projectId]: updatedScenes
+        }
+      };
+    });
+  },
+
+  addStoryboardShot: async (projectId, shot) => {
+    const { data, error } = await supabase
+      .from("storyboard_shots")
+      .insert({
+        shot_number: shot.shotNumber,
+        camera: shot.camera,
+        lens: shot.lens,
+        lighting: shot.lighting,
+        notes: shot.notes,
+        status: shot.status
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating storyboard shot:", error);
+      alert(error.message);
+      return;
+    }
+
     const newShot: StoryboardShot = {
       ...shot,
-      id: `shot-${shots.length + 1}`
+      id: data.id
     };
-    return {
-      storyboards: {
-        ...state.storyboards,
-        [projectId]: [...shots, newShot]
-      }
-    };
-  }),
+
+    set((state) => {
+      const shots = state.storyboards[projectId] || [];
+      return {
+        storyboards: {
+          ...state.storyboards,
+          [projectId]: [...shots, newShot]
+        }
+      };
+    });
+  },
 
   updateStoryboardOrder: (projectId, newShots) => set((state) => ({
     storyboards: {
@@ -353,64 +715,137 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     }
   })),
 
-  updateStoryboardShotStatus: (projectId, shotId, status) => set((state) => {
-    const shots = state.storyboards[projectId] || [];
-    const updatedShots = shots.map((sh) => (sh.id === shotId ? { ...sh, status } : sh));
-    return {
-      storyboards: {
-        ...state.storyboards,
-        [projectId]: updatedShots
-      }
-    };
-  }),
+  updateStoryboardShotStatus: async (projectId, shotId, status) => {
+    const { error } = await supabase
+      .from("storyboard_shots")
+      .update({ status })
+      .eq("id", shotId);
 
-  addShotPlan: (projectId, plan) => set((state) => {
-    const plans = state.shotPlans[projectId] || [];
+    if (error) console.error("Error updating storyboard shot status:", error);
+
+    set((state) => {
+      const shots = state.storyboards[projectId] || [];
+      const updatedShots = shots.map((sh) => (sh.id === shotId ? { ...sh, status } : sh));
+      return {
+        storyboards: {
+          ...state.storyboards,
+          [projectId]: updatedShots
+        }
+      };
+    });
+  },
+
+  addShotPlan: async (projectId, plan) => {
+    const { data, error } = await supabase
+      .from("shot_plans")
+      .insert({
+        production_id: projectId,
+        scene: plan.scene,
+        setup: plan.setup,
+        props: plan.props,
+        crew: plan.crew,
+        duration: plan.duration,
+        location: plan.location,
+        weather: plan.weather,
+        status: plan.status
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating shot plan:", error);
+      alert(error.message);
+      return;
+    }
+
     const newPlan: ShotPlan = {
       ...plan,
-      id: `plan-${plans.length + 1}`
+      id: data.id
     };
-    return {
-      shotPlans: {
-        ...state.shotPlans,
-        [projectId]: [...plans, newPlan]
-      }
-    };
-  }),
 
-  updateShotPlanStatus: (projectId, planId, status) => set((state) => {
-    const plans = state.shotPlans[projectId] || [];
-    return {
-      shotPlans: {
-        ...state.shotPlans,
-        [projectId]: plans.map((p) => (p.id === planId ? { ...p, status } : p))
-      }
-    };
-  }),
+    set((state) => {
+      const plans = state.shotPlans[projectId] || [];
+      return {
+        shotPlans: {
+          ...state.shotPlans,
+          [projectId]: [...plans, newPlan]
+        }
+      };
+    });
+  },
 
-  addCalendarEvent: (projectId, event) => set((state) => {
-    const events = state.calendarEvents[projectId] || [];
+  updateShotPlanStatus: async (projectId, planId, status) => {
+    const { error } = await supabase
+      .from("shot_plans")
+      .update({ status })
+      .eq("id", planId);
+
+    if (error) console.error("Error updating shot plan status:", error);
+
+    set((state) => {
+      const plans = state.shotPlans[projectId] || [];
+      return {
+        shotPlans: {
+          ...state.shotPlans,
+          [projectId]: plans.map((p) => (p.id === planId ? { ...p, status } : p))
+        }
+      };
+    });
+  },
+
+  addCalendarEvent: async (projectId, event) => {
+    const { data, error } = await supabase
+      .from("calendar_events")
+      .insert({
+        production_id: projectId,
+        title: event.title,
+        date: event.date,
+        type: event.type,
+        time: event.time
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating calendar event:", error);
+      alert(error.message);
+      return;
+    }
+
     const newEvent: CalendarEvent = {
       ...event,
-      id: `cal-${events.length + 1}`
+      id: data.id
     };
-    return {
-      calendarEvents: {
-        ...state.calendarEvents,
-        [projectId]: [...events, newEvent]
-      }
-    };
-  }),
 
-  deleteCalendarEvent: (projectId, id) => set((state) => {
-    const events = state.calendarEvents[projectId] || [];
-    return {
-      calendarEvents: {
-        ...state.calendarEvents,
-        [projectId]: events.filter((e) => e.id !== id)
-      }
-    };
-  }),
+    set((state) => {
+      const events = state.calendarEvents[projectId] || [];
+      return {
+        calendarEvents: {
+          ...state.calendarEvents,
+          [projectId]: [...events, newEvent]
+        }
+      };
+    });
+  },
+
+  deleteCalendarEvent: async (projectId, id) => {
+    const { error } = await supabase
+      .from("calendar_events")
+      .delete()
+      .eq("id", id);
+
+    if (error) console.error("Error deleting calendar event:", error);
+
+    set((state) => {
+      const events = state.calendarEvents[projectId] || [];
+      return {
+        calendarEvents: {
+          ...state.calendarEvents,
+          [projectId]: events.filter((e) => e.id !== id)
+        }
+      };
+    });
+  },
 
   toggleCrewAttendance: (projectId, crewId) => set((state) => {
     const members = state.crew[projectId] || [];
@@ -445,15 +880,27 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     };
   }),
 
-  updateEquipmentStatus: (projectId, equipId, status, assignedTo = "") => set((state) => {
-    const items = state.equipment[projectId] || [];
-    return {
-      equipment: {
-        ...state.equipment,
-        [projectId]: items.map((eq) => eq.id === equipId ? { ...eq, status, assignedTo } : eq)
-      }
-    };
-  }),
+  updateEquipmentStatus: async (projectId, equipId, status, assignedTo = "") => {
+    const { error } = await supabase
+      .from("equipment")
+      .update({
+        status,
+        assigned_to_name: assignedTo
+      })
+      .eq("id", equipId);
+
+    if (error) console.error("Error updating equipment status:", error);
+
+    set((state) => {
+      const items = state.equipment[projectId] || [];
+      return {
+        equipment: {
+          ...state.equipment,
+          [projectId]: items.map((eq) => eq.id === equipId ? { ...eq, status, assignedTo } : eq)
+        }
+      };
+    });
+  },
 
   addChatMessage: (msg) => set((state) => {
     const newMsg: ChatMessage = {
