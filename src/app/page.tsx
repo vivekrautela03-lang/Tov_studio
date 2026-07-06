@@ -27,6 +27,7 @@ import { MarketingView } from "@/components/views/MarketingView";
 import { AnalyticsView } from "@/components/views/AnalyticsView";
 import { AIStudioView } from "@/components/views/AIStudioView";
 import { SettingsView } from "@/components/views/SettingsView";
+import { AttendanceView } from "@/components/views/AttendanceView";
 
 export default function Home() {
   const { activeView, sidebarCollapsed, setMemberRole, setActiveView, fetchWorkspaceData } = useProjectStore();
@@ -123,6 +124,8 @@ export default function Home() {
         return <CrewView />;
       case "cast":
         return <CastView />;
+      case "attendance":
+        return <AttendanceView />;
       case "equipment":
         return <EquipmentView />;
       case "files":

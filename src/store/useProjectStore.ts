@@ -95,6 +95,7 @@ export interface CastMember {
   contractStatus: "Signed" | "In Negotiation" | "Pending Review";
   auditionStatus: "Passed" | "Scheduled" | "Callback";
   payment: string;
+  attendance: "Present" | "Absent" | "Late" | "Off-Duty";
 }
 
 export interface Equipment {
@@ -203,6 +204,8 @@ interface ProjectStoreState {
   deleteCalendarEvent: (projectId: string, id: string) => void;
   toggleCrewAttendance: (projectId: string, crewId: string) => void;
   toggleCastAvailability: (projectId: string, castId: string) => void;
+  setCrewAttendance: (projectId: string, crewId: string, attendance: CrewMember["attendance"]) => Promise<void>;
+  setCastAttendance: (projectId: string, castId: string, attendance: CastMember["attendance"]) => Promise<void>;
   updateEquipmentStatus: (projectId: string, equipId: string, status: Equipment["status"], assignedTo?: string) => void;
   addChatMessage: (message: Omit<ChatMessage, "id" | "timestamp">) => void;
   markNotificationRead: (id: string) => void;
@@ -411,6 +414,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         .select(`
           id,
           role,
+          attendance,
           profiles (
             id,
             email,
@@ -431,7 +435,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         phone: c.profiles?.phone || "+1 555-0100",
         experience: c.profiles?.experience || "Professional",
         skills: c.profiles?.skills || [],
-        attendance: "Present",
+        attendance: (c.attendance as CrewMember["attendance"]) || "Present",
         availability: "On Set",
         rate: "$800/day",
         paymentStatus: "Paid",
@@ -454,7 +458,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         costumeNotes: "",
         contractStatus: c.contract_status || "Pending Review",
         auditionStatus: c.audition_status || "Scheduled",
-        payment: c.payment || "$1,500/day"
+        payment: c.payment || "$1,500/day",
+        attendance: (c.attendance as CastMember["attendance"]) || "Present"
       }));
 
       // 7. Fetch equipment
@@ -847,22 +852,35 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     });
   },
 
-  toggleCrewAttendance: (projectId, crewId) => set((state) => {
-    const members = state.crew[projectId] || [];
-    const updatedMembers = members.map((m) => {
-      if (m.id !== crewId) return m;
-      const statusMap: Record<CrewMember["attendance"], CrewMember["attendance"]> = {
-        "Present": "Late",
-        "Late": "Off-Duty",
-        "Off-Duty": "Absent",
-        "Absent": "Present"
-      };
-      return { ...m, attendance: statusMap[m.attendance] };
-    });
-    return {
-      crew: { ...state.crew, [projectId]: updatedMembers }
+  toggleCrewAttendance: async (projectId, crewId) => {
+    const members = useProjectStore.getState().crew[projectId] || [];
+    const target = members.find((m) => m.id === crewId);
+    if (!target) return;
+
+    const statusMap: Record<CrewMember["attendance"], CrewMember["attendance"]> = {
+      "Present": "Late",
+      "Late": "Off-Duty",
+      "Off-Duty": "Absent",
+      "Absent": "Present"
     };
-  }),
+    const nextAttendance = statusMap[target.attendance];
+
+    const { error } = await supabase
+      .from("production_members")
+      .update({ attendance: nextAttendance })
+      .eq("id", crewId);
+
+    if (error) console.error("Error updating crew attendance:", error);
+
+    set((state) => ({
+      crew: {
+        ...state.crew,
+        [projectId]: (state.crew[projectId] || []).map((m) =>
+          m.id === crewId ? { ...m, attendance: nextAttendance } : m
+        )
+      }
+    }));
+  },
 
   toggleCastAvailability: (projectId, castId) => set((state) => {
     const members = state.cast[projectId] || [];
@@ -879,6 +897,42 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       cast: { ...state.cast, [projectId]: updatedMembers }
     };
   }),
+
+  setCrewAttendance: async (projectId, crewId, attendance) => {
+    const { error } = await supabase
+      .from("production_members")
+      .update({ attendance })
+      .eq("id", crewId);
+
+    if (error) console.error("Error setting crew attendance:", error);
+
+    set((state) => ({
+      crew: {
+        ...state.crew,
+        [projectId]: (state.crew[projectId] || []).map((m) =>
+          m.id === crewId ? { ...m, attendance } : m
+        )
+      }
+    }));
+  },
+
+  setCastAttendance: async (projectId, castId, attendance) => {
+    const { error } = await supabase
+      .from("cast_members")
+      .update({ attendance })
+      .eq("id", castId);
+
+    if (error) console.error("Error setting cast attendance:", error);
+
+    set((state) => ({
+      cast: {
+        ...state.cast,
+        [projectId]: (state.cast[projectId] || []).map((m) =>
+          m.id === castId ? { ...m, attendance } : m
+        )
+      }
+    }));
+  },
 
   updateEquipmentStatus: async (projectId, equipId, status, assignedTo = "") => {
     const { error } = await supabase

@@ -106,6 +106,12 @@ async function runMigrations() {
     await client.query(sql7);
     console.log("✓ 0007_standardize_schema_columns.sql applied successfully!");
 
+    // 8. Apply Attendance Columns (always safe & idempotent)
+    console.log("Applying 0008_add_attendance_columns.sql...");
+    const sql8 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0008_add_attendance_columns.sql"), "utf8");
+    await client.query(sql8);
+    console.log("✓ 0008_add_attendance_columns.sql applied successfully!");
+
     // Verify all tables in public schema
     console.log("\nVerifying current public tables:");
     const res = await client.query(`
