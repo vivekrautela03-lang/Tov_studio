@@ -124,6 +124,12 @@ async function runMigrations() {
     await client.query(sql10);
     console.log("✓ 0010_fix_productions_insert_policy.sql applied successfully!");
 
+    // 11. Apply New User Trigger Role Update (always safe & idempotent)
+    console.log("Applying 0011_update_new_user_trigger_for_role.sql...");
+    const sql11 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0011_update_new_user_trigger_for_role.sql"), "utf8");
+    await client.query(sql11);
+    console.log("✓ 0011_update_new_user_trigger_for_role.sql applied successfully!");
+
     // Verify all tables in public schema
     console.log("\nVerifying current public tables:");
     const res = await client.query(`

@@ -36,6 +36,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
   const [signUpEmail, setSignUpEmail] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
   const [signUpFullName, setSignUpFullName] = useState("");
+  const [signUpRole, setSignUpRole] = useState("Crew");
   
   // Password recovery inputs
   const [resetEmail, setResetEmail] = useState("");
@@ -85,7 +86,8 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
         password: signUpPassword.trim(),
         options: {
           data: {
-            full_name: signUpFullName.trim()
+            full_name: signUpFullName.trim(),
+            role: signUpRole
           }
         }
       });
@@ -474,6 +476,26 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
                             className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
                           />
                         </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
+                          Studio Role
+                        </label>
+                        <select
+                          value={signUpRole}
+                          onChange={(e) => setSignUpRole(e.target.value)}
+                          disabled={loading}
+                          className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none transition-colors cursor-pointer"
+                        >
+                          <option value="Owner">Studio Owner / Admin</option>
+                          <option value="Producer">Producer</option>
+                          <option value="Director">Director</option>
+                          <option value="Cinematographer (DOP)">Cinematographer (DOP)</option>
+                          <option value="Editor">Editor</option>
+                          <option value="Actor">Actor / Talent</option>
+                          <option value="Crew">Crew Member</option>
+                        </select>
                       </div>
 
                       <Button

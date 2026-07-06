@@ -1,8 +1,11 @@
 -- 0010_fix_productions_insert_policy.sql
 -- Fix chicken-and-egg RLS policy on productions to allow project creation by authenticated users
 
--- 1. Drop the legacy modify policy which blocked insertions
+-- 1. Drop the legacy modify policy and any existing custom insert/update/delete policies to ensure idempotency
 drop policy if exists "Allow modify productions for owners/producers" on public.productions;
+drop policy if exists "Allow insert productions for authenticated users" on public.productions;
+drop policy if exists "Allow update productions for owners/producers" on public.productions;
+drop policy if exists "Allow delete productions for owners/producers" on public.productions;
 
 -- 2. Create distinct policy for INSERT (creation)
 create policy "Allow insert productions for authenticated users" on public.productions
