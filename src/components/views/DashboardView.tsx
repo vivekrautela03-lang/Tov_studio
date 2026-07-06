@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore, CrewMember, CastMember, Equipment, CalendarEvent, ShotPlan } from "@/store/useProjectStore";
 import { supabase } from "@/utils/supabaseClient";
 import { cn } from "@/components/ui/button";
 import {
@@ -20,26 +20,31 @@ import {
   Sparkles,
   ArrowRight,
   User,
-  Scissors,
   FileText,
   MapPin,
-  Truck,
-  Layers,
-  FileCheck,
-  CreditCard,
   CheckSquare,
-  Volume2,
-  Brush,
-  Camera,
   Play,
   UploadCloud,
-  FileCode2,
-  Sliders,
-  FolderPlus
+  Settings,
+  ChevronRight,
+  TrendingUp,
+  Activity,
+  HardDrive,
+  Compass,
+  Sunrise,
+  Sunset,
+  Shield,
+  Eye,
+  Percent,
+  Plus,
+  HelpCircle,
+  Volume2,
+  Trash2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { motion, Reorder } from "framer-motion";
 
 export const DashboardView: React.FC = () => {
   const {
@@ -48,66 +53,130 @@ export const DashboardView: React.FC = () => {
     setActiveProjectId,
     setActiveView,
     crew,
+    cast,
     equipment,
     calendarEvents,
     shotPlans,
-    memberRole
+    memberRole,
+    fetchWorkspaceData
   } = useProjectStore();
 
   const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0];
 
-  // Weather States
+  // Dynamic user data
+  const [userName, setUserName] = useState("Collaborator");
   const [weatherData, setWeatherData] = useState<any>(null);
   const [forecastData, setForecastData] = useState<any[]>([]);
+  const [greeting, setGreeting] = useState("Welcome back");
+  const [recentLogs, setRecentLogs] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
+  // 1. Subscribe to Supabase Realtime Changes
+  useEffect(() => {
+    const channel = supabase
+      .channel("dashboard-realtime")
+      .on("postgres_changes", { event: "*", schema: "public" }, () => {
+        fetchWorkspaceData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchWorkspaceData]);
+
+  // 2. Fetch User Profile Name & Greetings
+  useEffect(() => {
+    const loadProfileAndGreetings = async () => {
+      // Set time-based greeting
+      const hour = new Date().getHours();
+      if (hour >= 5 && hour < 12) setGreeting("Good Morning");
+      else if (hour >= 12 && hour < 17) setGreeting("Good Afternoon");
+      else if (hour >= 17 && hour < 21) setGreeting("Good Evening");
+      else setGreeting("Good Night");
+
+      // Fetch name
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .single();
+        if (data?.full_name) {
+          setUserName(data.full_name);
+        } else if (user.email) {
+          setUserName(user.email.split("@")[0]);
+        }
+      }
+    };
+    loadProfileAndGreetings();
+  }, []);
+
+  // 3. Fetch Live Weather & 3-Day Forecast
   useEffect(() => {
     if (!activeProject) return;
 
-    const fetchWeatherAndForecast = async () => {
-      const apiKey = process.env.NEXT_PUBLIC_WEATHER_API_KEY;
-      if (!apiKey) return;
-      
+    const fetchWeather = async () => {
+      const apiKey = "9b29b35c2107f7bf3ac02422e628111d";
       try {
-        let city = "Singapore";
+        let city = "Tokyo";
         const locLower = activeProject.location.toLowerCase();
-        if (locLower.includes("tokyo")) {
-          city = "Tokyo";
-        } else if (locLower.includes("london")) {
-          city = "London";
-        }
-        
-        // 1. Current Weather
-        const response = await fetch(
+        if (locLower.includes("london")) city = "London";
+        else if (locLower.includes("singapore")) city = "Singapore";
+        else if (locLower.includes("tokyo")) city = "Tokyo";
+        else if (locLower.includes("backlot")) city = "Los Angeles";
+
+        // Current weather
+        const resp = await fetch(
           `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`
         );
-        if (response.ok) {
-          const data = await response.json();
+        if (resp.ok) {
+          const data = await resp.json();
           setWeatherData(data);
         }
 
-        // 2. 3-Day Forecast
-        const forecastResponse = await fetch(
+        // 3-Day Forecast
+        const fResp = await fetch(
           `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric`
         );
-        if (forecastResponse.ok) {
-          const fData = await forecastResponse.json();
-          // Filter to get index at +24h (8), +48h (16), +72h (24)
+        if (fResp.ok) {
+          const fData = await fResp.json();
           const daily = [fData.list[8], fData.list[16], fData.list[24]].filter(Boolean);
           setForecastData(daily);
         }
       } catch (err) {
-        console.error("Error fetching weather/forecast data:", err);
+        console.error("Error loading weather data:", err);
       }
     };
-
-    fetchWeatherAndForecast();
+    fetchWeather();
   }, [activeProject?.location]);
+
+  // 4. Fetch Activity Logs & Notifications
+  useEffect(() => {
+    const fetchSystemLogs = async () => {
+      const { data: logs } = await supabase
+        .from("activity_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(6);
+      if (logs) setRecentLogs(logs);
+
+      const { data: notices } = await supabase
+        .from("notifications")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (notices) setNotifications(notices);
+    };
+    fetchSystemLogs();
+  }, [activeProjectId]);
 
   // Empty state rendering
   if (projects.length === 0) {
     return (
-      <div className="space-y-6 animate-fade-in py-12">
-        <Card className="max-w-xl mx-auto border-primary/20 bg-gradient-to-b from-card to-primary/[0.02]">
+      <div className="space-y-6 animate-fade-in py-12 max-w-xl mx-auto">
+        <Card className="border-primary/20 bg-gradient-to-b from-card to-primary/[0.02]">
           <CardContent className="p-8 text-center space-y-6">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary animate-bounce">
               <Film className="w-8 h-8" />
@@ -115,17 +184,17 @@ export const DashboardView: React.FC = () => {
             <div className="space-y-2">
               <h2 className="text-xl font-extrabold text-white tracking-tight">WELCOME TO TOV STUDIO</h2>
               <p className="text-xs text-text-secondary leading-relaxed max-w-sm mx-auto">
-                Your clean slate production console is ready. Initialize your first film campaign workspace to unlock dashboards, screenplay editors, DIT telemetry, and AI continuity assistants.
+                Initialize your first film campaign workspace to unlock production-grade dashboards, screenplay editors, and real-time attendance roll calls.
               </p>
             </div>
             <div className="pt-2">
               <Button
                 variant="primary"
                 onClick={() => setActiveView("projects")}
-                className="mx-auto flex items-center gap-2 cursor-pointer shadow-lg shadow-primary/20 py-5"
+                className="mx-auto flex items-center gap-2 cursor-pointer shadow-lg shadow-primary/20 h-10 px-5"
               >
-                <FolderPlus className="w-4 h-4 text-black" />
-                <span>Initialize First Campaign Workspace</span>
+                <Plus className="w-4 h-4 text-black font-bold" />
+                <span>Initialize Workspace</span>
               </Button>
             </div>
           </CardContent>
@@ -134,33 +203,37 @@ export const DashboardView: React.FC = () => {
     );
   }
 
-  // Helper metrics
+  // Derived metrics
   const activeCrew = crew[activeProject.id] || [];
   const presentCrew = activeCrew.filter((c) => c.attendance === "Present" || c.attendance === "Late").length;
   const totalCrew = activeCrew.length;
   const attendanceRate = totalCrew > 0 ? Math.round((presentCrew / totalCrew) * 100) : 0;
 
+  const activeCast = cast[activeProject.id] || [];
   const activeEquip = equipment[activeProject.id] || [];
   const inUseEquip = activeEquip.filter((e) => e.status === "In Use").length;
-  const maintenanceEquip = activeEquip.filter((e) => e.status === "Maintenance").length;
-
-  const activeEvents = calendarEvents[activeProject.id] || [];
-  const todayDate = "2026-07-05"; // Simulated today
-  const todayEvents = activeEvents.filter((e) => e.date === todayDate);
 
   const activePlans = shotPlans[activeProject.id] || [];
   const completedShots = activePlans.filter((p) => p.status === "Completed").length;
   const totalShots = activePlans.length;
   const shotProgress = totalShots > 0 ? Math.round((completedShots / totalShots) * 100) : 0;
 
-  // AI Assistant suggestion trigger
-  const aiSuggestion = {
-    warning: "Rain Alert on Sunday",
-    text: "Heavy rain is forecast for Sunday afternoon during the scheduled outdoor shoot of 'Scene 1: Neon Alley'. I suggest moving this block to Saturday night, or swapping it with the indoor scene 'Scene 2: Apartment Racks' (Stage 4) to maintain continuity.",
-    action: "Reschedule Shot Plan"
-  };
+  const activeEvents = calendarEvents[activeProject.id] || [];
 
-  // Render 3-Day Forecast UI segment
+  // Weather Recommendations
+  const tempVal = weatherData?.main?.temp ? Math.round(weatherData.main.temp) : 22;
+  const humidityVal = weatherData?.main?.humidity ? weatherData.main.humidity : 60;
+  const windVal = weatherData?.wind?.speed ? weatherData.wind.speed : 5;
+  const sunriseVal = weatherData?.sys?.sunrise ? new Date(weatherData.sys.sunrise * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "05:45 AM";
+  const sunsetVal = weatherData?.sys?.sunset ? new Date(weatherData.sys.sunset * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "06:30 PM";
+
+  const isRainy = weatherData?.weather?.[0]?.main?.toLowerCase().includes("rain") || weatherData?.weather?.[0]?.main?.toLowerCase().includes("drizzle");
+  const shootRecommendation = isRainy
+    ? "⚠️ Warning: Indoor filming recommended due to forecast rain precipitation."
+    : tempVal > 35
+    ? "⚠️ Warning: Extreme temperature. Schedule hydration blocks for crew."
+    : "✓ Recommended: Clear sky conditions. Weather is perfect for outdoor filming.";
+
   const render3DayForecastSection = () => {
     if (forecastData.length === 0) return null;
     return (
@@ -182,781 +255,554 @@ export const DashboardView: React.FC = () => {
     );
   };
 
-  // Render department widgets based on selected user role
+  // Dynamic role-based greeting details
+  const greetingSubtitle = 
+    memberRole === "Owner" ? "Here is the master control dashboard for your production campaign." :
+    memberRole === "Director" ? "Review today's setups, storyboards, and camera plan breakdown." :
+    memberRole === "Cinematographer (DOP)" ? "Review lighting rigs, camera bodies, and sunset golden hour." :
+    memberRole === "Editor" ? "Check proxys, footage transfers, and render queues." :
+    "Welcome to the film set command console.";
+
+  // --- SUB-DASHBOARD VIEWS ---
+
+  // A. Owner & Producer Dashboard
+  const renderOwnerDashboard = () => {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* SVG Budget doughnut chart (Left Column) */}
+        <div className="lg:col-span-8 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Doughnut Chart */}
+            <Card className="bg-[#111318] border-white/5 p-5 flex flex-col justify-between h-72">
+              <div>
+                <CardTitle className="text-sm font-bold text-white uppercase tracking-wider font-mono">Budget Allocation</CardTitle>
+                <CardDescription className="text-[10px] mt-0.5">Real-time financial status</CardDescription>
+              </div>
+              <div className="flex items-center justify-center gap-6 py-4">
+                <svg className="w-28 h-28 transform -rotate-90">
+                  <circle cx="56" cy="56" r="45" stroke="rgba(255,255,255,0.03)" strokeWidth="12" fill="transparent" />
+                  <circle cx="56" cy="56" r="45" stroke="#3ecf8e" strokeWidth="12" fill="transparent" 
+                    strokeDasharray="282" strokeDashoffset={282 - (282 * 45) / 100} className="transition-all duration-1000" />
+                </svg>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-primary" />
+                    <span className="text-text-secondary">Spent: $1.1M (45%)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-white/20" />
+                    <span className="text-text-secondary">Remaining: $1.4M</span>
+                  </div>
+                  <div className="pt-2 border-t border-white/5 text-[11px] font-bold text-white">
+                    Allocated: {activeProject.budget}
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Campaign Overview list */}
+            <Card className="bg-[#111318] border-white/5 p-5 flex flex-col justify-between h-72">
+              <div>
+                <CardTitle className="text-sm font-bold text-white uppercase tracking-wider font-mono">Active Projects</CardTitle>
+                <CardDescription className="text-[10px] mt-0.5">Productions status logs</CardDescription>
+              </div>
+              <div className="space-y-3 py-2 flex-1 overflow-y-auto scrollbar-none">
+                {projects.map((p) => (
+                  <div key={p.id} className="flex justify-between items-center text-xs border-b border-white/5 pb-2">
+                    <span className={`font-semibold cursor-pointer ${p.id === activeProjectId ? "text-primary" : "text-white"}`}
+                      onClick={() => setActiveProjectId(p.id)}>
+                      {p.title}
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-text-secondary">{p.status}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+          </div>
+
+          {/* Interactive Production Timeline Gantt simulation */}
+          <Card className="bg-[#111318] border-white/5 p-5 space-y-4">
+            <div>
+              <CardTitle className="text-sm font-bold text-white uppercase tracking-wider font-mono">Campaign Timeline</CardTitle>
+              <CardDescription className="text-[10px] mt-0.5">Film production roadmap milestones</CardDescription>
+            </div>
+            <div className="space-y-3.5 pt-2">
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] font-mono text-text-secondary uppercase">
+                  <span>Pre-Production</span>
+                  <span className="text-primary font-bold">100% Completed</span>
+                </div>
+                <Progress value={100} size="sm" color="primary" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] font-mono text-text-secondary uppercase">
+                  <span>Production (Filming)</span>
+                  <span className="text-secondary font-bold">{shotProgress}% In Progress</span>
+                </div>
+                <Progress value={shotProgress} size="sm" color="secondary" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] font-mono text-text-secondary uppercase">
+                  <span>Post-Production (VFX & Cuts)</span>
+                  <span className="text-text-secondary italic">0% Locked</span>
+                </div>
+                <Progress value={0} size="sm" color="primary" />
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Real-time Logs Feed (Right Column) */}
+        <div className="lg:col-span-4 space-y-6">
+          <Card className="bg-[#111318] border-white/5 p-5 space-y-4">
+            <div className="flex items-center gap-1.5 text-xs text-primary font-bold uppercase tracking-wider font-mono">
+              <Activity className="w-4 h-4" />
+              <span>Real-Time Activity Feed</span>
+            </div>
+            <div className="space-y-3 flex flex-col max-h-[360px] overflow-y-auto scrollbar-none">
+              {recentLogs.length === 0 ? (
+                <div className="text-[11px] text-text-secondary italic text-center py-8">
+                  No system logs registered. Actions like adding crew or editing scripts will display here.
+                </div>
+              ) : (
+                recentLogs.map((log) => (
+                  <div key={log.id} className="text-xs border-l-2 border-primary/20 pl-3 py-0.5 space-y-1">
+                    <p className="text-white leading-normal">{log.message}</p>
+                    <span className="text-[9px] text-text-secondary block font-mono">
+                      {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  };
+
+  // B. Director, Writer & DOP Dashboard
+  const renderDirectorDashboard = () => {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Shot Plans and Storyboards list (Left Column) */}
+        <div className="lg:col-span-8 space-y-6">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Storyboards Panel */}
+            <Card className="bg-[#111318] border-white/5 p-5 flex flex-col justify-between h-72">
+              <div>
+                <CardTitle className="text-sm font-bold text-white uppercase tracking-wider font-mono">Camera Storyboard</CardTitle>
+                <CardDescription className="text-[10px]">Recent sequence preview cards</CardDescription>
+              </div>
+              <div className="py-2 flex-1 flex gap-3 overflow-x-auto scrollbar-none items-center justify-start">
+                {activePlans.length === 0 ? (
+                  <div className="text-xs text-text-secondary italic w-full text-center">No shot planners configured.</div>
+                ) : (
+                  activePlans.map((plan) => (
+                    <div key={plan.id} className="w-28 shrink-0 bg-black/40 border border-white/5 rounded-lg p-2 space-y-1">
+                      <div className="h-16 w-full rounded bg-white/5 overflow-hidden">
+                        <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?w=200&q=80" className="w-full h-full object-cover" />
+                      </div>
+                      <span className="text-[10px] font-bold text-white block truncate">{plan.setup}</span>
+                      <span className="text-[9px] text-text-secondary block">{plan.location}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
+
+            {/* AI Continuity Suggestions */}
+            <Card className="bg-[#111318] border-primary/10 border p-5 flex flex-col justify-between h-72">
+              <div className="flex items-center gap-1 text-[10px] text-primary font-bold uppercase tracking-wider font-mono">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>AI Continuity breakdown</span>
+              </div>
+              <div className="space-y-2 py-2 flex-1">
+                <h4 className="text-xs font-bold text-white">Outdoor Schedule Warnings</h4>
+                <p className="text-[11px] text-text-secondary leading-relaxed">
+                  "Neon Alley has a Rain Contingency. Sunday rain probability is 78%. Move Steadicam sequence to Saturday night, or swap with Apartment Racks on Stage 4."
+                </p>
+              </div>
+              <Button variant="primary" onClick={() => setActiveView("shot-planner")} className="w-full text-[10px] h-8">
+                Optimize Shooting Plan
+              </Button>
+            </Card>
+
+          </div>
+
+          {/* Shot planner completion status */}
+          <Card className="bg-[#111318] border-white/5 p-5 space-y-4">
+            <div>
+              <CardTitle className="text-sm font-bold text-white uppercase tracking-wider font-mono">Shot Planner Telemetry</CardTitle>
+              <CardDescription className="text-[10px] mt-0.5">Filming progress status checklist</CardDescription>
+            </div>
+            <div className="flex items-center justify-between gap-6 py-2">
+              <div className="flex-1 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-secondary">Completed Setups</span>
+                  <span className="text-white font-bold">{completedShots} of {totalShots}</span>
+                </div>
+                <Progress value={shotProgress} color="primary" />
+              </div>
+              <div className="text-center font-mono shrink-0">
+                <span className="text-xl font-black text-white">{shotProgress}%</span>
+              </div>
+            </div>
+          </Card>
+
+        </div>
+
+        {/* System notifications feed (Right Column) */}
+        <div className="lg:col-span-4 space-y-6">
+          <Card className="bg-[#111318] border-white/5 p-5 space-y-4">
+            <div className="flex items-center gap-1.5 text-xs text-secondary font-bold uppercase tracking-wider font-mono">
+              <AlertTriangle className="w-4 h-4" />
+              <span>Safety & Production Alerts</span>
+            </div>
+            <div className="space-y-3 flex flex-col max-h-[360px] overflow-y-auto scrollbar-none">
+              {notifications.length === 0 ? (
+                <div className="text-[11px] text-text-secondary italic text-center py-8">
+                  No alerts currently registered. Safety logs and checklist notifications will display here.
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <div key={n.id} className="text-xs border-l-2 border-secondary/20 pl-3 py-0.5 space-y-1">
+                    <p className="text-white font-semibold leading-normal">{n.title}</p>
+                    <p className="text-text-secondary text-[11px] leading-normal">{n.message}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+        </div>
+
+      </div>
+    );
+  };
+
+  // C. Crew and Actor Dashboard
+  const renderCrewActorDashboard = () => {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Call time sheet (Left Column) */}
+        <div className="lg:col-span-8 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Call sheet */}
+            <Card className="bg-[#111318] border-white/5 p-5 flex flex-col justify-between h-72">
+              <div>
+                <CardTitle className="text-sm font-bold text-white uppercase tracking-wider font-mono">Today's Call Sheet</CardTitle>
+                <CardDescription className="text-[10px] mt-0.5">On-set check-in details</CardDescription>
+              </div>
+              <div className="space-y-2.5 py-2 text-xs">
+                <div className="flex justify-between items-center border-b border-white/5 pb-1.5">
+                  <span className="text-text-secondary">Expected Call Time</span>
+                  <span className="text-white font-bold">07:30 AM</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-white/5 pb-1.5">
+                  <span className="text-text-secondary">Location Site</span>
+                  <span className="text-white font-bold">{activeProject.location}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-white/5 pb-1.5">
+                  <span className="text-text-secondary">Assigned Camera Rig</span>
+                  <span className="text-white font-bold">ARRI Steadicam Rig 4</span>
+                </div>
+              </div>
+              <div className="bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold p-2.5 rounded text-center">
+                Attendance Logged: Verified Present on Set
+              </div>
+            </Card>
+
+            {/* Weather & Sun position */}
+            <Card className="bg-[#111318] border-white/5 p-5 flex flex-col justify-between h-72">
+              <div>
+                <CardTitle className="text-sm font-bold text-white uppercase tracking-wider font-mono">Sun & Shooting Conditions</CardTitle>
+                <CardDescription className="text-[10px] mt-0.5">Golden hour tracking</CardDescription>
+              </div>
+              <div className="grid grid-cols-2 gap-3 py-2 text-[11px] text-text-secondary">
+                <div className="bg-white/[0.02] border border-white/5 rounded p-2 space-y-1">
+                  <span className="flex items-center gap-1"><Sunrise className="w-3.5 h-3.5 text-primary" /> Sunrise</span>
+                  <span className="text-white font-bold block">{sunriseVal}</span>
+                </div>
+                <div className="bg-white/[0.02] border border-white/5 rounded p-2 space-y-1">
+                  <span className="flex items-center gap-1"><Sunset className="w-3.5 h-3.5 text-secondary" /> Sunset</span>
+                  <span className="text-white font-bold block">{sunsetVal}</span>
+                </div>
+              </div>
+              <div className="text-[10px] text-text-secondary font-semibold bg-white/[0.01] border border-white/5 p-2 rounded text-center">
+                Golden hour begins approximately 45m before sunset.
+              </div>
+            </Card>
+
+          </div>
+
+          {/* Checked equipment logs */}
+          <Card className="bg-[#111318] border-white/5 p-5 space-y-4">
+            <div>
+              <CardTitle className="text-sm font-bold text-white uppercase tracking-wider font-mono">Assigned Camera & Audio Equipment</CardTitle>
+              <CardDescription className="text-[10px] mt-0.5">Live battery and checkout telemetry</CardDescription>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              {activeEquip.slice(0, 2).map((eq) => (
+                <div key={eq.id} className="bg-white/[0.02] border border-white/5 rounded-lg p-3 flex justify-between items-center text-xs">
+                  <div>
+                    <span className="text-white font-semibold block">{eq.name}</span>
+                    <span className="text-[9px] text-text-secondary font-mono">{eq.qrCode}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-success">
+                    <Battery className="w-4 h-4 shrink-0" />
+                    <span className="font-bold">{eq.battery}%</span>
+                  </div>
+                </div>
+              ))}
+              {activeEquip.length === 0 && (
+                <div className="col-span-2 text-[11px] text-text-secondary italic text-center py-4">No equipment checkout logs verified.</div>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {/* Notifications and messages panel (Right Column) */}
+        <div className="lg:col-span-4 space-y-6">
+          <Card className="bg-[#111318] border-white/5 p-5 space-y-4">
+            <div className="flex items-center gap-1.5 text-xs text-primary font-bold uppercase tracking-wider font-mono">
+              <Users className="w-4 h-4" />
+              <span>Crew Directory status</span>
+            </div>
+            <div className="space-y-3 flex flex-col max-h-[360px] overflow-y-auto scrollbar-none">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-text-secondary">Crew Checked-in Today</span>
+                <span className="text-white font-bold">{presentCrew} of {totalCrew}</span>
+              </div>
+              <Progress value={attendanceRate} color="primary" />
+              <div className="pt-2 border-t border-white/5 space-y-2">
+                {activeCrew.slice(0, 4).map((c) => (
+                  <div key={c.id} className="flex justify-between items-center text-[11px]">
+                    <span className="text-white">{c.name}</span>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                      c.attendance === "Present" ? "bg-success/15 text-success" : "bg-white/5 text-text-secondary"
+                    }`}>{c.attendance}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        </div>
+
+      </div>
+    );
+  };
+
+  // D. Editor & Post-Prod Dashboard
+  const renderEditorDashboard = () => {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Render timelines (Left Column) */}
+        <div className="lg:col-span-8 space-y-6">
+          <Card className="bg-[#111318] border-white/5 p-5 space-y-4">
+            <div>
+              <CardTitle className="text-sm font-bold text-white uppercase tracking-wider font-mono">Proxy & Footage Transfers</CardTitle>
+              <CardDescription className="text-[10px] mt-0.5">Telemetry log for post-production team</CardDescription>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="bg-white/[0.01] border border-white/5 rounded-lg p-4 space-y-1">
+                <span className="text-[10px] text-text-secondary uppercase">Proxy sync</span>
+                <div className="text-base font-bold text-white">98.2% Completed</div>
+              </div>
+              <div className="bg-white/[0.01] border border-white/5 rounded-lg p-4 space-y-1">
+                <span className="text-[10px] text-text-secondary uppercase">Render queue</span>
+                <div className="text-base font-bold text-white">3 jobs queued</div>
+              </div>
+              <div className="bg-white/[0.01] border border-white/5 rounded-lg p-4 space-y-1">
+                <span className="text-[10px] text-text-secondary uppercase">Footage volume</span>
+                <div className="text-base font-bold text-white">14.2 TB Logged</div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* File Vault logs (Right Column) */}
+        <div className="lg:col-span-4 space-y-6">
+          <Card className="bg-[#111318] border-white/5 p-5 space-y-4">
+            <div className="flex items-center gap-1.5 text-xs text-primary font-bold uppercase tracking-wider font-mono">
+              <HardDrive className="w-4 h-4" />
+              <span>DIT Storage Volume</span>
+            </div>
+            <div className="space-y-3.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-text-secondary">DIT Vault Storage</span>
+                <span className="text-white font-bold">1.4 TB / 5.0 TB</span>
+              </div>
+              <Progress value={28} color="primary" />
+            </div>
+          </Card>
+        </div>
+
+      </div>
+    );
+  };
+
   const renderRoleDashboard = () => {
     switch (memberRole) {
-      case "Actor":
-        return renderActorDashboard();
-      case "Cinematographer (DOP)":
-      case "Camera Department":
-        return renderCameraDashboard();
-      case "Editor":
-      case "VFX Team":
-        return renderEditorVFXDashboard();
-      case "Client":
-        return renderClientDashboard();
       case "Owner":
-      case "Production Manager":
-        return renderAdminDashboard();
+      case "Producer":
+        return renderOwnerDashboard();
+      case "Director":
+      case "Writer":
+        return renderDirectorDashboard();
+      case "Cinematographer (DOP)":
+      case "Crew":
+        return renderCrewActorDashboard();
+      case "Editor":
+        return renderEditorDashboard();
       default:
-        return renderGenericCrewDashboard();
+        return renderCrewActorDashboard();
     }
   };
 
-  // 1. ADMIN & MANAGER PANEL
-  const renderAdminDashboard = () => {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Today's Shoot Call Sheet */}
-        <Card className="flex flex-col justify-between">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Today's Shoot</CardTitle>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-bold uppercase">
-                Call Sheet
-              </span>
-            </div>
-            <CardDescription>Sunday, July 5, 2026</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs border-b border-white/5 pb-2">
-                <span className="text-text-secondary flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Call Time</span>
-                <span className="text-white font-semibold">18:00 (Night Shoot)</span>
-              </div>
-              <div className="flex items-center justify-between text-xs border-b border-white/5 pb-2">
-                <span className="text-text-secondary flex items-center gap-1.5"><Film className="w-3.5 h-3.5" /> Scene Blocks</span>
-                <span className="text-white font-semibold">Scene 1 (Steps 1A, 1B)</span>
-              </div>
-              <div className="flex items-center justify-between text-xs border-b border-white/5 pb-2">
-                <span className="text-text-secondary flex items-center gap-1.5"><Video className="w-3.5 h-3.5" /> Camera Rig</span>
-                <span className="text-white font-semibold">ARRI Steadicam (Anamorphic)</span>
-              </div>
-            </div>
-            {weatherData ? (
-              <div className="bg-[#3ecf8e]/5 border border-[#3ecf8e]/10 rounded-lg p-3 flex flex-col gap-2.5">
-                <div className="flex items-start gap-2.5">
-                  <CloudRain className={cn("w-5 h-5 shrink-0 mt-0.5", 
-                    weatherData.weather[0].main.toLowerCase().includes("rain") || weatherData.weather[0].main.toLowerCase().includes("drizzle") 
-                      ? "text-danger" 
-                      : "text-primary"
-                  )} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-center text-xs font-semibold">
-                      <span className="text-white">Live Weather: {weatherData.name}</span>
-                      <span className="text-primary font-mono">{Math.round(weatherData.main.temp)}°C</span>
-                    </div>
-                    <p className="text-[10px] text-text-secondary leading-relaxed mt-1">
-                      {weatherData.weather[0].main} ({weatherData.weather[0].description}).{" "}
-                      {weatherData.weather[0].main.toLowerCase().includes("rain") || weatherData.weather[0].main.toLowerCase().includes("drizzle") || weatherData.weather[0].main.toLowerCase().includes("thunderstorm")
-                        ? "Precipitation detected. Stand by with waterproof shrouds and rain covers."
-                        : "Optimal shooting conditions. Clear skies forecast."}
-                    </p>
-                  </div>
-                </div>
-                {render3DayForecastSection()}
-              </div>
-            ) : (
-              <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3 flex items-start gap-2.5">
-                <CloudRain className="w-5 h-5 text-warning shrink-0 mt-0.5" />
-                <div>
-                  <span className="text-xs font-semibold text-warning">Weather Warning</span>
-                  <p className="text-[10px] text-text-secondary leading-relaxed mt-0.5">
-                    Overcast skies, light showers predicted at 22:00. Crew should stand by with waterproof camera covers.
-                  </p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* AI Recommendations */}
-        <Card className="flex flex-col justify-between border-primary/20 bg-gradient-to-b from-card to-primary/5">
-          <CardHeader>
-            <div className="flex items-center gap-1.5 text-xs text-primary font-mono font-bold uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-              <span>AI Production Assistant</span>
-            </div>
-            <CardTitle className="text-white">Continuity & Scheduling Suggestions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
-                <AlertTriangle className="w-4 h-4 text-warning" />
-                <span>{aiSuggestion.warning}</span>
-              </div>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                {aiSuggestion.text}
-              </p>
-            </div>
-            <div className="pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveView("shot-planner")}
-                className="w-full text-xs flex items-center justify-center gap-1.5 hover:bg-primary hover:text-white"
-              >
-                <span>Optimize Shooting Schedule</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Financial Budget Summary */}
-        <Card className="flex flex-col justify-between">
-          <CardHeader>
-            <CardTitle>Budget Allocation</CardTitle>
-            <CardDescription>{activeProject.title}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between items-end text-xs">
-                <span className="text-text-secondary">Production Expense Burn</span>
-                <span className="text-white font-bold">{activeProject.budgetVal > 0 ? Math.round((activeProject.spentVal / activeProject.budgetVal) * 100) : 0}%</span>
-              </div>
-              <Progress value={activeProject.budgetVal > 0 ? Math.round((activeProject.spentVal / activeProject.budgetVal) * 100) : 0} color="primary" size="md" />
-            </div>
-            <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-4">
-              <div>
-                <span className="text-[10px] text-text-secondary uppercase font-semibold">Spent to Date</span>
-                <div className="text-lg font-bold text-white mt-1">
-                  ${(activeProject.spentVal / 1000000).toFixed(2)}M
-                </div>
-              </div>
-              <div>
-                <span className="text-[10px] text-text-secondary uppercase font-semibold">Total Approved</span>
-                <div className="text-lg font-bold text-white mt-1">
-                  {activeProject.budget}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Crew Attendance & Operations */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Crew & On-Set Operations</CardTitle>
-            <CardDescription>Real-time attendance status</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white">
-                  <Users className="w-5 h-5 text-secondary" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-white">Attendance Rate</div>
-                  <div className="text-[10px] text-text-secondary mt-0.5">{presentCrew} of {totalCrew} present today</div>
-                </div>
-              </div>
-              <div className="text-xl font-black text-white">{attendanceRate}%</div>
-            </div>
-            
-            <div className="space-y-2 border-t border-white/5 pt-4">
-              <div className="flex justify-between text-xs">
-                <span className="text-text-secondary">Camera & Grip</span>
-                <span className="text-success font-medium">All Present</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-text-secondary">DIT / Data Wrangling</span>
-                <span className="text-warning font-medium">1 Late (Takahiro S.)</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-text-secondary">Gaffer / Lighting Riggers</span>
-                <span className="text-success font-medium">All Present</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Equipment & Inventory Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Equipment Status</CardTitle>
-            <CardDescription>Active gear trackers</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="bg-white/[0.02] border border-white/5 rounded-lg p-2">
-                <span className="text-[9px] text-text-secondary uppercase font-semibold">In Use</span>
-                <div className="text-lg font-bold text-white mt-1">{inUseEquip}</div>
-              </div>
-              <div className="bg-white/[0.02] border border-white/5 rounded-lg p-2">
-                <span className="text-[9px] text-text-secondary uppercase font-semibold">Available</span>
-                <div className="text-lg font-bold text-success mt-1">
-                  {activeEquip.length - inUseEquip - maintenanceEquip}
-                </div>
-              </div>
-              <div className="bg-white/[0.02] border border-white/5 rounded-lg p-2">
-                <span className="text-[9px] text-text-secondary uppercase font-semibold">In Shop</span>
-                <div className="text-lg font-bold text-danger mt-1">{maintenanceEquip}</div>
-              </div>
-            </div>
-
-            <div className="space-y-3 border-t border-white/5 pt-4">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-text-secondary flex items-center gap-1.5"><Battery className="w-3.5 h-3.5 text-success" /> DJI Drone Battery</span>
-                <span className="text-danger font-semibold">12% (Alert)</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-text-secondary flex items-center gap-1.5"><Wrench className="w-3.5 h-3.5 text-text-secondary" /> CS15 LED maintenance</span>
-                <span className="text-text-secondary">Completed Today</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Calendar Today's Agenda Preview */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Today's Schedule</CardTitle>
-            <CardDescription>Upcoming meetings and production beats</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {todayEvents.length === 0 ? (
-              <div className="text-center py-6 text-xs text-text-secondary">
-                No events scheduled for today.
-              </div>
-            ) : (
-              todayEvents.map((evt) => (
-                <div
-                  key={evt.id}
-                  className="flex items-start gap-3 p-2.5 rounded-lg bg-white/[0.02] border border-white/5"
-                >
-                  <div className={`w-1.5 h-8 rounded-full shrink-0 mt-0.5 ${
-                    evt.type === "shoot" ? "bg-primary" : 
-                    evt.type === "meeting" ? "bg-secondary" : 
-                    evt.type === "deadline" ? "bg-danger" : "bg-success"
-                  }`} />
-                  <div>
-                    <h4 className="text-xs font-semibold text-white">{evt.title}</h4>
-                    <span className="text-[10px] text-text-secondary font-mono mt-0.5 block">{evt.time}</span>
-                  </div>
-                </div>
-              ))
-            )}
-            <div className="pt-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setActiveView("calendar")}
-                className="w-full text-xs text-text-secondary hover:text-white"
-              >
-                Go to Full Calendar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
-
-  // 2. ACTOR PANEL
-  const renderActorDashboard = () => {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Character Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5 text-primary" />
-              <span>Character Profile</span>
-            </CardTitle>
-            <CardDescription>Assigned Role Details</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-xl border border-primary/20">
-                CR
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-white">Detective Cyber-Roy</h4>
-                <p className="text-xs text-text-secondary">Lead Actor • Scene 1, 2, 4</p>
-              </div>
-            </div>
-            <div className="border-t border-white/5 pt-3 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Rehearsal Call</span>
-                <span className="text-white font-medium">July 06, 14:00</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Travel Coordinator</span>
-                <span className="text-white">Marcus Vance (+65 9182 8221)</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Callsheet Call Time & Details */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Daily Call Time</CardTitle>
-              <span className="text-[9px] px-2 py-0.5 rounded bg-primary/20 text-primary font-bold uppercase">
-                Active Call
-              </span>
-            </div>
-            <CardDescription>Today's shooting plan</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-center py-4 bg-white/[0.02] border border-white/5 rounded-xl">
-              <span className="text-[10px] text-text-secondary uppercase">Your Personal Call</span>
-              <div className="text-3xl font-extrabold text-white mt-1">18:30</div>
-              <span className="text-[10px] text-text-secondary">Location Call: 18:00</span>
-            </div>
-            <div className="space-y-2 text-xs">
-              <div className="flex items-start gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                <span className="text-text-secondary">Set Location: {activeProject.location}</span>
-              </div>
-              <div className="flex items-start gap-1.5">
-                <Truck className="w-3.5 h-3.5 text-text-secondary shrink-0 mt-0.5" />
-                <span className="text-text-secondary">Transport pick-up: 17:30 (Hotel Lobby)</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Costume & Makeup Schedule */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Scissors className="w-4 h-4 text-secondary" />
-              <span>Costume & Makeup</span>
-            </CardTitle>
-            <CardDescription>Wardrobe coordinates</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-xs">
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-text-secondary">Costume Fitting</span>
-              <span className="text-white font-medium">Fit #3: Techwear Cloak</span>
-            </div>
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-text-secondary">Makeup Timing</span>
-              <span className="text-white font-medium">19:00 - Soundstage A</span>
-            </div>
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-success font-medium">Ready (Rack 2)</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-secondary">Assigned Scene Sheets</span>
-              <span className="text-primary font-bold underline cursor-pointer" onClick={() => setActiveView("scripts")}>
-                View Scene 1 PDF
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
-
-  // 3. CINEMATOGRAPHER & CAMERA PANEL
-  const renderCameraDashboard = () => {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Active Camera Setup */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Video className="w-5 h-5 text-primary" />
-              <span>Camera Setup Spec</span>
-            </CardTitle>
-            <CardDescription>Cinematography Setup</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-xs">
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-text-secondary">Camera body</span>
-              <span className="text-white font-medium">ARRI ALEXA 35</span>
-            </div>
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-text-secondary">Lens kit</span>
-              <span className="text-white font-medium">Cooke Anamorphic/i SF (50mm)</span>
-            </div>
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-text-secondary">Target Aspect</span>
-              <span className="text-white font-mono">2.39:1 (Cinematic Wide)</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-secondary">Active LUT</span>
-              <span className="text-primary font-bold">OldVerse_BladeRunner_v4.cube</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Shot List & Setup Goals */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-secondary" />
-              <span>Today's Shot Goals</span>
-            </CardTitle>
-            <CardDescription>Setup checklists</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2.5 text-xs">
-              <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded">
-                <span className="text-white font-medium">Shot 1A: Wide Alley Panning</span>
-                <span className="text-success font-semibold">Completed</span>
-              </div>
-              <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded">
-                <span className="text-white font-medium">Shot 1B: Close-up Cyber Eye</span>
-                <span className="text-primary font-semibold">Next Setup</span>
-              </div>
-              <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded text-text-secondary">
-                <span>Shot 1C: Tracking Low-Angle run</span>
-                <span>Queued</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Lighting Plan details */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-warning" />
-              <span>Grip & Lighting Plan</span>
-            </CardTitle>
-            <CardDescription>Set lighting specs</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-xs">
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-text-secondary">Key Light</span>
-              <span className="text-white">Aputure 600d (Lantern Softbox)</span>
-            </div>
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-text-secondary">Fill Light</span>
-              <span className="text-white">Nova P600c (Cool Cyan gel)</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-secondary">Backlight rig</span>
-              <span className="text-white">Astera Titan Tubes (Neon Pink glow)</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
-
-  // 4. EDITOR & VFX PANEL
-  const renderEditorVFXDashboard = () => {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Timeline Lock Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileCheck className="w-5 h-5 text-primary" />
-              <span>Timeline lock drafts</span>
-            </CardTitle>
-            <CardDescription>VFX plate tracking</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-xs">
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-text-secondary">Assembly Cut</span>
-              <span className="text-success font-medium">Approved (July 02)</span>
-            </div>
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-text-secondary">Rough Cut v1</span>
-              <span className="text-primary font-bold">In Review (July 05)</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-secondary">Fine Cut lock</span>
-              <span className="text-text-secondary">Pending scenes 3 & 4</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Footage Upload Portal */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UploadCloud className="w-5 h-5 text-secondary" />
-              <span>Footage Transfers</span>
-            </CardTitle>
-            <CardDescription>Upload proxies</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 border border-dashed border-white/10 rounded-xl text-center flex flex-col items-center gap-2 cursor-pointer hover:bg-white/[0.01] transition-all">
-              <UploadCloud className="w-8 h-8 text-text-secondary animate-pulse" />
-              <span className="text-xs text-white font-medium">Drag proxy dailies here</span>
-              <span className="text-[10px] text-text-secondary">Supports Apple ProRes Proxy & H.264</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* VFX Asset Tracking */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileCode2 className="w-4 h-4 text-warning" />
-              <span>VFX Plates & CGI Assets</span>
-            </CardTitle>
-            <CardDescription>Queued VFX shots</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2.5 text-xs">
-            <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded">
-              <span>Scene 1 - Sky Neon Glow replace</span>
-              <span className="text-warning font-semibold">CGI Render</span>
-            </div>
-            <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded">
-              <span>Scene 2 - Hologram billboard insert</span>
-              <span className="text-success font-semibold">Complete</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
-
-  // 5. CLIENT DASHBOARD
-  const renderClientDashboard = () => {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Approved Deliverables */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Play className="w-5 h-5 text-primary" />
-              <span>Approved Deliverables</span>
-            </CardTitle>
-            <CardDescription>Campaign review packages</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-3 rounded-lg">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center text-primary">
-                  <Play className="w-4 h-4" />
-                </div>
-                <div>
-                  <h5 className="text-xs font-bold text-white">First Look Teaser (v2)</h5>
-                  <p className="text-[9px] text-text-secondary">30s • 4K ProRes Proxy</p>
-                </div>
-              </div>
-              <Button size="sm" variant="ghost" className="text-[10px] text-primary">
-                Open Review
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Payments, Milestones & Contracts */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-secondary" />
-              <span>Contracts & Payments</span>
-            </CardTitle>
-            <CardDescription>Ledger balances</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-xs">
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-text-secondary">Milestone 1 (Pre-Prod)</span>
-              <span className="text-success font-semibold">Paid ($25,000)</span>
-            </div>
-            <div className="flex justify-between border-b border-white/5 pb-2">
-              <span className="text-text-secondary">Milestone 2 (Principal Wrap)</span>
-              <span className="text-warning font-semibold">Pending ($30,000)</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-secondary">Production Service Contract</span>
-              <span className="text-primary font-bold underline cursor-pointer">Signed PDF</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Feedback Channel */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-warning" />
-              <span>Submit Review Notes</span>
-            </CardTitle>
-            <CardDescription>Dailies feedback</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <textarea
-              rows={3}
-              placeholder="Type your feedback notes for the editing room here..."
-              className="w-full bg-[#09090B] border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-primary focus:outline-none transition-all resize-none"
-            />
-            <Button size="sm" variant="primary" className="w-full text-xs">
-              Dispatch Feedback
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
-
-  // 6. GENERIC CREW DASHBOARD (Sound, Art, Makeup, Costume, etc.)
-  const renderGenericCrewDashboard = () => {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Call time */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Daily Call Time</CardTitle>
-            <CardDescription>{memberRole} Department</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-center py-4 bg-white/[0.02] border border-white/5 rounded-xl">
-              <span className="text-[10px] text-text-secondary uppercase">Your Set Call</span>
-              <div className="text-3xl font-extrabold text-white mt-1">18:00</div>
-              <span className="text-[10px] text-text-secondary">Today, Sunday July 5</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs">
-              <MapPin className="w-4 h-4 text-primary shrink-0" />
-              <span className="text-text-secondary">Set Location: {activeProject.location}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Assigned tasks */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckSquare className="w-5 h-5 text-secondary" />
-              <span>Assigned Checklist</span>
-            </CardTitle>
-            <CardDescription>Department Tasks</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-xs">
-            <div className="flex items-center justify-between p-2.5 rounded bg-white/[0.02] border border-white/5">
-              <span>Setup equipment inventory checklist</span>
-              <span className="text-success font-semibold">Done</span>
-            </div>
-            <div className="flex items-center justify-between p-2.5 rounded bg-white/[0.02] border border-white/5">
-              <span>Stand by for Scene 1 shoot blocks</span>
-              <span className="text-primary font-semibold">Pending</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Weather status */}
-        <Card>
-          <CardHeader>
-            <CardTitle>On-Set Weather Monitor</CardTitle>
-            <CardDescription>Continuous Sync</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {weatherData ? (
-              <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3 flex flex-col gap-2.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-text-secondary">Live Temp ({weatherData.name})</span>
-                  <span className="text-white font-black">{Math.round(weatherData.main.temp)}°C</span>
-                </div>
-                {render3DayForecastSection()}
-              </div>
-            ) : (
-              <div className="text-center py-6 text-xs text-text-secondary">
-                Weather parameters loading...
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
-
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       
-      {/* Hero Welcome Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-card to-card/50 border border-white/5 rounded-2xl p-6 md:p-8 relative overflow-hidden shadow-2xl">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-primary/5 to-transparent pointer-events-none" />
-        <div className="z-10 space-y-2">
-          <div className="flex items-center gap-2 text-primary font-mono text-xs uppercase tracking-widest font-semibold">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>AI Studio OS Active</span>
+      {/* 1. Personalized Header greeting */}
+      <Card className="border-white/5 bg-gradient-to-r from-card via-card to-primary/[0.01] relative overflow-hidden">
+        <CardContent className="p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight uppercase leading-none">
+                {greeting}, {userName} 👋
+              </h1>
+              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold uppercase tracking-wider font-mono">
+                {memberRole}
+              </span>
+            </div>
+            <p className="text-xs text-text-secondary max-w-xl">
+              {greetingSubtitle}
+            </p>
           </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
-            Dashboard View: {memberRole}
-          </h1>
-          <p className="text-text-secondary text-sm max-w-xl leading-relaxed">
-            Welcome back. Workspace for <span className="text-white font-medium">"{activeProject.title}"</span> is currently active at <span className="text-white font-medium">{activeProject.location}</span>. 
-          </p>
-        </div>
-        <div className="flex gap-3 z-10 shrink-0">
-          <Button variant="secondary" onClick={() => setActiveView("projects")} className="cursor-pointer">
-            All Projects
-          </Button>
-          <Button variant="primary" onClick={() => setActiveView("ai-studio")} className="flex items-center gap-2 cursor-pointer">
-            <Sparkles className="w-4 h-4 text-black" />
-            <span>Open AI Studio</span>
-          </Button>
-        </div>
-      </div>
 
-      {/* Render selected role specific dashboard widgets */}
-      {renderRoleDashboard()}
-
-      {/* active productions horizontal list */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Studio Workspace Productions</CardTitle>
-          <CardDescription>Overview of all active film campaigns</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="divide-y divide-white/5">
-            {projects.map((proj) => {
-              const isActive = proj.id === activeProjectId;
-              return (
-                <div
-                  key={proj.id}
-                  className={`p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all duration-200 ${
-                    isActive ? "bg-white/[0.02]" : "hover:bg-white/[0.01]"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={proj.coverImage}
-                      alt={proj.title}
-                      className="w-12 h-8 object-cover rounded-md border border-white/10 shrink-0"
-                    />
-                    <div>
-                      <h4 className="text-sm font-bold text-white">{proj.title}</h4>
-                      <p className="text-xs text-text-secondary mt-0.5">{proj.director} • {proj.deadline}</p>
-                    </div>
-                  </div>
-
-                  <div className="w-full sm:w-48 space-y-1.5">
-                    <div className="flex justify-between text-[10px] font-mono text-text-secondary">
-                      <span>Completion</span>
-                      <span className="text-white font-bold">{proj.progress}%</span>
-                    </div>
-                    <Progress value={proj.progress} color={isActive ? "primary" : "secondary"} size="sm" />
-                  </div>
-
-                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                      proj.status === "Production" ? "bg-primary/20 text-primary" :
-                      proj.status === "Post-Production" ? "bg-secondary/20 text-secondary" :
-                      "bg-white/10 text-text-secondary"
-                    }`}>
-                      {proj.status}
-                    </span>
-                    <Button
-                      variant={isActive ? "primary" : "secondary"}
-                      size="sm"
-                      onClick={() => {
-                        setActiveProjectId(proj.id);
-                        setActiveView("projects");
-                      }}
-                      className="text-xs cursor-pointer"
-                    >
-                      {isActive ? "Enter Workspace" : "Select"}
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
+          {/* Quick Active Campaign Selector */}
+          <div className="flex flex-col gap-1 md:items-end">
+            <span className="text-[10px] text-text-secondary font-mono uppercase font-bold tracking-wider">Active Workspace</span>
+            <select
+              value={activeProjectId}
+              onChange={(e) => setActiveProjectId(e.target.value)}
+              className="bg-black/60 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:border-primary focus:outline-none cursor-pointer"
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
           </div>
         </CardContent>
       </Card>
-      
+
+      {/* 2. Weather conditions widget row */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        
+        {/* Weather Conditions panel (8 columns) */}
+        <div className="md:col-span-8">
+          <Card className="bg-[#111318] border-white/5 p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <Compass className="w-5 h-5 text-primary" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  Shooting Location Weather Telemetry ({weatherData?.name || "Tokyo"})
+                </h3>
+              </div>
+              <span className="text-[10px] font-mono text-text-secondary uppercase">OpenWeather live sync</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+              <div className="space-y-1">
+                <span className="text-text-secondary text-[10px] uppercase">Temperature</span>
+                <div className="text-lg font-black text-white">{tempVal}°C</div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-text-secondary text-[10px] uppercase">Air Humidity</span>
+                <div className="text-lg font-black text-white">{humidityVal}%</div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-text-secondary text-[10px] uppercase">Wind velocity</span>
+                <div className="text-lg font-black text-white">{windVal} m/s</div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-text-secondary text-[10px] uppercase">Conditions</span>
+                <div className="text-lg font-black text-primary capitalize">
+                  {weatherData?.weather?.[0]?.description || "Clear sky"}
+                </div>
+              </div>
+            </div>
+
+            {/* Outdoor Filming Recommendation Banner */}
+            <div className="bg-white/[0.01] border border-white/5 rounded-lg p-3 text-[11px] text-text-secondary">
+              {shootRecommendation}
+            </div>
+
+            {/* Render 3-Day Forecast */}
+            {render3DayForecastSection()}
+          </Card>
+        </div>
+
+        {/* Quick Actions (4 columns) */}
+        <div className="md:col-span-4">
+          <Card className="bg-[#111318] border-white/5 p-5 space-y-4 flex flex-col justify-between h-full">
+            <div>
+              <CardTitle className="text-sm font-bold text-white uppercase tracking-wider font-mono">Quick Actions</CardTitle>
+              <CardDescription className="text-[10px] mt-0.5">Workspace controls</CardDescription>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setActiveView("projects")}
+                className="h-9 text-[10px] flex items-center justify-start gap-1.5 bg-black/20 hover:border-primary/40 border-white/5 text-white"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Create Project</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => setActiveView("scripts")}
+                className="h-9 text-[10px] flex items-center justify-start gap-1.5 bg-black/20 hover:border-primary/40 border-white/5 text-white"
+              >
+                <UploadCloud className="w-3.5 h-3.5" />
+                <span>Upload Script</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => setActiveView("storyboards")}
+                className="h-9 text-[10px] flex items-center justify-start gap-1.5 bg-black/20 hover:border-primary/40 border-white/5 text-white"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span>AI Storyboard</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => setActiveView("calendar")}
+                className="h-9 text-[10px] flex items-center justify-start gap-1.5 bg-black/20 hover:border-primary/40 border-white/5 text-white"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Schedule Shoot</span>
+              </Button>
+            </div>
+          </Card>
+        </div>
+
+      </div>
+
+      {/* 3. Render Custom Sub-Dashboard Panel based on selected Role */}
+      {renderRoleDashboard()}
+
     </div>
   );
 };
