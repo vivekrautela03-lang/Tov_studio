@@ -795,6 +795,26 @@ export const DashboardView: React.FC = () => {
                 <span>Schedule Shoot</span>
               </Button>
             </div>
+
+            <div className="mt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const clientId = "816922124665-sdgbpt8jlq2cbh3n927s6duu1d96agib.apps.googleusercontent.com";
+                  const redirectUri = `${window.location.origin}/auth-callback`;
+                  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(
+                    redirectUri
+                  )}&response_type=token&scope=https://www.googleapis.com/auth/calendar.readonly`;
+                  window.location.href = authUrl;
+                }}
+                className="w-full h-9 text-[10px] flex items-center justify-center gap-1.5 bg-primary/10 border-primary/20 hover:border-primary/50 text-primary font-bold cursor-pointer transition-all"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12.24 10.285V13.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.578-7.859-8s3.529-8 7.859-8c2.46 0 4.105 1.025 5.047 1.926l2.427-2.334C17.955 2.192 15.34 1 12.24 1 6.033 1 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.478 0 10.793-4.537 10.793-10.99 0-.743-.08-1.3-.178-1.857H12.24z"/>
+                </svg>
+                <span>Connect Google Workspace</span>
+              </Button>
+            </div>
           </Card>
         </div>
 
