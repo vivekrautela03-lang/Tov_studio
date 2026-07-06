@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles, Mail, Lock, ShieldAlert, CheckCircle, BrainCircuit, User, ArrowLeft, RefreshCw, Globe } from "lucide-react";
+import { Sparkles, Mail, Lock, ShieldAlert, CheckCircle, BrainCircuit, User, ArrowLeft, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface AuthViewProps {
@@ -148,23 +148,6 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
     }
   };
 
-  const handleGoogleOAuth = async () => {
-    setLoading(true);
-    setErrorMsg("");
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth-callback`
-        }
-      });
-      if (error) throw error;
-    } catch (err: any) {
-      console.error("Google OAuth error:", err);
-      setErrorMsg(parseError(err));
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-[#121212] text-white flex flex-col justify-center items-center p-4 md:p-8 relative overflow-hidden select-none">
@@ -319,24 +302,6 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
             ) : (
               // Standard View: BOTH Sign In and Sign Up are side-by-side
               <div className="space-y-6">
-                
-                {/* Unified Social Sign-in at the Top */}
-                <div className="max-w-md mx-auto text-center space-y-3 pb-6 border-b border-white/5">
-                  <div className="relative flex justify-center text-[9px] font-mono text-text-secondary uppercase mb-2">
-                    <span className="bg-[#171717] px-3 z-10 font-bold">One-Click Collaboration Access</span>
-                    <div className="absolute top-1/2 left-0 right-0 h-px bg-white/5" />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleGoogleOAuth}
-                    disabled={loading}
-                    className="w-full flex items-center justify-center gap-2 text-xs font-semibold border-white/10 hover:border-primary/50 text-white cursor-pointer h-10 bg-black/30"
-                  >
-                    <Globe className="w-4 h-4 text-primary shrink-0" />
-                    <span>Continue with Google Workspace</span>
-                  </Button>
-                </div>
 
                 {/* Grid Split: Login (Left) | Register (Right) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 relative">
