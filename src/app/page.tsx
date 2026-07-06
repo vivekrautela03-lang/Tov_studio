@@ -73,6 +73,9 @@ export default function Home() {
         if (session?.user) {
           fetchUserRole(session.user.id);
           fetchWorkspaceData();
+        } else {
+          setRoleSelected(false);
+          setMemberRole("");
         }
       })
       .catch((err) => {
@@ -90,6 +93,9 @@ export default function Home() {
       if (session?.user) {
         fetchUserRole(session.user.id);
         fetchWorkspaceData();
+      } else {
+        setRoleSelected(false);
+        setMemberRole("");
       }
       if (event === "PASSWORD_RECOVERY") {
         setAuthSubstate("reset");

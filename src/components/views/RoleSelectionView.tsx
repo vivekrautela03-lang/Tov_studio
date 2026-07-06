@@ -83,11 +83,20 @@ export const RoleSelectionView: React.FC<RoleSelectionViewProps> = ({
     if (!selectedRole) return;
     setLoading(true);
     try {
-      // 1. Save role in profiles table
+      // 1. Save/Provision profile with selected role in profiles table
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
+      const userEmail = user?.email || "";
+      const fullNameVal = user?.user_metadata?.full_name || "New Collaborator";
+
       const { error } = await supabase
         .from("profiles")
-        .update({ role: selectedRole })
-        .eq("id", userId);
+        .upsert({
+          id: userId,
+          email: userEmail,
+          full_name: fullNameVal,
+          role: selectedRole
+        });
 
       if (error) throw error;
 
