@@ -597,6 +597,9 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       marketing: { ...state.marketing, [data.id]: [] },
       callSheets: { ...state.callSheets, [data.id]: [] }
     }));
+
+    // Trigger complete data refresh from Supabase to load default seeded data
+    useProjectStore.getState().fetchWorkspaceData();
   },
 
   addScriptScene: async (projectId, title, sceneNumber) => {

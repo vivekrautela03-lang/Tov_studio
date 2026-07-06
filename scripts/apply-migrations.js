@@ -118,6 +118,12 @@ async function runMigrations() {
     await client.query(sql9);
     console.log("✓ 0009_add_call_sheet_write_policies.sql applied successfully!");
 
+    // 10. Apply Productions Insert Policy Fix (always safe & idempotent)
+    console.log("Applying 0010_fix_productions_insert_policy.sql...");
+    const sql10 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0010_fix_productions_insert_policy.sql"), "utf8");
+    await client.query(sql10);
+    console.log("✓ 0010_fix_productions_insert_policy.sql applied successfully!");
+
     // Verify all tables in public schema
     console.log("\nVerifying current public tables:");
     const res = await client.query(`
