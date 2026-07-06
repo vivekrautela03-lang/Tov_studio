@@ -130,6 +130,12 @@ async function runMigrations() {
     await client.query(sql11);
     console.log("✓ 0011_update_new_user_trigger_for_role.sql applied successfully!");
 
+    // 12. Apply Files RLS Policy Update (always safe & idempotent)
+    console.log("Applying 0012_update_files_rls_for_everyone.sql...");
+    const sql12 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0012_update_files_rls_for_everyone.sql"), "utf8");
+    await client.query(sql12);
+    console.log("✓ 0012_update_files_rls_for_everyone.sql applied successfully!");
+
     // Verify all tables in public schema
     console.log("\nVerifying current public tables:");
     const res = await client.query(`
