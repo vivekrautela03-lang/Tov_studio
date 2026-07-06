@@ -151,6 +151,16 @@ export interface NotificationItem {
   read: boolean;
 }
 
+export interface CallSheet {
+  id: string;
+  production_id: string;
+  date: string;
+  call_time: string;
+  weather_notes: string;
+  instructions: string;
+  created_at?: string;
+}
+
 // --- STATE DEFINITION ---
 interface ProjectStoreState {
   // Navigation
@@ -174,6 +184,7 @@ interface ProjectStoreState {
   equipment: Record<string, Equipment[]>;
   files: Record<string, FileItem[]>;
   marketing: Record<string, MarketingCampaign[]>;
+  callSheets: Record<string, CallSheet[]>;
   
   // Global Systems
   chatLogs: ChatMessage[];
@@ -213,6 +224,8 @@ interface ProjectStoreState {
   setSearchQuery: (query: string) => void;
   setSearchOpen: (open: boolean) => void;
   generateAICaption: (projectId: string, campaignId: string) => void;
+  addCallSheet: (projectId: string, callSheet: Omit<CallSheet, "id" | "production_id">) => Promise<void>;
+  deleteCallSheet: (projectId: string, callSheetId: string) => Promise<void>;
 }
 
 // --- INITIAL CLEAN SLATE ---
@@ -228,6 +241,7 @@ const initialCast: Record<string, CastMember[]> = {};
 const initialEquipment: Record<string, Equipment[]> = {};
 const initialFiles: Record<string, FileItem[]> = {};
 const initialMarketing: Record<string, MarketingCampaign[]> = {};
+const initialCallSheets: Record<string, CallSheet[]> = {};
 const initialChatLogs: ChatMessage[] = [
   {
     id: "m-1",
@@ -261,6 +275,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   equipment: initialEquipment,
   files: initialFiles,
   marketing: initialMarketing,
+  callSheets: initialCallSheets,
   
   // Global components state
   chatLogs: initialChatLogs,
@@ -332,6 +347,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     const newCast: Record<string, CastMember[]> = {};
     const newEquipment: Record<string, Equipment[]> = {};
     const newFiles: Record<string, FileItem[]> = {};
+    const newCallSheets: Record<string, CallSheet[]> = {};
 
     for (const proj of mappedProjects) {
       const prodId = proj.id;
@@ -494,6 +510,22 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         modified: f.created_at ? f.created_at.substring(0, 10) : "2026-07-05",
         version: 1
       }));
+
+      // 9. Fetch call sheets
+      const { data: callSheetsData } = await supabase
+        .from("call_sheets")
+        .select("*")
+        .eq("production_id", prodId);
+
+      newCallSheets[prodId] = (callSheetsData || []).map((cs) => ({
+        id: cs.id,
+        production_id: cs.production_id,
+        date: cs.date,
+        call_time: cs.call_time,
+        weather_notes: cs.weather_notes || "",
+        instructions: cs.instructions || "",
+        created_at: cs.created_at
+      }));
     }
 
     set({
@@ -504,7 +536,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       crew: newCrew,
       cast: newCast,
       equipment: newEquipment,
-      files: newFiles
+      files: newFiles,
+      callSheets: newCallSheets
     });
   },
 
@@ -561,7 +594,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       cast: { ...state.cast, [data.id]: [] },
       equipment: { ...state.equipment, [data.id]: [] },
       files: { ...state.files, [data.id]: [] },
-      marketing: { ...state.marketing, [data.id]: [] }
+      marketing: { ...state.marketing, [data.id]: [] },
+      callSheets: { ...state.callSheets, [data.id]: [] }
     }));
   },
 
@@ -996,5 +1030,73 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         [projectId]: updatedCampaigns
       }
     };
-  })
+  }),
+
+  addCallSheet: async (projectId, callSheet) => {
+    const { data, error } = await supabase
+      .from("call_sheets")
+      .insert({
+        production_id: projectId,
+        date: callSheet.date,
+        call_time: callSheet.call_time,
+        weather_notes: callSheet.weather_notes,
+        instructions: callSheet.instructions
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating call sheet in Supabase:", error);
+      throw error;
+    }
+
+    if (data) {
+      // Log activity
+      await supabase.from("activity_logs").insert({
+        production_id: projectId,
+        message: `Call Sheet created for date ${callSheet.date}`
+      });
+
+      set((state) => {
+        const currentList = state.callSheets[projectId] || [];
+        const newCS: CallSheet = {
+          id: data.id,
+          production_id: projectId,
+          date: data.date,
+          call_time: data.call_time,
+          weather_notes: data.weather_notes || "",
+          instructions: data.instructions || "",
+          created_at: data.created_at
+        };
+        return {
+          callSheets: {
+            ...state.callSheets,
+            [projectId]: [...currentList, newCS]
+          }
+        };
+      });
+    }
+  },
+
+  deleteCallSheet: async (projectId, callSheetId) => {
+    const { error } = await supabase
+      .from("call_sheets")
+      .delete()
+      .eq("id", callSheetId);
+
+    if (error) {
+      console.error("Error deleting call sheet in Supabase:", error);
+      throw error;
+    }
+
+    set((state) => {
+      const currentList = state.callSheets[projectId] || [];
+      return {
+        callSheets: {
+          ...state.callSheets,
+          [projectId]: currentList.filter((cs) => cs.id !== callSheetId)
+        }
+      };
+    });
+  }
 }));

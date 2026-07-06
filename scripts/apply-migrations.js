@@ -112,6 +112,12 @@ async function runMigrations() {
     await client.query(sql8);
     console.log("✓ 0008_add_attendance_columns.sql applied successfully!");
 
+    // 9. Apply Call Sheet Write Policies (always safe & idempotent)
+    console.log("Applying 0009_add_call_sheet_write_policies.sql...");
+    const sql9 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0009_add_call_sheet_write_policies.sql"), "utf8");
+    await client.query(sql9);
+    console.log("✓ 0009_add_call_sheet_write_policies.sql applied successfully!");
+
     // Verify all tables in public schema
     console.log("\nVerifying current public tables:");
     const res = await client.query(`

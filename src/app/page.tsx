@@ -26,6 +26,7 @@ import { MarketingView } from "@/components/views/MarketingView";
 import { AIStudioView } from "@/components/views/AIStudioView";
 import { SettingsView } from "@/components/views/SettingsView";
 import { AttendanceView } from "@/components/views/AttendanceView";
+import { CallSheetView } from "@/components/views/CallSheetView";
 
 export default function Home() {
   const { activeView, sidebarCollapsed, setMemberRole, setActiveView, fetchWorkspaceData } = useProjectStore();
@@ -118,6 +119,8 @@ export default function Home() {
         return <ShotPlannerView />;
       case "calendar":
         return <CalendarView />;
+      case "call-sheets":
+        return <CallSheetView />;
       case "crew":
         return <CrewView />;
       case "cast":
