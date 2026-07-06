@@ -12,7 +12,9 @@ interface AuthViewProps {
 }
 
 export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) => {
-  const [authState, setAuthState] = useState<"signin" | "signup" | "forgot" | "reset" | "verify">(initialState);
+  // We keep authState for overlays like forgot, reset, verify. 
+  // For standard logins/signups, we display BOTH forms simultaneously.
+  const [authState, setAuthState] = useState<"standard" | "forgot" | "reset" | "verify">("standard");
 
   const parseError = (err: any): string => {
     if (!err) return "Authentication command failed.";
@@ -26,10 +28,17 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
     }
   };
   
-  // Fields state
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
+  // Sign In inputs
+  const [signInEmail, setSignInEmail] = useState("");
+  const [signInPassword, setSignInPassword] = useState("");
+  
+  // Sign Up inputs
+  const [signUpEmail, setSignUpEmail] = useState("");
+  const [signUpPassword, setSignUpPassword] = useState("");
+  const [signUpFullName, setSignUpFullName] = useState("");
+  
+  // Password recovery inputs
+  const [resetEmail, setResetEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   
   // UI States
@@ -39,64 +48,98 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
 
   // Sync state if initial prop changes
   useEffect(() => {
-    setAuthState(initialState);
+    if (initialState === "forgot") setAuthState("forgot");
+    else if (initialState === "reset") setAuthState("reset");
+    else if (initialState === "verify") setAuthState("verify");
+    else setAuthState("standard");
   }, [initialState]);
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
+  const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg("");
     setSuccessMsg("");
-
     try {
-      if (authState === "signin") {
-        // Sign In
-        const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: password.trim()
-        });
-        if (error) throw error;
-      } else if (authState === "signup") {
-        // Sign Up with profile Metadata
-        const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: password.trim(),
-          options: {
-            data: {
-              full_name: fullName.trim()
-            }
-          }
-        });
-        if (error) throw error;
+      const { error } = await supabase.auth.signInWithPassword({
+        email: signInEmail.trim(),
+        password: signInPassword.trim()
+      });
+      if (error) throw error;
+      setSuccessMsg("Logged in successfully! Opening your dashboard...");
+    } catch (err: any) {
+      console.error("Sign-in error:", err);
+      setErrorMsg(parseError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        // Check if session is established or if email verification is pending
-        if (data.user && data.session) {
-          setSuccessMsg("Account registered! Opening dashboard...");
-        } else {
-          setAuthState("verify");
+  const handleSignUpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: signUpEmail.trim(),
+        password: signUpPassword.trim(),
+        options: {
+          data: {
+            full_name: signUpFullName.trim()
+          }
         }
-      } else if (authState === "forgot") {
-        // Forgot Password link dispatch
-        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: `${window.location.origin}/#recovery`
-        });
-        if (error) throw error;
-        setSuccessMsg("Reset link dispatched. Please check your email inbox.");
-      } else if (authState === "reset") {
-        // Reset Password update
-        const { error } = await supabase.auth.updateUser({
-          password: newPassword.trim()
-        });
-        if (error) throw error;
-        setSuccessMsg("Password reset successfully. Sign in with your new key.");
-        setTimeout(() => {
-          setAuthState("signin");
-          setPassword("");
-          setNewPassword("");
-        }, 2000);
+      });
+      if (error) throw error;
+
+      if (data.user && data.session) {
+        setSuccessMsg("Account registered successfully! Redirecting...");
+      } else {
+        setAuthState("verify");
       }
     } catch (err: any) {
-      console.error("Auth submit error:", err);
+      console.error("Sign-up error:", err);
+      setErrorMsg(parseError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+        redirectTo: `${window.location.origin}/#recovery`
+      });
+      if (error) throw error;
+      setSuccessMsg("Reset link dispatched. Please check your email inbox.");
+    } catch (err: any) {
+      console.error("Forgot password error:", err);
+      setErrorMsg(parseError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword.trim()
+      });
+      if (error) throw error;
+      setSuccessMsg("Password reset successfully. You may now log in.");
+      setTimeout(() => {
+        setAuthState("standard");
+        setNewPassword("");
+      }, 2000);
+    } catch (err: any) {
+      console.error("Reset password error:", err);
       setErrorMsg(parseError(err));
     } finally {
       setLoading(false);
@@ -122,18 +165,18 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white flex flex-col justify-center items-center p-4 relative overflow-hidden select-none">
+    <div className="min-h-screen bg-[#121212] text-white flex flex-col justify-center items-center p-4 md:p-8 relative overflow-hidden select-none">
       
       {/* Background radial glow */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(62,207,142,0.08),rgba(255,255,255,0))]" />
       <div className="absolute w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full top-1/4 -left-1/4 pointer-events-none" />
 
-      {/* Main card panel container */}
+      {/* Main Container */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-sm z-10 space-y-6"
+        className="w-full max-w-4xl z-10 space-y-6"
       >
         {/* Brand Header */}
         <div className="text-center space-y-2">
@@ -144,110 +187,72 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
             TOV Studio OS
           </h2>
           <p className="text-xs text-text-secondary uppercase tracking-widest font-mono">
-            Create. Shoot. Deliver.
+            Unified Collaboration Portal
           </p>
         </div>
 
-        {/* Form Box */}
-        <Card className="border border-white/5 bg-[#171717]/85 backdrop-blur-md shadow-2xl shadow-black/80">
-          <CardContent className="p-6 space-y-5">
+        {/* Global Error/Success Banner */}
+        <AnimatePresence mode="wait">
+          {errorMsg && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              className="bg-danger/10 border border-danger/25 text-danger text-[11px] p-3 rounded-lg flex gap-2 items-start max-w-md mx-auto"
+            >
+              <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+              <p className="leading-normal">{errorMsg}</p>
+            </motion.div>
+          )}
+
+          {successMsg && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              className="bg-primary/10 border border-primary/25 text-primary text-[11px] p-3 rounded-lg flex gap-2 items-start max-w-md mx-auto"
+            >
+              <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <p className="leading-normal font-medium">{successMsg}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Unified Card Panel */}
+        <Card className="border border-white/5 bg-[#171717]/80 backdrop-blur-md shadow-2xl shadow-black/80 overflow-hidden">
+          <CardContent className="p-6 md:p-8 space-y-6">
             
-            {/* Form state title */}
-            <div className="flex justify-between items-center border-b border-white/5 pb-2 text-[10px] text-text-secondary font-mono uppercase font-bold tracking-wider">
-              <span>
-                {authState === "signin" && "Sign In Session"}
-                {authState === "signup" && "Register Credentials"}
-                {authState === "forgot" && "Reset Key Dispatch"}
-                {authState === "reset" && "Configure New Password"}
-                {authState === "verify" && "Pending Verification"}
-              </span>
-              
-              {authState !== "signin" && authState !== "verify" && (
-                <button
-                  onClick={() => {
-                    setAuthState("signin");
-                    setErrorMsg("");
-                    setSuccessMsg("");
-                  }}
-                  className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
-                >
-                  <ArrowLeft className="w-3 h-3" /> Back
-                </button>
-              )}
-            </div>
-
-            {/* Error alerts */}
-            <AnimatePresence mode="wait">
-              {errorMsg && (
-                <motion.div
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -5 }}
-                  className="bg-danger/10 border border-danger/25 text-danger text-[11px] p-3 rounded-lg flex gap-2 items-start"
-                >
-                  <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
-                  <p className="leading-normal">{errorMsg}</p>
-                </motion.div>
-              )}
-
-              {/* Success alerts */}
-              {successMsg && (
-                <motion.div
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -5 }}
-                  className="bg-primary/10 border border-primary/25 text-primary text-[11px] p-3 rounded-lg flex gap-2 items-start"
-                >
-                  <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <p className="leading-normal font-medium">{successMsg}</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Form bodies */}
+            {/* Conditional Views */}
             {authState === "verify" ? (
-              <div className="space-y-4 text-center py-4">
-                <Mail className="w-10 h-10 text-primary mx-auto animate-pulse" />
+              <div className="space-y-4 text-center py-8 max-w-md mx-auto">
+                <Mail className="w-12 h-12 text-primary mx-auto animate-pulse" />
                 <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-white">Verification Email Dispatched</h4>
-                  <p className="text-[10px] text-text-secondary leading-relaxed max-w-[280px] mx-auto">
-                    We sent a registration link to your email address. Verify the link to activate your profile.
+                  <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Verification Email Dispatched</h4>
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    We sent a registration link to your email address. Verify the link to activate your workspace profile.
                   </p>
                 </div>
                 <Button
-                  onClick={() => setAuthState("signin")}
+                  onClick={() => setAuthState("standard")}
                   variant="outline"
-                  className="w-full text-xs cursor-pointer"
+                  className="w-full text-xs cursor-pointer h-10 mt-2"
                 >
                   Return to Sign In
                 </Button>
               </div>
-            ) : (
-              <form onSubmit={handleEmailAuth} className="space-y-4">
-                
-                {/* Full name input (SignUp only) */}
-                {authState === "signup" && (
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
-                      Full Name
-                    </label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Elena Rostova"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        disabled={loading}
-                        className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
-                      />
-                    </div>
-                  </div>
-                )}
+            ) : authState === "forgot" ? (
+              <div className="space-y-4 max-w-md mx-auto py-4">
+                <div className="flex justify-between items-center border-b border-white/5 pb-2 text-[10px] text-text-secondary font-mono uppercase font-bold tracking-wider">
+                  <span>Reset Password Key</span>
+                  <button
+                    onClick={() => setAuthState("standard")}
+                    className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3 h-3" /> Back
+                  </button>
+                </div>
 
-                {/* Email input (No reset state) */}
-                {authState !== "reset" && (
+                <form onSubmit={handleForgotSubmit} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
                       Email Address
@@ -258,133 +263,231 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
                         type="email"
                         required
                         placeholder="you@domain.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        disabled={loading}
-                        className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none"
                       />
                     </div>
                   </div>
-                )}
 
-                {/* Password input (SignIn and SignUp only) */}
-                {(authState === "signin" || authState === "signup") && (
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
-                        Password
-                      </label>
-                      {authState === "signin" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAuthState("forgot");
-                            setErrorMsg("");
-                            setSuccessMsg("");
-                          }}
-                          className="text-[9px] text-primary hover:underline font-mono"
-                        >
-                          Forgot Key?
-                        </button>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
-                      <input
-                        type="password"
-                        required
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={loading}
-                        className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
-                      />
-                    </div>
-                  </div>
-                )}
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={loading}
+                    className="w-full text-xs font-bold h-10 rounded-lg flex items-center justify-center gap-2"
+                  >
+                    {loading ? <RefreshCw className="w-4 h-4 animate-spin text-black" /> : "Dispatch Reset Link"}
+                  </Button>
+                </form>
+              </div>
+            ) : authState === "reset" ? (
+              <div className="space-y-4 max-w-md mx-auto py-4">
+                <div className="border-b border-white/5 pb-2 text-[10px] text-text-secondary font-mono uppercase font-bold tracking-wider">
+                  <span>Configure New Password</span>
+                </div>
 
-                {/* New Password input (Reset only) */}
-                {authState === "reset" && (
+                <form onSubmit={handleResetSubmit} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
-                      Configure New Password
+                      New Password Key
                     </label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
                       <input
                         type="password"
                         required
-                        placeholder="Enter new password key..."
+                        placeholder="••••••••"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        disabled={loading}
-                        className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
+                        className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none"
                       />
                     </div>
                   </div>
-                )}
 
-                {/* Main Auth Submit Button */}
-                <div className="pt-2">
                   <Button
                     type="submit"
                     variant="primary"
                     disabled={loading}
-                    className="w-full text-xs font-bold py-2.5 h-10 rounded-lg cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full text-xs font-bold h-10 rounded-lg flex items-center justify-center gap-2"
                   >
-                    {loading ? (
-                      <RefreshCw className="w-4 h-4 animate-spin text-black" />
-                    ) : (
-                      <span>
-                        {authState === "signin" && "Sign In"}
-                        {authState === "signup" && "Register Account"}
-                        {authState === "forgot" && "Dispatch Reset Link"}
-                        {authState === "reset" && "Unlock & Reset Key"}
-                      </span>
-                    )}
+                    {loading ? <RefreshCw className="w-4 h-4 animate-spin text-black" /> : "Unlock & Reset Key"}
+                  </Button>
+                </form>
+              </div>
+            ) : (
+              // Standard View: BOTH Sign In and Sign Up are side-by-side
+              <div className="space-y-6">
+                
+                {/* Unified Social Sign-in at the Top */}
+                <div className="max-w-md mx-auto text-center space-y-3 pb-6 border-b border-white/5">
+                  <div className="relative flex justify-center text-[9px] font-mono text-text-secondary uppercase mb-2">
+                    <span className="bg-[#171717] px-3 z-10 font-bold">One-Click Collaboration Access</span>
+                    <div className="absolute top-1/2 left-0 right-0 h-px bg-white/5" />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleGoogleOAuth}
+                    disabled={loading}
+                    className="w-full flex items-center justify-center gap-2 text-xs font-semibold border-white/10 hover:border-primary/50 text-white cursor-pointer h-10 bg-black/30"
+                  >
+                    <Globe className="w-4 h-4 text-primary shrink-0" />
+                    <span>Continue with Google Workspace</span>
                   </Button>
                 </div>
 
-                {/* Switch to SignUp link */}
-                {authState === "signin" && (
-                  <div className="text-center text-[10px] text-text-secondary pt-2">
-                    Don't have access?{" "}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthState("signup");
-                        setErrorMsg("");
-                        setSuccessMsg("");
-                      }}
-                      className="text-primary hover:underline font-bold cursor-pointer"
-                    >
-                      Request Registration
-                    </button>
+                {/* Grid Split: Login (Left) | Register (Right) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 relative">
+                  
+                  {/* Vertical Line Divider on Desktop */}
+                  <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-px bg-white/5 transform -translate-x-1/2" />
+
+                  {/* Left Column: Sign In */}
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Sign In Session</h3>
+                      <p className="text-[10px] text-text-secondary leading-relaxed">
+                        Access your existing productions and team assets.
+                      </p>
+                    </div>
+
+                    <form onSubmit={handleSignInSubmit} className="space-y-4 pt-2">
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
+                          Email Address
+                        </label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
+                          <input
+                            type="email"
+                            required
+                            placeholder="you@domain.com"
+                            value={signInEmail}
+                            onChange={(e) => setSignInEmail(e.target.value)}
+                            disabled={loading}
+                            className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
+                            Password
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthState("forgot");
+                              setErrorMsg("");
+                              setSuccessMsg("");
+                            }}
+                            className="text-[9px] text-primary hover:underline font-mono"
+                          >
+                            Forgot Key?
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
+                          <input
+                            type="password"
+                            required
+                            placeholder="••••••••"
+                            value={signInPassword}
+                            onChange={(e) => setSignInPassword(e.target.value)}
+                            disabled={loading}
+                            className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        disabled={loading}
+                        className="w-full text-xs font-bold py-2.5 h-10 rounded-lg cursor-pointer flex items-center justify-center gap-2 mt-4"
+                      >
+                        {loading ? <RefreshCw className="w-4 h-4 animate-spin text-black" /> : "Sign In"}
+                      </Button>
+                    </form>
                   </div>
-                )}
 
-              </form>
-            )}
+                  {/* Right Column: Register Account */}
+                  <div className="space-y-4 pt-6 md:pt-0 border-t border-white/5 md:border-t-0">
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Create Account</h3>
+                      <p className="text-[10px] text-text-secondary leading-relaxed">
+                        Register a new profile to join or owner a film production.
+                      </p>
+                    </div>
 
-            {/* Social logins separator */}
-            {authState === "signin" && (
-              <div className="space-y-4 pt-4 border-t border-white/5">
-                <div className="relative flex justify-center text-[9px] font-mono text-text-secondary uppercase">
-                  <span className="bg-[#171717] px-2 z-10">Or collaborate via OAuth</span>
-                  <div className="absolute top-1/2 left-0 right-0 h-px bg-white/5" />
+                    <form onSubmit={handleSignUpSubmit} className="space-y-4 pt-2">
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
+                          Full Name
+                        </label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Elena Rostova"
+                            value={signUpFullName}
+                            onChange={(e) => setSignUpFullName(e.target.value)}
+                            disabled={loading}
+                            className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
+                          Email Address
+                        </label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
+                          <input
+                            type="email"
+                            required
+                            placeholder="you@domain.com"
+                            value={signUpEmail}
+                            onChange={(e) => setSignUpEmail(e.target.value)}
+                            disabled={loading}
+                            className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
+                          Password
+                        </label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
+                          <input
+                            type="password"
+                            required
+                            placeholder="•••••••• (Min. 6 chars)"
+                            value={signUpPassword}
+                            onChange={(e) => setSignUpPassword(e.target.value)}
+                            disabled={loading}
+                            className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        disabled={loading}
+                        className="w-full text-xs font-bold py-2.5 h-10 rounded-lg cursor-pointer flex items-center justify-center gap-2 mt-4"
+                      >
+                        {loading ? <RefreshCw className="w-4 h-4 animate-spin text-black" /> : "Register Account"}
+                      </Button>
+                    </form>
+                  </div>
+
                 </div>
-
-                {/* Google Sign-in */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleGoogleOAuth}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 text-xs font-medium border-white/10 hover:border-primary/50 text-white cursor-pointer h-10"
-                >
-                  <Globe className="w-4 h-4 text-primary shrink-0" />
-                  <span>Google Account Login</span>
-                </Button>
               </div>
             )}
 
