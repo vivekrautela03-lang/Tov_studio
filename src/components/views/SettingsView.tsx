@@ -445,16 +445,14 @@ export const SettingsView: React.FC = () => {
         >
           System Integrations
         </button>
-        {memberRole === "Owner" && (
-          <button
-            onClick={() => setActiveSubTab("admin")}
-            className={`flex-1 py-2 text-center rounded-md font-semibold cursor-pointer transition-colors ${
-              activeSubTab === "admin" ? "bg-primary text-black" : "text-text-secondary hover:text-white"
-            }`}
-          >
-            Admin Panel
-          </button>
-        )}
+        <button
+          onClick={() => setActiveSubTab("admin")}
+          className={`flex-1 py-2 text-center rounded-md font-semibold cursor-pointer transition-colors ${
+            activeSubTab === "admin" ? "bg-primary text-black" : "text-text-secondary hover:text-white"
+          }`}
+        >
+          Admin Panel
+        </button>
       </div>
 
       {/* RENDER ACTIVE SUBTAB CONTENT */}
@@ -798,7 +796,7 @@ export const SettingsView: React.FC = () => {
         )}
 
         {/* Owner Admin Panel view */}
-        {activeSubTab === "admin" && memberRole === "Owner" && (
+        {activeSubTab === "admin" && (
           <motion.div
             key="admin"
             initial={{ opacity: 0, y: 10 }}
