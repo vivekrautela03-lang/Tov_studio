@@ -136,6 +136,12 @@ async function runMigrations() {
     await client.query(sql12);
     console.log("✓ 0012_update_files_rls_for_everyone.sql applied successfully!");
 
+    // 13. Apply Profile Role Nullable (always safe & idempotent)
+    console.log("Applying 0013_make_profile_role_nullable.sql...");
+    const sql13 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0013_make_profile_role_nullable.sql"), "utf8");
+    await client.query(sql13);
+    console.log("✓ 0013_make_profile_role_nullable.sql applied successfully!");
+
     // Verify all tables in public schema
     console.log("\nVerifying current public tables:");
     const res = await client.query(`
