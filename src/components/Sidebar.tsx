@@ -47,9 +47,7 @@ export const Sidebar: React.FC = () => {
     { id: "attendance", label: "Attendance", icon: CheckSquare },
     { id: "equipment", label: "Equipment", icon: Camera },
     { id: "files", label: "Files", icon: FolderOpen },
-    { id: "finance", label: "Finance", icon: DollarSign },
     { id: "marketing", label: "Marketing", icon: Megaphone },
-    { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "ai-studio", label: "AI Studio", icon: Sparkles },
     { id: "settings", label: "Settings", icon: Settings }
   ];

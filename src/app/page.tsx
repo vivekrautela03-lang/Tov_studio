@@ -22,9 +22,7 @@ import { CrewView } from "@/components/views/CrewView";
 import { CastView } from "@/components/views/CastView";
 import { EquipmentView } from "@/components/views/EquipmentView";
 import { FilesView } from "@/components/views/FilesView";
-import { FinanceView } from "@/components/views/FinanceView";
 import { MarketingView } from "@/components/views/MarketingView";
-import { AnalyticsView } from "@/components/views/AnalyticsView";
 import { AIStudioView } from "@/components/views/AIStudioView";
 import { SettingsView } from "@/components/views/SettingsView";
 import { AttendanceView } from "@/components/views/AttendanceView";
@@ -130,12 +128,8 @@ export default function Home() {
         return <EquipmentView />;
       case "files":
         return <FilesView />;
-      case "finance":
-        return <FinanceView />;
       case "marketing":
         return <MarketingView />;
-      case "analytics":
-        return <AnalyticsView />;
       case "ai-studio":
         return <AIStudioView />;
       case "settings":

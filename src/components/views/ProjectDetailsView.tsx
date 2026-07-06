@@ -16,7 +16,6 @@ import { CrewView } from "./CrewView";
 import { CastView } from "./CastView";
 import { EquipmentView } from "./EquipmentView";
 import { FilesView } from "./FilesView";
-import { FinanceView } from "./FinanceView";
 import { MarketingView } from "./MarketingView";
 
 interface ProjectDetailsViewProps {
@@ -48,7 +47,6 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
     "Equipment",
     "Locations",
     "Files",
-    "Budget",
     "Marketing",
     "Release"
   ];
@@ -98,11 +96,7 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
       return ["Overview", "Storyboard", "Files", "Release"].includes(tab);
     }
     if (memberRole === "Crew") {
-      return tab !== "Budget" && tab !== "Marketing";
-    }
-    // Only Owners and Producers can see financial Budget ledgers
-    if (tab === "Budget") {
-      return ["Owner", "Producer"].includes(memberRole);
+      return tab !== "Marketing";
     }
     return true;
   });
@@ -131,8 +125,6 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
         return <EquipmentView projectScope={projectId} />;
       case "Files":
         return <FilesView projectScope={projectId} />;
-      case "Budget":
-        return <FinanceView projectScope={projectId} />;
       case "Marketing":
         return <MarketingView projectScope={projectId} />;
       case "Locations":
