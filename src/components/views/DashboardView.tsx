@@ -110,6 +110,7 @@ export const DashboardView: React.FC = () => {
   // UI Local States
   const [activeTab, setActiveTab] = useState<"profile" | "console">("profile");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isUploadingPfp, setIsUploadingPfp] = useState(false);
   const [weatherData, setWeatherData] = useState<any>(null);
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [currentTime, setCurrentTime] = useState("");
@@ -266,6 +267,29 @@ export const DashboardView: React.FC = () => {
         </div>
       </div>
     );
+  };
+
+  const handlePfpUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 1024 * 1024) {
+      alert("Please upload an image smaller than 1MB to optimize performance.");
+      return;
+    }
+
+    setIsUploadingPfp(true);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setEditAvatar(base64String);
+      setIsUploadingPfp(false);
+    };
+    reader.onerror = () => {
+      alert("Failed to read image file.");
+      setIsUploadingPfp(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   // Form Submit Handler
@@ -970,11 +994,36 @@ export const DashboardView: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-[9px] font-mono text-text-secondary uppercase font-bold">Avatar URL</label>
+                  <label className="block text-[9px] font-mono text-text-secondary uppercase font-bold">Profile Picture</label>
+                  <div className="flex items-center gap-3 py-1">
+                    <img
+                      src={editAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&q=80"}
+                      className="w-10 h-10 rounded-full object-cover border border-white/10 shrink-0"
+                      alt="PFP Preview"
+                    />
+                    <div className="flex-1 space-y-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePfpUpload}
+                        className="hidden"
+                        id="pfp-file-upload"
+                      />
+                      <label
+                        htmlFor="pfp-file-upload"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white text-[10px] font-bold cursor-pointer transition-colors duration-150"
+                      >
+                        <UploadCloud className="w-3.5 h-3.5" />
+                        <span>{isUploadingPfp ? "Reading..." : "Upload Image"}</span>
+                      </label>
+                      <p className="text-[8px] text-text-secondary">Or paste a direct image URL below</p>
+                    </div>
+                  </div>
                   <input
                     type="url"
                     value={editAvatar}
                     onChange={(e) => setEditAvatar(e.target.value)}
+                    placeholder="https://images.unsplash.com/photo-..."
                     className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none"
                   />
                 </div>
