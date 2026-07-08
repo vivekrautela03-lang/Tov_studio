@@ -115,7 +115,7 @@ export default function Home() {
         return <CastView />;
       case "files":
         return <FilesView />;
-      case "ai-studio":
+      case "ai-support":
         return <AIStudioView />;
       case "settings":
         return <SettingsView />;

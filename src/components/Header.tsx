@@ -265,7 +265,7 @@ export const Header: React.FC = () => {
                 <button
                   onClick={() => {
                     setIsCreateDropdownOpen(false);
-                    setActiveView("ai-studio");
+                    setActiveView("ai-support");
                   }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-white/5 text-xs text-left text-white cursor-pointer transition-colors duration-150"
                 >
@@ -278,13 +278,13 @@ export const Header: React.FC = () => {
 
           {/* AI Assistant Button */}
           <Button
-            onClick={() => setActiveView("ai-studio")}
+            onClick={() => setActiveView("ai-support")}
             variant="outline"
             size="sm"
             className="flex items-center gap-1.5 hover:border-primary/50 text-white p-2 sm:px-3 sm:py-1.5"
           >
             <Sparkles className="w-4 h-4 text-primary animate-pulse shrink-0" />
-            <span className="hidden sm:inline">AI Studio</span>
+            <span className="hidden sm:inline">AI Support</span>
           </Button>
 
           {/* Notifications Center */}

@@ -46,7 +46,7 @@ export const Sidebar: React.FC = () => {
     { id: "crew", label: "Crew", icon: Users },
     { id: "cast", label: "Cast", icon: Contact },
     { id: "files", label: "Files", icon: FolderOpen },
-    { id: "ai-studio", label: "AI Studio", icon: Sparkles },
+    { id: "ai-support", label: "AI Support", icon: Sparkles },
     { id: "settings", label: "Settings", icon: Settings }
   ];
 
