@@ -273,11 +273,6 @@ export const DashboardView: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 1024 * 1024) {
-      alert("Please upload an image smaller than 1MB to optimize performance.");
-      return;
-    }
-
     setIsUploadingPfp(true);
     const reader = new FileReader();
     reader.onloadend = () => {
