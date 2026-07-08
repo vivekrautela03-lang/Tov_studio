@@ -1057,16 +1057,8 @@ export const DashboardView: React.FC = () => {
                         <UploadCloud className="w-3.5 h-3.5" />
                         <span>{isUploadingPfp ? "Reading..." : "Upload Image"}</span>
                       </label>
-                      <p className="text-[8px] text-text-secondary">Or paste a direct image URL below</p>
                     </div>
                   </div>
-                  <input
-                    type="url"
-                    value={editAvatar}
-                    onChange={(e) => setEditAvatar(e.target.value)}
-                    placeholder="https://images.unsplash.com/photo-..."
-                    className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none"
-                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="block text-[9px] font-mono text-text-secondary uppercase font-bold">Cover URL</label>
