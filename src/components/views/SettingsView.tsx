@@ -286,25 +286,24 @@ export const SettingsView: React.FC = () => {
         coverImage: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&q=80"
       });
 
+      const { data: { user } } = await supabase.auth.getUser();
       const { data: prodData } = await supabase
         .from("productions")
         .insert({
           title: adminProjTitle,
           status: "Pre-Production",
-          budget: adminProjBudget
+          budget: adminProjBudget,
+          user_id: user?.id
         })
         .select()
         .single();
 
-      if (prodData) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from("activity_logs").insert({
-            user_id: user.id,
-            action: "CREATE_PRODUCTION",
-            details: `Created new production workspace: ${adminProjTitle}`
-          });
-        }
+      if (prodData && user) {
+        await supabase.from("activity_logs").insert({
+          user_id: user.id,
+          action: "CREATE_PRODUCTION",
+          details: `Created new production workspace: ${adminProjTitle}`
+        });
       }
 
       setAdminProjTitle("");
@@ -376,20 +375,21 @@ export const SettingsView: React.FC = () => {
 
     try {
       const prodId = getDbProductionId(uploadTargetProject);
+      const { data: { user } } = await supabase.auth.getUser();
       const { data: fileData, error: fileError } = await supabase
         .from("files")
         .insert({
           production_id: prodId,
           name: uploadAssetTitle || uploadFileName,
           type: uploadAssetType === "script" ? "file" : "folder",
-          size: "2.4 MB"
+          size: "2.4 MB",
+          user_id: user?.id
         })
         .select()
         .single();
 
       if (fileError) throw fileError;
 
-      const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await supabase.from("activity_logs").insert({
           user_id: user.id,

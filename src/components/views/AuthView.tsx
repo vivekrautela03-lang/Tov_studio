@@ -86,8 +86,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
         password: signUpPassword.trim(),
         options: {
           data: {
-            full_name: signUpFullName.trim(),
-            role: signUpRole
+            full_name: signUpFullName.trim()
           }
         }
       });
@@ -303,6 +302,43 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
               // Standard View: BOTH Sign In and Sign Up are side-by-side
               <div className="space-y-6">
 
+                {/* Google Sign In Banner */}
+                <div className="pb-4 border-b border-white/5 flex flex-col items-center gap-3">
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      setLoading(true);
+                      setErrorMsg("");
+                      try {
+                        const { error } = await supabase.auth.signInWithOAuth({
+                          provider: "google",
+                          options: {
+                            redirectTo: `${window.location.origin}/auth-callback`
+                          }
+                        });
+                        if (error) throw error;
+                      } catch (err: any) {
+                        console.error("Google Sign-In error:", err);
+                        setErrorMsg(parseError(err));
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading}
+                    className="w-full max-w-sm h-10 text-xs font-bold flex items-center justify-center gap-2 bg-white text-black hover:bg-white/90 border border-white/25 rounded-lg transition-all cursor-pointer"
+                  >
+                    <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12.24 10.285V13.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.578-7.859-8s3.529-8 7.859-8c2.46 0 4.105 1.025 5.047 1.926l2.427-2.334C17.955 2.192 15.34 1 12.24 1 6.033 1 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.478 0 10.793-4.537 10.793-10.99 0-.743-.08-1.3-.178-1.857H12.24z"/>
+                    </svg>
+                    <span>Continue with Google Workspace</span>
+                  </Button>
+                  <div className="flex items-center gap-2 w-full max-w-sm justify-center">
+                    <div className="h-px bg-white/5 flex-1" />
+                    <span className="text-[10px] text-text-secondary uppercase font-mono tracking-widest font-semibold">Or use email credential</span>
+                    <div className="h-px bg-white/5 flex-1" />
+                  </div>
+                </div>
+
                 {/* Grid Split: Login (Left) | Register (Right) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 relative">
                   
@@ -441,26 +477,6 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
                             className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-text-secondary focus:border-primary focus:outline-none transition-colors"
                           />
                         </div>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="block text-[10px] text-text-secondary uppercase font-mono font-bold tracking-wider">
-                          Studio Role
-                        </label>
-                        <select
-                          value={signUpRole}
-                          onChange={(e) => setSignUpRole(e.target.value)}
-                          disabled={loading}
-                          className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none transition-colors cursor-pointer"
-                        >
-                          <option value="Owner">Studio Owner / Admin</option>
-                          <option value="Producer">Producer</option>
-                          <option value="Director">Director</option>
-                          <option value="Cinematographer (DOP)">Cinematographer (DOP)</option>
-                          <option value="Editor">Editor</option>
-                          <option value="Actor">Actor / Talent</option>
-                          <option value="Crew">Crew Member</option>
-                        </select>
                       </div>
 
                       <Button

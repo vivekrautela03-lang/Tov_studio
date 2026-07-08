@@ -45,10 +45,7 @@ export const Sidebar: React.FC = () => {
     { id: "call-sheets", label: "Call Sheets", icon: FileText },
     { id: "crew", label: "Crew", icon: Users },
     { id: "cast", label: "Cast", icon: Contact },
-    { id: "attendance", label: "Attendance", icon: CheckSquare },
-    { id: "equipment", label: "Equipment", icon: Camera },
     { id: "files", label: "Files", icon: FolderOpen },
-    { id: "marketing", label: "Marketing", icon: Megaphone },
     { id: "ai-studio", label: "AI Studio", icon: Sparkles },
     { id: "settings", label: "Settings", icon: Settings }
   ];

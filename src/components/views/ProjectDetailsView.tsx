@@ -14,9 +14,7 @@ import { StoryboardView } from "./StoryboardView";
 import { ShotPlannerView } from "./ShotPlannerView";
 import { CrewView } from "./CrewView";
 import { CastView } from "./CastView";
-import { EquipmentView } from "./EquipmentView";
 import { FilesView } from "./FilesView";
-import { MarketingView } from "./MarketingView";
 
 interface ProjectDetailsViewProps {
   projectId: string;
@@ -44,10 +42,8 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
     "Schedule",
     "Crew",
     "Cast",
-    "Equipment",
     "Locations",
     "Files",
-    "Marketing",
     "Release"
   ];
 
@@ -90,16 +86,8 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
     fetchMemberRole();
   }, [projectId]);
 
-  // Filter tabs dynamically based on user role permissions
-  const filteredTabs = tabs.filter((tab) => {
-    if (memberRole === "Client") {
-      return ["Overview", "Storyboard", "Files", "Release"].includes(tab);
-    }
-    if (memberRole === "Crew") {
-      return tab !== "Marketing";
-    }
-    return true;
-  });
+  // Filter tabs dynamically based on user role permissions (all tabs available to authenticated users)
+  const filteredTabs = tabs;
 
   // Ensure active tab fallback if filtered out by role change
   useEffect(() => {
@@ -121,12 +109,8 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
         return <CrewView projectScope={projectId} />;
       case "Cast":
         return <CastView projectScope={projectId} />;
-      case "Equipment":
-        return <EquipmentView projectScope={projectId} />;
       case "Files":
         return <FilesView projectScope={projectId} />;
-      case "Marketing":
-        return <MarketingView projectScope={projectId} />;
       case "Locations":
         return renderLocationsTab();
       case "Release":

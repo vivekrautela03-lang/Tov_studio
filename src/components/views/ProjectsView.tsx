@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useProjectStore, Project } from "@/store/useProjectStore";
-import { Plus, Users, Calendar, DollarSign, ArrowRight, X, Sparkles } from "lucide-react";
+import { Plus, Users, Calendar, DollarSign, ArrowRight, X, Sparkles, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -10,8 +10,18 @@ import { motion } from "framer-motion";
 import { ProjectDetailsView } from "./ProjectDetailsView";
 
 export const ProjectsView: React.FC = () => {
-  const { projects, activeProjectId, setActiveProjectId, addProject } = useProjectStore();
+  const { projects, activeProjectId, setActiveProjectId, addProject, deleteProject } = useProjectStore();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
+  const handleDeleteProject = async (projectId: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete the production workspace "${title}"? This will permanently delete all associated scripts, storyboards, schedules, files, and equipment logs.`)) return;
+    try {
+      await deleteProject(projectId);
+      alert(`Workspace "${title}" has been deleted.`);
+    } catch (err: any) {
+      alert(err.message || "Failed to delete project");
+    }
+  };
 
   // Modal State
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -128,6 +138,17 @@ export const ProjectsView: React.FC = () => {
                   <span className="absolute top-4 right-4 text-[10px] px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-white font-bold uppercase tracking-wider border border-white/10">
                     {proj.status}
                   </span>
+
+                  {/* Delete Workspace Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteProject(proj.id, proj.title);
+                    }}
+                    className="absolute top-4 left-4 p-1.5 bg-black/60 hover:bg-danger/20 border border-white/10 hover:border-danger/30 text-text-secondary hover:text-danger rounded-lg cursor-pointer transition-all backdrop-blur-md z-10"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
                 {/* Card Body */}

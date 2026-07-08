@@ -142,6 +142,48 @@ async function runMigrations() {
     await client.query(sql13);
     console.log("✓ 0013_make_profile_role_nullable.sql applied successfully!");
 
+    // 14. Apply Schema Simplification & RBAC Removal (always safe & idempotent)
+    console.log("Applying 0014_simplify_schema_and_remove_rbac.sql...");
+    const sql14 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0014_simplify_schema_and_remove_rbac.sql"), "utf8");
+    await client.query(sql14);
+    console.log("✓ 0014_simplify_schema_and_remove_rbac.sql applied successfully!");
+
+    // 15. Apply Scenes User ID & RLS Policy (always safe & idempotent)
+    console.log("Applying 0015_add_user_id_to_scenes_and_storyboards.sql...");
+    const sql15 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0015_add_user_id_to_scenes_and_storyboards.sql"), "utf8");
+    await client.query(sql15);
+    console.log("✓ 0015_add_user_id_to_scenes_and_storyboards.sql applied successfully!");
+
+    // 16. Apply Filmmaker User Profile Extensions (always safe & idempotent)
+    console.log("Applying 0016_create_extended_profile_tables.sql...");
+    const sql16 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0016_create_extended_profile_tables.sql"), "utf8");
+    await client.query(sql16);
+    console.log("✓ 0016_create_extended_profile_tables.sql applied successfully!");
+
+    // 17. Clear database and enable cross-user select discovery (always safe & idempotent)
+    console.log("Applying 0017_clear_database_and_enable_cross_user_select.sql...");
+    const sql17 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0017_clear_database_and_enable_cross_user_select.sql"), "utf8");
+    await client.query(sql17);
+    console.log("✓ 0017_clear_database_and_enable_cross_user_select.sql applied successfully!");
+
+    // 18. Recreate auth trigger to bind trigger function to auth.users (always safe & idempotent)
+    console.log("Applying 0018_recreate_auth_trigger.sql...");
+    const sql18 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0018_recreate_auth_trigger.sql"), "utf8");
+    await client.query(sql18);
+    console.log("✓ 0018_recreate_auth_trigger.sql applied successfully!");
+
+    // 19. Prevent work deletion on user delete (always safe & idempotent)
+    console.log("Applying 0019_prevent_work_deletion_on_user_delete.sql...");
+    const sql19 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0019_prevent_work_deletion_on_user_delete.sql"), "utf8");
+    await client.query(sql19);
+    console.log("✓ 0019_prevent_work_deletion_on_user_delete.sql applied successfully!");
+
+    // 20. Drop obsolete workspace seeding trigger (always safe & idempotent)
+    console.log("Applying 0020_drop_obsolete_workspace_seeding_trigger.sql...");
+    const sql20 = fs.readFileSync(path.join(__dirname, "../supabase/migrations/0020_drop_obsolete_workspace_seeding_trigger.sql"), "utf8");
+    await client.query(sql20);
+    console.log("✓ 0020_drop_obsolete_workspace_seeding_trigger.sql applied successfully!");
+
     // Verify all tables in public schema
     console.log("\nVerifying current public tables:");
     const res = await client.query(`

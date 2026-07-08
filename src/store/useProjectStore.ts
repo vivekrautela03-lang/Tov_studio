@@ -2,6 +2,69 @@ import { create } from "zustand";
 import { supabase } from "@/utils/supabaseClient";
 
 // --- TYPES ---
+export interface UserProfile {
+  id: string;
+  email: string;
+  full_name: string;
+  username: string;
+  bio: string;
+  avatar_url: string;
+  cover_url: string;
+  location: string;
+  website: string;
+  phone?: string;
+  dob?: string;
+  languages: string[];
+  interests: string[];
+  favorite_genres: string[];
+  experience_years: number;
+  company_name: string;
+  completeness: number;
+  created_at?: string;
+}
+
+export interface SocialLinks {
+  instagram?: string;
+  linkedin?: string;
+  behance?: string;
+  dribbble?: string;
+  youtube?: string;
+  imdb?: string;
+  website?: string;
+}
+
+export interface PortfolioItem {
+  id: string;
+  title: string;
+  description: string;
+  asset_type: "video" | "image" | "document" | "audio";
+  url: string;
+  thumbnail_url?: string;
+}
+
+export interface UserPreference {
+  theme: string;
+  notifications_enabled: boolean;
+  profile_visibility: string;
+}
+
+export interface UserStatistic {
+  projects_count: number;
+  scripts_count: number;
+  storyboards_count: number;
+  ai_generations_count: number;
+  files_uploaded_count: number;
+  storage_used_bytes: number;
+  hours_worked: number;
+  production_days: number;
+}
+
+export interface UserActivity {
+  id: string;
+  title: string;
+  description: string;
+  created_at: string;
+}
 export interface Project {
   id: string;
   title: string;
@@ -192,6 +255,16 @@ interface ProjectStoreState {
   searchQuery: string;
   isSearchOpen: boolean;
 
+  // Filmmaker User Profile States
+  userProfile: UserProfile | null;
+  socialLinks: SocialLinks | null;
+  portfolio: PortfolioItem[];
+  userPreferences: UserPreference | null;
+  statistics: UserStatistic | null;
+  activities: UserActivity[];
+  skillsList: string[];
+  userTagsList: string[];
+
   // Actions
   setActiveView: (view: string) => void;
   toggleSidebar: () => void;
@@ -226,6 +299,18 @@ interface ProjectStoreState {
   generateAICaption: (projectId: string, campaignId: string) => void;
   addCallSheet: (projectId: string, callSheet: Omit<CallSheet, "id" | "production_id">) => Promise<void>;
   deleteCallSheet: (projectId: string, callSheetId: string) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
+
+  // Profile Mutations
+  updateUserProfile: (profile: Partial<UserProfile>) => Promise<void>;
+  updateSocialLinks: (links: Partial<SocialLinks>) => Promise<void>;
+  addPortfolioItem: (item: Omit<PortfolioItem, "id">) => Promise<void>;
+  deletePortfolioItem: (id: string) => Promise<void>;
+  addUserSkill: (skill: string) => Promise<void>;
+  removeUserSkill: (skill: string) => Promise<void>;
+  addUserTag: (tag: string) => Promise<void>;
+  removeUserTag: (tag: string) => Promise<void>;
+  deleteUserProfile: () => Promise<void>;
 }
 
 // --- INITIAL CLEAN SLATE ---
@@ -283,6 +368,15 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   searchQuery: "",
   isSearchOpen: false,
 
+  userProfile: null,
+  socialLinks: null,
+  portfolio: [],
+  userPreferences: null,
+  statistics: null,
+  activities: [],
+  skillsList: [],
+  userTagsList: [],
+
   // Actions
   setActiveView: (view) => set({ activeView: view }),
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
@@ -292,6 +386,180 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   setMemberRole: (role) => set({ memberRole: role }),
   
   fetchWorkspaceData: async () => {
+    // Fetch profile identity datasets
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      // 1. Core Profile
+      let { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      
+      if (!profile) {
+        const genUser = (user.email || "creator").split("@")[0] + "_" + user.id.slice(0, 4);
+        const { data: newProfile } = await supabase
+          .from("profiles")
+          .insert({
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || genUser,
+            username: genUser,
+            bio: "Cinematographer & Filmmaker. Welcome to my creative studio.",
+            avatar_url: user.user_metadata?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&q=80",
+            completeness: 45
+          })
+          .select()
+          .single();
+        profile = newProfile;
+      }
+      
+      // 2. Social Links
+      let { data: social } = await supabase
+        .from("social_links")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!social) {
+        const username = profile?.username || "creator";
+        const { data: newSocial } = await supabase
+          .from("social_links")
+          .insert({
+            user_id: user.id,
+            instagram: "https://instagram.com/" + username,
+            linkedin: "https://linkedin.com/in/" + username,
+            youtube: "https://youtube.com/@" + username,
+            website: "https://tov.studio/" + username
+          })
+          .select()
+          .single();
+        social = newSocial;
+      }
+
+      // 3. Portfolio
+      const { data: portfolioItems } = await supabase
+        .from("portfolio")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      // 4. Skills
+      let { data: skillsData } = await supabase
+        .from("skills")
+        .select("name")
+        .eq("user_id", user.id);
+
+      if (!skillsData || skillsData.length === 0) {
+        await supabase.from("skills").insert([
+          { user_id: user.id, name: "Direction" },
+          { user_id: user.id, name: "Lighting" },
+          { user_id: user.id, name: "Editing" }
+        ]);
+        const { data: refetchedSkills } = await supabase
+          .from("skills")
+          .select("name")
+          .eq("user_id", user.id);
+        skillsData = refetchedSkills || [];
+      }
+
+      // 5. Tags
+      let { data: tagsData } = await supabase
+        .from("user_tags")
+        .select("tag")
+        .eq("user_id", user.id);
+
+      if (!tagsData || tagsData.length === 0) {
+        await supabase.from("user_tags").insert([
+          { user_id: user.id, tag: "🎬 Director" },
+          { user_id: user.id, tag: "🎥 Cinematographer" }
+        ]);
+        const { data: refetchedTags } = await supabase
+          .from("user_tags")
+          .select("tag")
+          .eq("user_id", user.id);
+        tagsData = refetchedTags || [];
+      }
+
+      // 6. Preferences
+      let { data: preferences } = await supabase
+        .from("user_preferences")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!preferences) {
+        const { data: newPref } = await supabase
+          .from("user_preferences")
+          .insert({ user_id: user.id })
+          .select()
+          .single();
+        preferences = newPref;
+      }
+
+      // 7. Stats
+      let { data: stats } = await supabase
+        .from("statistics")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!stats) {
+        const { data: newStats } = await supabase
+          .from("statistics")
+          .insert({ user_id: user.id })
+          .select()
+          .single();
+        stats = newStats;
+      }
+
+      // 8. Activities
+      const { data: activitiesData } = await supabase
+        .from("activities")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      // Count actual projects/scripts/storyboards from Supabase to keep stats synchronized
+      const { count: projsCount } = await supabase
+        .from("productions")
+        .select("*", { count: "exact", head: true });
+
+      const { count: scsCount } = await supabase
+        .from("scenes")
+        .select("*", { count: "exact", head: true });
+
+      const { count: sbCount } = await supabase
+        .from("storyboard_shots")
+        .select("*", { count: "exact", head: true });
+
+      const { count: filesCount } = await supabase
+        .from("files")
+        .select("*", { count: "exact", head: true });
+
+      const calculatedStats = {
+        projects_count: projsCount || 0,
+        scripts_count: scsCount || 0,
+        storyboards_count: sbCount || 0,
+        ai_generations_count: stats?.ai_generations_count || 12,
+        files_uploaded_count: filesCount || 0,
+        storage_used_bytes: stats?.storage_used_bytes || 1500000000,
+        hours_worked: stats?.hours_worked || 48,
+        production_days: stats?.production_days || 5
+      };
+
+      set({
+        userProfile: profile || null,
+        socialLinks: social || null,
+        portfolio: portfolioItems || [],
+        skillsList: (skillsData || []).map((s) => s.name),
+        userTagsList: (tagsData || []).map((t) => t.tag),
+        userPreferences: preferences || null,
+        statistics: calculatedStats,
+        activities: activitiesData || []
+      });
+    }
+
     // 1. Fetch productions from Supabase
     const { data: prods, error: pError } = await supabase
       .from("productions")
@@ -303,7 +571,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     }
 
     if (!prods || prods.length === 0) {
-      set({ projects: [] });
+      set({ projects: [], activeProjectId: "" });
       return;
     }
 
@@ -335,7 +603,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     // Set first project as active if not already set or invalid
     const currentActiveId = useProjectStore.getState().activeProjectId;
     const exists = mappedProjects.some((p) => p.id === currentActiveId);
-    const targetActiveId = exists ? currentActiveId : mappedProjects[0].id;
+    const targetActiveId = exists ? currentActiveId : (mappedProjects[0]?.id || "");
     set({ activeProjectId: targetActiveId });
 
     // Fetch related detail datasets
@@ -378,7 +646,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       // 2. Fetch storyboard shots
       const { data: shots } = await supabase
         .from("storyboard_shots")
-        .select("*");
+        .select("*")
+        .eq("production_id", prodId);
       
       newStoryboards[prodId] = (shots || []).map((sh) => ({
         id: sh.id,
@@ -481,7 +750,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       // 7. Fetch equipment
       const { data: equipData } = await supabase
         .from("equipment")
-        .select("*");
+        .select("*")
+        .eq("production_id", prodId);
       
       newEquipment[prodId] = (equipData || []).map((e) => ({
         id: e.id,
@@ -542,6 +812,9 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   },
 
   addProject: async (proj) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     // 1. Insert production into Supabase database
     const budgetVal = proj.budgetVal || 2500000;
     const { data: data, error: error } = await supabase
@@ -550,7 +823,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         title: proj.title,
         description: proj.tagline,
         status: proj.status,
-        budget: budgetVal
+        budget: budgetVal,
+        user_id: user.id
       })
       .select()
       .single();
@@ -562,7 +836,6 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     }
 
     // 2. Seed production membership for the owner
-    const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase.from("production_members").insert({
         production_id: data.id,
@@ -603,13 +876,15 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   },
 
   addScriptScene: async (projectId, title, sceneNumber) => {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("scenes")
       .insert({
         production_id: projectId,
         scene_number: sceneNumber,
         title,
-        content: ""
+        content: "",
+        user_id: user?.id
       })
       .select()
       .single();
@@ -715,15 +990,18 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   },
 
   addStoryboardShot: async (projectId, shot) => {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("storyboard_shots")
       .insert({
+        production_id: projectId,
         shot_number: shot.shotNumber,
         camera: shot.camera,
         lens: shot.lens,
         lighting: shot.lighting,
         notes: shot.notes,
-        status: shot.status
+        status: shot.status,
+        user_id: user?.id
       })
       .select()
       .single();
@@ -778,6 +1056,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   },
 
   addShotPlan: async (projectId, plan) => {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("shot_plans")
       .insert({
@@ -789,7 +1068,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         duration: plan.duration,
         location: plan.location,
         weather: plan.weather,
-        status: plan.status
+        status: plan.status,
+        user_id: user?.id
       })
       .select()
       .single();
@@ -836,6 +1116,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   },
 
   addCalendarEvent: async (projectId, event) => {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("calendar_events")
       .insert({
@@ -843,7 +1124,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         title: event.title,
         date: event.date,
         type: event.type,
-        time: event.time
+        time: event.time,
+        user_id: user?.id
       })
       .select()
       .single();
@@ -1036,6 +1318,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   }),
 
   addCallSheet: async (projectId, callSheet) => {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("call_sheets")
       .insert({
@@ -1043,7 +1326,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         date: callSheet.date,
         call_time: callSheet.call_time,
         weather_notes: callSheet.weather_notes,
-        instructions: callSheet.instructions
+        instructions: callSheet.instructions,
+        user_id: user?.id
       })
       .select()
       .single();
@@ -1101,5 +1385,251 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         }
       };
     });
+  },
+
+  deleteProject: async (id) => {
+    const { error } = await supabase
+      .from("productions")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deleting production:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => {
+      const updatedProjects = state.projects.filter((p) => p.id !== id);
+      const currentActiveId = state.activeProjectId;
+      const targetActiveId = currentActiveId === id 
+        ? (updatedProjects[0]?.id || "") 
+        : currentActiveId;
+      return {
+        projects: updatedProjects,
+        activeProjectId: targetActiveId
+      };
+    });
+  },
+
+  updateUserProfile: async (profile) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Calculate profile completeness
+    let filledCount = 0;
+    const fieldsToVerify = ['full_name', 'username', 'bio', 'location', 'website', 'cover_url', 'avatar_url', 'company_name', 'phone'];
+    fieldsToVerify.forEach((field) => {
+      const val = (profile as any)[field] !== undefined ? (profile as any)[field] : (useProjectStore.getState().userProfile as any)?.[field];
+      if (val && String(val).trim().length > 0) {
+        filledCount++;
+      }
+    });
+    
+    const skills = useProjectStore.getState().skillsList;
+    if (skills && skills.length > 0) filledCount++;
+    const tags = useProjectStore.getState().userTagsList;
+    if (tags && tags.length > 0) filledCount++;
+
+    const totalCompleteness = Math.min(100, Math.round((filledCount / (fieldsToVerify.length + 2)) * 100));
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ ...profile, completeness: totalCompleteness })
+      .eq("id", user.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating user profile:", error);
+      alert(error.message);
+      return;
+    }
+
+    set({ userProfile: data });
+
+    // Log Activity
+    await supabase.from("activities").insert({
+      user_id: user.id,
+      title: "Updated Profile",
+      description: "Successfully updated biography and professional background information."
+    });
+    
+    useProjectStore.getState().fetchWorkspaceData();
+  },
+
+  deleteUserProfile: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    if (!confirm("Are you sure you want to delete your filmmaker profile? This will remove your portfolio, bio details, and social links, but your uploaded project files and productions will be kept. This action cannot be undone.")) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .delete()
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("Error deleting profile:", error);
+      alert(error.message);
+      return;
+    }
+
+    set({
+      userProfile: null,
+      socialLinks: null,
+      portfolio: [],
+      skillsList: [],
+      userTagsList: [],
+      userPreferences: null,
+      activities: []
+    });
+
+    await supabase.auth.signOut();
+  },
+
+  updateSocialLinks: async (links) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("social_links")
+      .update(links)
+      .eq("user_id", user.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating social links:", error);
+      alert(error.message);
+      return;
+    }
+
+    set({ socialLinks: data });
+    useProjectStore.getState().fetchWorkspaceData();
+  },
+
+  addPortfolioItem: async (item) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("portfolio")
+      .insert({
+        ...item,
+        user_id: user.id
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error adding portfolio item:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => ({ portfolio: [data, ...state.portfolio] }));
+
+    // Log Activity
+    await supabase.from("activities").insert({
+      user_id: user.id,
+      title: "Added Portfolio Asset",
+      description: `Uploaded "${item.title}" showreel file to portfolio workspace.`
+    });
+    
+    useProjectStore.getState().fetchWorkspaceData();
+  },
+
+  deletePortfolioItem: async (id) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("portfolio")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deleting portfolio item:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => ({ portfolio: state.portfolio.filter((item) => item.id !== id) }));
+    useProjectStore.getState().fetchWorkspaceData();
+  },
+
+  addUserSkill: async (skill) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("skills")
+      .insert({ user_id: user.id, name: skill });
+
+    if (error && !error.message.includes("duplicate key")) {
+      console.error("Error adding skill:", error);
+      alert(error.message);
+      return;
+    }
+
+    useProjectStore.getState().fetchWorkspaceData();
+  },
+
+  removeUserSkill: async (skill) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("skills")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("name", skill);
+
+    if (error) {
+      console.error("Error removing skill:", error);
+      alert(error.message);
+      return;
+    }
+
+    useProjectStore.getState().fetchWorkspaceData();
+  },
+
+  addUserTag: async (tag) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("user_tags")
+      .insert({ user_id: user.id, tag: tag });
+
+    if (error && !error.message.includes("duplicate key")) {
+      console.error("Error adding tag:", error);
+      alert(error.message);
+      return;
+    }
+
+    useProjectStore.getState().fetchWorkspaceData();
+  },
+
+  removeUserTag: async (tag) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("user_tags")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("tag", tag);
+
+    if (error) {
+      console.error("Error removing tag:", error);
+      alert(error.message);
+      return;
+    }
+
+    useProjectStore.getState().fetchWorkspaceData();
   }
 }));

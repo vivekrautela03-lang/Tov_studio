@@ -35,13 +35,15 @@ export const FilesView: React.FC<FilesViewProps> = ({ projectScope }) => {
     setIsUploading(true);
     try {
       const prodId = getDbProductionId(targetProjectId);
+      const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase
         .from("files")
         .insert({
           production_id: prodId,
           name: file.name,
           type: "file",
-          size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`
+          size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+          user_id: user?.id
         });
 
       if (error) throw error;
