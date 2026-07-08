@@ -115,6 +115,13 @@ export const DashboardView: React.FC = () => {
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [currentTime, setCurrentTime] = useState("");
 
+  // PFP Cropper States
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [isDraggingCrop, setIsDraggingCrop] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
   // Edit Profile Form States
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
@@ -269,6 +276,44 @@ export const DashboardView: React.FC = () => {
     );
   };
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDraggingCrop(true);
+    setDragStart({ x: e.clientX - cropOffset.x, y: e.clientY - cropOffset.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingCrop) return;
+    setCropOffset({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDraggingCrop(false);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    setIsDraggingCrop(true);
+    setDragStart({
+      x: e.touches[0].clientX - cropOffset.x,
+      y: e.touches[0].clientY - cropOffset.y
+    });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDraggingCrop || e.touches.length !== 1) return;
+    setCropOffset({
+      x: e.touches[0].clientX - dragStart.x,
+      y: e.touches[0].clientY - dragStart.y
+    });
+  };
+
+  const handleTouchEnd = () => {
+    setIsDraggingCrop(false);
+  };
+
   const handlePfpUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -276,8 +321,9 @@ export const DashboardView: React.FC = () => {
     setIsUploadingPfp(true);
     const reader = new FileReader();
     reader.onloadend = () => {
-      const base64String = reader.result as string;
-      setEditAvatar(base64String);
+      setCropImageSrc(reader.result as string);
+      setCropZoom(1);
+      setCropOffset({ x: 0, y: 0 });
       setIsUploadingPfp(false);
     };
     reader.onerror = () => {
@@ -1161,6 +1207,126 @@ export const DashboardView: React.FC = () => {
                 </Button>
               </div>
             </form>
+          </motion.div>
+        </div>
+      )}
+      {/* Image Cropper Modal Overlay */}
+      {cropImageSrc && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 select-none">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-sm bg-[#171717] border border-white/10 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-6"
+          >
+            <div className="space-y-1 text-center">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Crop Profile Picture</h3>
+              <p className="text-[10px] text-text-secondary">Drag image to position, slider to zoom</p>
+            </div>
+
+            {/* Viewport Container */}
+            <div
+              className="relative w-[280px] h-[280px] mx-auto bg-black border border-white/5 rounded-lg overflow-hidden cursor-move"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              {/* Image */}
+              <img
+                src={cropImageSrc}
+                alt="Crop Target"
+                draggable={false}
+                style={{
+                  transform: `translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropZoom})`,
+                  transformOrigin: "center center",
+                  transition: isDraggingCrop ? "none" : "transform 0.1s ease-out"
+                }}
+                className="w-full h-full object-contain pointer-events-none select-none"
+              />
+
+              {/* Circular Crop Frame Overlay */}
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                {/* Crop Ring */}
+                <div className="w-[180px] h-[180px] rounded-full border-2 border-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]" />
+              </div>
+            </div>
+
+            {/* Slider Control */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-[10px] font-mono text-text-secondary uppercase">
+                <span>Scale Zoom</span>
+                <span>{Math.round(cropZoom * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="3"
+                step="0.05"
+                value={cropZoom}
+                onChange={(e) => setCropZoom(parseFloat(e.target.value))}
+                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCropImageSrc(null)}
+                className="h-9 text-[10px]"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  const canvas = document.createElement("canvas");
+                  canvas.width = 200;
+                  canvas.height = 200;
+                  const ctx = canvas.getContext("2d");
+                  if (ctx) {
+                    const img = new Image();
+                    img.src = cropImageSrc;
+                    img.onload = () => {
+                      ctx.clearRect(0, 0, 200, 200);
+                      ctx.save();
+                      
+                      // Draw Panned/Scaled Viewport representation on 200x200 canvas
+                      ctx.translate(100, 100);
+                      ctx.scale(cropZoom, cropZoom);
+                      ctx.translate(cropOffset.x / cropZoom, cropOffset.y / cropZoom);
+
+                      const viewSize = 280;
+                      let drawW = viewSize;
+                      let drawH = viewSize;
+                      const ratio = img.width / img.height;
+                      if (ratio > 1) {
+                        drawH = viewSize;
+                        drawW = viewSize * ratio;
+                      } else {
+                        drawW = viewSize;
+                        drawH = viewSize / ratio;
+                      }
+
+                      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+                      ctx.restore();
+
+                      const base64 = canvas.toDataURL("image/jpeg", 0.95);
+                      setEditAvatar(base64);
+                      setCropImageSrc(null);
+                    };
+                  }
+                }}
+                className="h-9 text-[10px]"
+              >
+                Apply Crop
+              </Button>
+            </div>
           </motion.div>
         </div>
       )}
