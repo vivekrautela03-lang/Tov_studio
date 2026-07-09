@@ -191,3 +191,107 @@ export const getSupabaseEmailTemplate = (type: "verification" | "reset" | "magic
 
   return getEmailWrapper(content);
 };
+
+/**
+ * Sends account verification email via Resend SDK.
+ */
+export async function sendResendVerificationEmail(email: string, link: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY is not defined. Skipping verification email.");
+    return { success: false, error: "Missing API Key" };
+  }
+
+  const html = getEmailWrapper(`
+    <h1>Confirm Your Registration</h1>
+    <p>Thank you for signing up with The Oldverse Productions. Please click the button below to confirm your account and activate your production workspace:</p>
+    <div class="button-container">
+      <a href="${link}" class="button">Verify Account</a>
+    </div>
+    <p>If the button doesn't work, copy and paste this link in your browser:</p>
+    <p style="font-size: 12px; word-break: break-all; color: #38bdf8;">${link}</p>
+  `);
+
+  try {
+    const data = await resend.emails.send({
+      from: "The Oldverse Productions <onboarding@resend.dev>",
+      to: [email],
+      subject: "Verify Your Account - The Oldverse Productions",
+      html: html,
+    });
+    console.log("Verification email sent via Resend:", data);
+    return { success: true, data };
+  } catch (error) {
+    console.error("Failed to send verification email via Resend:", error);
+    return { success: false, error };
+  }
+}
+
+/**
+ * Sends password reset email via Resend SDK.
+ */
+export async function sendResendPasswordResetEmail(email: string, link: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY is not defined. Skipping password reset email.");
+    return { success: false, error: "Missing API Key" };
+  }
+
+  const html = getEmailWrapper(`
+    <h1>Reset Your Password Key</h1>
+    <p>We received a request to reset your account key for The Oldverse Productions. Click the button below to configure your new password:</p>
+    <div class="button-container">
+      <a href="${link}" class="button">Reset Password Key</a>
+    </div>
+    <p>If you did not request this, you can safely ignore this email.</p>
+    <p>If the button doesn't work, copy and paste this link in your browser:</p>
+    <p style="font-size: 12px; word-break: break-all; color: #38bdf8;">${link}</p>
+  `);
+
+  try {
+    const data = await resend.emails.send({
+      from: "The Oldverse Productions <onboarding@resend.dev>",
+      to: [email],
+      subject: "Reset Your Password - The Oldverse Productions",
+      html: html,
+    });
+    console.log("Password reset email sent via Resend:", data);
+    return { success: true, data };
+  } catch (error) {
+    console.error("Failed to send password reset email via Resend:", error);
+    return { success: false, error };
+  }
+}
+
+/**
+ * Sends change email confirmation email via Resend SDK.
+ */
+export async function sendResendChangeEmailConfirmation(email: string, link: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY is not defined. Skipping change email confirmation.");
+    return { success: false, error: "Missing API Key" };
+  }
+
+  const html = getEmailWrapper(`
+    <h1>Confirm Email Address Change</h1>
+    <p>Click the button below to verify your new email address for The Oldverse Productions:</p>
+    <div class="button-container">
+      <a href="${link}" class="button">Confirm New Email</a>
+    </div>
+    <p>If you did not initiate this change, please contact security@tov.studio immediately.</p>
+    <p>If the button doesn't work, copy and paste this link in your browser:</p>
+    <p style="font-size: 12px; word-break: break-all; color: #38bdf8;">${link}</p>
+  `);
+
+  try {
+    const data = await resend.emails.send({
+      from: "The Oldverse Productions <onboarding@resend.dev>",
+      to: [email],
+      subject: "Confirm Email Change - The Oldverse Productions",
+      html: html,
+    });
+    console.log("Change email confirmation sent via Resend:", data);
+    return { success: true, data };
+  } catch (error) {
+    console.error("Failed to send change email confirmation via Resend:", error);
+    return { success: false, error };
+  }
+}

@@ -273,36 +273,34 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: signUpEmail.trim(),
-        password: signUpPassword.trim(),
-        options: {
-          data: {
-            full_name: signUpFullName.trim(),
-            phone: signUpMobile.trim(),
-            role: signUpRole
-          }
-        }
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: signUpEmail.trim(),
+          password: signUpPassword.trim(),
+          fullName: signUpFullName.trim(),
+          phone: signUpMobile.trim(),
+          role: signUpRole
+        })
       });
-      if (error) throw error;
-
-      // Trigger server-side Resend welcome email dispatch
-      if (data.user?.email) {
-        fetch("/api/welcome", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: data.user.email,
-            fullName: signUpFullName.trim()
-          })
-        }).catch((err) => console.error("Failed to trigger welcome email:", err));
+      const result = await res.json();
+      if (!result.success) {
+        throw new Error(result.error || "Failed to create account.");
       }
 
-      if (data.user && data.session) {
-        setSuccessMsg("Account registered successfully! Redirecting...");
-      } else {
-        setView("emailsent");
-      }
+      // Trigger server-side Resend welcome email dispatch (async)
+      fetch("/api/welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: signUpEmail.trim(),
+          fullName: signUpFullName.trim()
+        })
+      }).catch((err) => console.error("Failed to trigger welcome email:", err));
+
+      setSuccessMsg("Registration successful! A verification link has been sent to your email.");
+      setView("emailsent");
     } catch (err: any) {
       console.error("Sign-up error:", err);
       setErrorMsg(parseError(err));
@@ -317,10 +315,18 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
     setErrorMsg("");
     setSuccessMsg("");
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
-        redirectTo: `${window.location.origin}/#recovery`
+      const res = await fetch("/api/auth/reset-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: resetEmail.trim()
+        })
       });
-      if (error) throw error;
+      const result = await res.json();
+      if (!result.success) {
+        throw new Error(result.error || "Failed to send reset link.");
+      }
+      setSuccessMsg("If this email exists, a password reset link has been sent via Resend.");
       setView("emailsent");
     } catch (err: any) {
       console.error("Forgot password error:", err);
