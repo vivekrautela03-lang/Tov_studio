@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
-// Initialize Resend with API Key from environment variables
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend with API Key from environment variables (with fallback for build-time safety)
+const resend = new Resend(process.env.RESEND_API_KEY || "re_G9G8FKBA_8mPcKHuG384NP2C2jctUmXb1");
 
 // Logo image URL from the public GitHub repository
 const LOGO_URL = "https://raw.githubusercontent.com/vivekrautela03-lang/Tov_studio/main/public/logo.png";
