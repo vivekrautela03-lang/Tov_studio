@@ -133,6 +133,44 @@ export const CastView: React.FC<CastViewProps> = ({ projectScope }) => {
                     </div>
                   </div>
 
+                  {/* Contact & Experience details */}
+                  <div className="space-y-1.5 text-[11px] text-text-secondary border-t border-white/5 pt-3">
+                    {c.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-primary/70 shrink-0" />
+                        <span className="text-white font-mono">{c.phone}</span>
+                      </div>
+                    )}
+                    {c.email && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 text-primary/70 shrink-0" />
+                        <span className="text-white truncate">{c.email}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-white/40">Exp:</span>
+                      <span className="text-white">{c.experience || "N/A"}</span>
+                    </div>
+                  </div>
+
+                  {/* Skills tags */}
+                  {c.skills && c.skills.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {c.skills.map((s) => (
+                        <span key={s} className="text-[9px] bg-white/5 px-2 py-0.5 rounded text-text-secondary border border-white/5">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Notes Preview */}
+                  {c.notes && (
+                    <p className="text-[10px] text-text-secondary italic line-clamp-2 bg-black/20 p-2 rounded border border-white/5">
+                      {c.notes}
+                    </p>
+                  )}
+
                   {/* Availability Status */}
                   <div className="flex justify-between items-center border-t border-white/5 pt-3">
                     <div>
