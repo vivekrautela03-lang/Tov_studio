@@ -19,6 +19,7 @@ import { ShotPlannerView } from "@/components/views/ShotPlannerView";
 import { CalendarView } from "@/components/views/CalendarView";
 import { CrewView } from "@/components/views/CrewView";
 import { CastView } from "@/components/views/CastView";
+import { TeamView } from "@/components/views/TeamView";
 import { FilesView } from "@/components/views/FilesView";
 import { AIStudioView } from "@/components/views/AIStudioView";
 import { SettingsView } from "@/components/views/SettingsView";
@@ -110,9 +111,9 @@ export default function Home() {
       case "call-sheets":
         return <CallSheetView />;
       case "crew":
-        return <CrewView />;
       case "cast":
-        return <CastView />;
+      case "team":
+        return <TeamView />;
       case "files":
         return <FilesView />;
       case "ai-support":
