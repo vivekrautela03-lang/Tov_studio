@@ -73,17 +73,28 @@ export const Sidebar: React.FC = () => {
       >
         {/* Brand Logo & Tagline */}
         <div className="flex border-b border-white/5 p-4 overflow-hidden h-[73px] items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-emerald-400 font-bold text-black text-sm shrink-0">
-              TOV
+          <div className="flex items-center gap-2.5">
+            {/* Monogram Logo */}
+            <div className="relative shrink-0 w-8 h-8">
+              <svg viewBox="0 0 100 100" className="w-full h-full text-white" fill="currentColor">
+                <ellipse cx="48" cy="52" rx="30" ry="24" transform="rotate(-15 48 52)" fill="none" stroke="currentColor" strokeWidth="2.5" />
+                <path d="M22 30 h52 M48 30 v48 M38 78 h20" stroke="currentColor" strokeWidth="5" strokeLinecap="round" fill="none" />
+                <path d="M60 50 L75 80 L90 50" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              </svg>
             </div>
             {(!sidebarCollapsed || mobileSidebarOpen) && (
               <div className="flex flex-col">
-                <span className="text-sm font-bold tracking-wider text-white">
-                  TOV STUDIO
-                </span>
-                <span className="text-[10px] text-text-secondary tracking-widest uppercase">
-                  Create. Shoot. Deliver.
+                <div className="flex items-center gap-1 leading-none">
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M9 3v18M15 3v18M3 9h18M3 15h18" />
+                  </svg>
+                  <span className="text-[12px] font-black tracking-wider text-white uppercase font-sans">
+                    THE OLDVERSE
+                  </span>
+                </div>
+                <span className="text-[7.5px] text-[#A37E58] tracking-[0.25em] uppercase font-mono font-bold leading-none mt-1">
+                  PRODUCTIONS
                 </span>
               </div>
             )}

@@ -128,11 +128,37 @@ export default function Home() {
   // 3. Loading Overlay Gate
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#121212] text-white flex flex-col items-center justify-center gap-4 select-none">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-emerald-400 font-extrabold text-black flex items-center justify-center animate-bounce">
-          TOV
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-6 select-none p-6">
+        {/* Monogram Logo */}
+        <div className="animate-pulse flex flex-col items-center text-center space-y-6">
+          <svg viewBox="0 0 100 100" className="w-28 h-28 text-white" fill="currentColor">
+            <ellipse cx="48" cy="52" rx="30" ry="24" transform="rotate(-15 48 52)" fill="none" stroke="currentColor" strokeWidth="2.5" />
+            <path d="M22 30 h52 M48 30 v48 M38 78 h20" stroke="currentColor" strokeWidth="5" strokeLinecap="round" fill="none" />
+            <path d="M60 50 L75 80 L90 50" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          </svg>
+          
+          <div className="flex flex-col items-center">
+            <div className="flex items-center gap-2">
+              <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M9 3v18M15 3v18M3 9h18M3 15h18" />
+              </svg>
+              <span className="text-lg font-black tracking-wider text-white uppercase font-sans">
+                THE OLDVERSE
+              </span>
+            </div>
+            <span className="text-[9px] text-[#A37E58] tracking-[0.35em] uppercase font-mono font-bold mt-1.5">
+              PRODUCTIONS
+            </span>
+          </div>
+
+          <div className="pt-2 text-xs tracking-widest text-[#38bdf8] font-mono space-y-1">
+            <p>Create. Collaborate.</p>
+            <p>Bring Stories to Life.</p>
+          </div>
         </div>
-        <p className="text-[10px] font-mono text-text-secondary uppercase tracking-widest animate-pulse">
+
+        <p className="text-[9px] font-mono text-white/30 uppercase tracking-[0.25em] animate-pulse mt-8">
           Initializing OS Session Shield...
         </p>
       </div>

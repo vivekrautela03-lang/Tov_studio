@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TOV Studio | Create. Shoot. Deliver.",
+  title: "The Oldverse Productions | Create. Collaborate. Bring Stories to Life.",
   description: "AI-powered operating system for filmmakers, creative studios, production houses, and agencies.",
 };
 

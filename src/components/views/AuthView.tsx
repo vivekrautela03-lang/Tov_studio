@@ -50,7 +50,7 @@ const BrandLogo = ({ className = "w-10 h-10" }: { className?: string }) => (
           THE OLDVERSE
         </span>
       </div>
-      <span className="text-[8px] text-white/50 tracking-[0.25em] uppercase font-mono font-medium leading-none mt-1">
+      <span className="text-[8px] text-[#A37E58] tracking-[0.25em] uppercase font-mono font-medium leading-none mt-1">
         PRODUCTIONS
       </span>
     </div>
@@ -72,12 +72,12 @@ const StandaloneBrand = () => (
           THE OLDVERSE
         </h1>
       </div>
-      <span className="text-[9px] text-white/50 tracking-[0.35em] uppercase font-mono font-bold mt-2">
+      <span className="text-[9px] text-[#A37E58] tracking-[0.35em] uppercase font-mono font-bold mt-2">
         PRODUCTIONS
       </span>
     </div>
 
-    <div className="pt-4 text-xs tracking-widest text-white/60 font-mono space-y-1">
+    <div className="pt-2 text-xs tracking-widest text-[#38bdf8] font-mono space-y-1">
       <p>Create. Collaborate.</p>
       <p>Bring Stories to Life.</p>
     </div>
