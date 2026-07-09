@@ -129,42 +129,13 @@ export default function Home() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-6 select-none p-6">
-        {/* Monogram Logo */}
+        {/* Official Brand Logo */}
         <div className="animate-pulse flex flex-col items-center text-center space-y-6">
-          <svg viewBox="0 0 100 100" className="w-28 h-28 text-white" fill="currentColor">
-            {/* Tilted Serif O */}
-            <g transform="rotate(-14 46 54)">
-              <path d="M 46,24 C 29,24 19,37 19,54 C 19,71 29,84 46,84 C 63,84 73,71 73,54 C 73,37 63,24 46,24 Z M 46,29 C 58,29 67,40 67,54 C 67,68 58,79 46,79 C 34,79 25,68 25,54 C 25,40 34,29 46,29 Z" />
-            </g>
-            {/* Serif T */}
-            <path d="M 22,30 H 70 V 35 H 65 V 37 H 51 V 73 H 57 V 78 H 35 V 73 H 41 V 37 H 27 V 35 H 22 Z" />
-            {/* Serif V */}
-            <path d="M 58,48 L 72,78 H 75 L 89,48 H 84 L 74,72 L 63,48 Z" />
-          </svg>
-          
-          <div className="flex flex-col items-center">
-            <div className="flex items-center gap-2">
-              {/* Horizontal Filmstrip Icon */}
-              <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="currentColor">
-                <rect x="2" y="4" width="20" height="16" rx="3" fill="none" stroke="currentColor" strokeWidth="2" />
-                <line x1="8" y1="4" x2="8" y2="20" stroke="currentColor" strokeWidth="1.5" />
-                <line x1="16" y1="4" x2="16" y2="20" stroke="currentColor" strokeWidth="1.5" />
-                <rect x="4" y="6" width="2" height="2" rx="0.5" />
-                <rect x="4" y="11" width="2" height="2" rx="0.5" />
-                <rect x="4" y="16" width="2" height="2" rx="0.5" />
-                <rect x="18" y="6" width="2" height="2" rx="0.5" />
-                <rect x="18" y="11" width="2" height="2" rx="0.5" />
-                <rect x="18" y="16" width="2" height="2" rx="0.5" />
-              </svg>
-              <span className="text-lg font-black tracking-wider text-white uppercase font-sans">
-                THE OLDVERSE
-              </span>
-            </div>
-            <span className="text-[9px] text-white/60 tracking-[0.35em] uppercase font-mono font-bold mt-1.5">
-              PRODUCTIONS
-            </span>
-          </div>
-
+          <img
+            src="/logo.png"
+            alt="The Oldverse Productions"
+            className="w-[280px] h-auto object-contain shrink-0"
+          />
           <div className="pt-2 text-xs tracking-widest text-[#38bdf8] font-mono space-y-1">
             <p>Create. Collaborate.</p>
             <p>Bring Stories to Life.</p>
