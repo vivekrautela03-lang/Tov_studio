@@ -312,12 +312,12 @@ export const TeamView: React.FC = () => {
     // 1. Search Query
     const searchLower = searchQuery.toLowerCase();
     const matchesSearch =
-      c.full_name.toLowerCase().includes(searchLower) ||
-      c.college.toLowerCase().includes(searchLower) ||
-      c.phone.toLowerCase().includes(searchLower) ||
-      c.email.toLowerCase().includes(searchLower) ||
-      c.skills.some((s) => s.toLowerCase().includes(searchLower)) ||
-      c.languages.some((l) => l.toLowerCase().includes(searchLower));
+      (c.full_name || "").toLowerCase().includes(searchLower) ||
+      (c.college || "").toLowerCase().includes(searchLower) ||
+      (c.phone || "").toLowerCase().includes(searchLower) ||
+      (c.email || "").toLowerCase().includes(searchLower) ||
+      (c.skills || []).some((s) => s.toLowerCase().includes(searchLower)) ||
+      (c.languages || []).some((l) => l.toLowerCase().includes(searchLower));
 
     if (!matchesSearch) return false;
 
@@ -341,13 +341,13 @@ export const TeamView: React.FC = () => {
     const deptName = departments.find((d) => d.id === c.department_id)?.name || "Others";
 
     const matchesSearch =
-      c.full_name.toLowerCase().includes(searchLower) ||
-      c.position.toLowerCase().includes(searchLower) ||
-      c.college.toLowerCase().includes(searchLower) ||
-      c.phone.toLowerCase().includes(searchLower) ||
-      c.email.toLowerCase().includes(searchLower) ||
+      (c.full_name || "").toLowerCase().includes(searchLower) ||
+      (c.position || "").toLowerCase().includes(searchLower) ||
+      (c.college || "").toLowerCase().includes(searchLower) ||
+      (c.phone || "").toLowerCase().includes(searchLower) ||
+      (c.email || "").toLowerCase().includes(searchLower) ||
       deptName.toLowerCase().includes(searchLower) ||
-      c.skills.some((s) => s.toLowerCase().includes(searchLower));
+      (c.skills || []).some((s) => s.toLowerCase().includes(searchLower));
 
     if (!matchesSearch) return false;
 

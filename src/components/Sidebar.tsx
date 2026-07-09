@@ -93,7 +93,8 @@ export const Sidebar: React.FC = () => {
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
           {menuItems.map((item) => {
             const IconComponent = item.icon;
-            const isActive = activeView === item.id;
+            const isActive = activeView === item.id || 
+              (item.id === "team" && (activeView === "crew" || activeView === "cast"));
             return (
               <button
                 key={item.id}
