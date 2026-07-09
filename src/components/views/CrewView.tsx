@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
+import { useProjectStore } from "@/store/useProjectStore";
 import {
   Search,
   Phone,
@@ -41,8 +42,8 @@ interface CrewViewProps {
 }
 
 export const CrewView: React.FC<CrewViewProps> = ({ projectScope }) => {
-  const [crewMembers, setCrewMembers] = useState<CrewMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { crewMembers, fetchWorkspaceData } = useProjectStore();
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedMember, setSelectedMember] = useState<CrewMember | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -50,17 +51,7 @@ export const CrewView: React.FC<CrewViewProps> = ({ projectScope }) => {
   const fetchCrew = async () => {
     setLoading(true);
     try {
-      const { data } = await supabase
-        .from("crew_members")
-        .select(`
-          *,
-          departments (
-            id,
-            name
-          )
-        `)
-        .order("full_name");
-      setCrewMembers(data || []);
+      await fetchWorkspaceData();
     } catch (err) {
       console.error("Error fetching crew:", err);
     } finally {
@@ -82,7 +73,7 @@ export const CrewView: React.FC<CrewViewProps> = ({ projectScope }) => {
       (c.phone || "").toLowerCase().includes(searchLower) ||
       (c.email || "").toLowerCase().includes(searchLower) ||
       deptName.toLowerCase().includes(searchLower) ||
-      (c.skills || []).some((s) => s.toLowerCase().includes(searchLower))
+      (c.skills || []).some((s: string) => s.toLowerCase().includes(searchLower))
     );
   });
 
@@ -163,7 +154,7 @@ export const CrewView: React.FC<CrewViewProps> = ({ projectScope }) => {
                   {/* Skills tags */}
                   {c.skills && c.skills.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {c.skills.map((s) => (
+                      {c.skills.map((s: string) => (
                         <span key={s} className="text-[9px] bg-white/5 px-2 py-0.5 rounded text-text-secondary border border-white/5">
                           {s}
                         </span>
@@ -312,7 +303,7 @@ export const CrewView: React.FC<CrewViewProps> = ({ projectScope }) => {
                   <div>
                     <span className="text-[9px] text-text-secondary block uppercase font-mono mb-1.5">Specialization & Skills</span>
                     <div className="flex flex-wrap gap-1.5">
-                      {selectedMember.skills.map((s) => (
+                      {selectedMember.skills.map((s: string) => (
                         <span key={s} className="text-[10px] bg-white/5 border border-white/5 text-white px-2 py-0.5 rounded font-mono">
                           {s}
                         </span>

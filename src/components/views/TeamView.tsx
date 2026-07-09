@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { supabase } from "@/utils/supabaseClient";
+import { useProjectStore } from "@/store/useProjectStore";
 import {
   Search,
   Users,
@@ -67,11 +68,9 @@ interface CrewMember {
 }
 
 export const TeamView: React.FC = () => {
-  // Database States
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [cast, setCast] = useState<CastMember[]>([]);
-  const [crew, setCrew] = useState<CrewMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Load data from Zustand store instead of local states
+  const { castMembers: cast, crewMembers: crew, departmentsList: departments, fetchWorkspaceData } = useProjectStore();
+  const [loading, setLoading] = useState(false);
 
   // UI Filtering & Search States
   const [searchQuery, setSearchQuery] = useState("");
@@ -113,29 +112,7 @@ export const TeamView: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: depts } = await supabase
-        .from("departments")
-        .select("*")
-        .order("name");
-      setDepartments(depts || []);
-
-      const { data: castData } = await supabase
-        .from("cast_members")
-        .select("*")
-        .order("full_name");
-      setCast(castData || []);
-
-      const { data: crewData } = await supabase
-        .from("crew_members")
-        .select(`
-          *,
-          departments (
-            id,
-            name
-          )
-        `)
-        .order("full_name");
-      setCrew(crewData || []);
+      await fetchWorkspaceData();
     } catch (error) {
       console.error("Error loading team data:", error);
     } finally {
@@ -316,8 +293,8 @@ export const TeamView: React.FC = () => {
       (c.college || "").toLowerCase().includes(searchLower) ||
       (c.phone || "").toLowerCase().includes(searchLower) ||
       (c.email || "").toLowerCase().includes(searchLower) ||
-      (c.skills || []).some((s) => s.toLowerCase().includes(searchLower)) ||
-      (c.languages || []).some((l) => l.toLowerCase().includes(searchLower));
+      (c.skills || []).some((s: string) => s.toLowerCase().includes(searchLower)) ||
+      (c.languages || []).some((l: string) => l.toLowerCase().includes(searchLower));
 
     if (!matchesSearch) return false;
 
@@ -347,7 +324,7 @@ export const TeamView: React.FC = () => {
       (c.phone || "").toLowerCase().includes(searchLower) ||
       (c.email || "").toLowerCase().includes(searchLower) ||
       deptName.toLowerCase().includes(searchLower) ||
-      (c.skills || []).some((s) => s.toLowerCase().includes(searchLower));
+      (c.skills || []).some((s: string) => s.toLowerCase().includes(searchLower));
 
     if (!matchesSearch) return false;
 

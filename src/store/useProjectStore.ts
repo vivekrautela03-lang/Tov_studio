@@ -264,6 +264,9 @@ interface ProjectStoreState {
   activities: UserActivity[];
   skillsList: string[];
   userTagsList: string[];
+  castMembers: any[];
+  crewMembers: any[];
+  departmentsList: any[];
 
   // Actions
   setActiveView: (view: string) => void;
@@ -376,6 +379,9 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   activities: [],
   skillsList: [],
   userTagsList: [],
+  castMembers: [],
+  crewMembers: [],
+  departmentsList: [],
 
   // Actions
   setActiveView: (view) => set({ activeView: view }),
@@ -547,6 +553,28 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         production_days: stats?.production_days || 5
       };
 
+      // 9. Fetch cast & crew database tables
+      const { data: castData } = await supabase
+        .from("cast_members")
+        .select("*")
+        .order("full_name");
+      
+      const { data: depts } = await supabase
+        .from("departments")
+        .select("*")
+        .order("name");
+
+      const { data: crewData } = await supabase
+        .from("crew_members")
+        .select(`
+          *,
+          departments (
+            id,
+            name
+          )
+        `)
+        .order("full_name");
+
       set({
         userProfile: profile || null,
         socialLinks: social || null,
@@ -555,7 +583,10 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         userTagsList: (tagsData || []).map((t) => t.tag),
         userPreferences: preferences || null,
         statistics: calculatedStats,
-        activities: activitiesData || []
+        activities: activitiesData || [],
+        castMembers: castData || [],
+        crewMembers: crewData || [],
+        departmentsList: depts || []
       });
     }
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
+import { useProjectStore } from "@/store/useProjectStore";
 import {
   Search,
   Phone,
@@ -39,8 +40,8 @@ interface CastViewProps {
 }
 
 export const CastView: React.FC<CastViewProps> = ({ projectScope }) => {
-  const [castMembers, setCastMembers] = useState<CastMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { castMembers, fetchWorkspaceData } = useProjectStore();
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedMember, setSelectedMember] = useState<CastMember | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -48,11 +49,7 @@ export const CastView: React.FC<CastViewProps> = ({ projectScope }) => {
   const fetchCast = async () => {
     setLoading(true);
     try {
-      const { data } = await supabase
-        .from("cast_members")
-        .select("*")
-        .order("full_name");
-      setCastMembers(data || []);
+      await fetchWorkspaceData();
     } catch (err) {
       console.error("Error fetching cast:", err);
     } finally {
@@ -71,8 +68,8 @@ export const CastView: React.FC<CastViewProps> = ({ projectScope }) => {
       (c.college || "").toLowerCase().includes(searchLower) ||
       (c.phone || "").toLowerCase().includes(searchLower) ||
       (c.email || "").toLowerCase().includes(searchLower) ||
-      (c.skills || []).some((s) => s.toLowerCase().includes(searchLower)) ||
-      (c.languages || []).some((l) => l.toLowerCase().includes(searchLower))
+      (c.skills || []).some((s: string) => s.toLowerCase().includes(searchLower)) ||
+      (c.languages || []).some((l: string) => l.toLowerCase().includes(searchLower))
     );
   });
 
@@ -156,7 +153,7 @@ export const CastView: React.FC<CastViewProps> = ({ projectScope }) => {
                   {/* Skills tags */}
                   {c.skills && c.skills.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {c.skills.map((s) => (
+                      {c.skills.map((s: string) => (
                         <span key={s} className="text-[9px] bg-white/5 px-2 py-0.5 rounded text-text-secondary border border-white/5">
                           {s}
                         </span>
@@ -305,7 +302,7 @@ export const CastView: React.FC<CastViewProps> = ({ projectScope }) => {
                   <div>
                     <span className="text-[9px] text-text-secondary block uppercase font-mono mb-1.5">Talents & Skills</span>
                     <div className="flex flex-wrap gap-1.5">
-                      {selectedMember.skills.map((s) => (
+                      {selectedMember.skills.map((s: string) => (
                         <span key={s} className="text-[10px] bg-white/5 border border-white/5 text-white px-2 py-0.5 rounded font-mono">
                           {s}
                         </span>
@@ -318,7 +315,7 @@ export const CastView: React.FC<CastViewProps> = ({ projectScope }) => {
                   <div>
                     <span className="text-[9px] text-text-secondary block uppercase font-mono mb-1.5">Languages</span>
                     <div className="flex flex-wrap gap-1.5">
-                      {selectedMember.languages.map((l) => (
+                      {selectedMember.languages.map((l: string) => (
                         <span key={l} className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-mono font-semibold">
                           {l}
                         </span>
