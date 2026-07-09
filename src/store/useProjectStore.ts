@@ -517,7 +517,6 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       const { data: activitiesData } = await supabase
         .from("activities")
         .select("*")
-        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       // Count actual projects/scripts/storyboards from Supabase to keep stats synchronized

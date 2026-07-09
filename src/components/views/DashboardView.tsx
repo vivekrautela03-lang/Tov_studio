@@ -114,6 +114,7 @@ export const DashboardView: React.FC = () => {
   const [weatherData, setWeatherData] = useState<any>(null);
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [currentTime, setCurrentTime] = useState("");
+  const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
 
   // PFP Cropper States
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
@@ -197,6 +198,51 @@ export const DashboardView: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [fetchWorkspaceData]);
+
+  // 3. Supabase Real-time Presence Subscription
+  useEffect(() => {
+    let presenceChannel: any;
+
+    const setupPresence = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      presenceChannel = supabase.channel("online-crew-presence", {
+        config: {
+          presence: {
+            key: user.id,
+          },
+        },
+      });
+
+      presenceChannel
+        .on("presence", { event: "sync" }, () => {
+          const state = presenceChannel.presenceState();
+          const activeUsersList = Object.values(state).map((presenceArray: any) => {
+            return presenceArray[0];
+          });
+          setOnlineUsers(activeUsersList);
+        })
+        .subscribe(async (status: string) => {
+          if (status === "SUBSCRIBED") {
+            await presenceChannel.track({
+              id: user.id,
+              full_name: userProfile?.full_name || user?.email?.split("@")[0] || "Filmmaker",
+              avatar_url: userProfile?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(userProfile?.full_name || "User")}`,
+              online_at: new Date().toISOString(),
+            });
+          }
+        });
+    };
+
+    setupPresence();
+
+    return () => {
+      if (presenceChannel) {
+        supabase.removeChannel(presenceChannel);
+      }
+    };
+  }, [userProfile]);
 
   // 3. Fetch Live Weather Telemetry
   useEffect(() => {
@@ -776,6 +822,45 @@ export const DashboardView: React.FC = () => {
             {/* Right Column: Skills & Activities (4 units) */}
             <div className="lg:col-span-4 space-y-6">
 
+              {/* Real-time Online Presence Panel */}
+              <Card className="bg-[#111318] border-white/5 p-5 space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Active Crew Online</h3>
+                  </div>
+                  <span className="text-[10px] text-green-400 font-mono font-bold">
+                    {onlineUsers.length} Active
+                  </span>
+                </div>
+                <div className="space-y-3 max-h-[220px] overflow-y-auto scrollbar-none">
+                  {onlineUsers.length === 0 ? (
+                    <div className="text-[10px] text-text-secondary italic text-center py-4">
+                      No active sessions tracked.
+                    </div>
+                  ) : (
+                    onlineUsers.map((user, idx) => (
+                      <div key={user.id || idx} className="flex items-center justify-between bg-black/25 border border-white/5 rounded-lg p-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <img
+                            src={user.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.full_name || "User")}`}
+                            className="w-7 h-7 rounded-full object-cover border border-white/10"
+                            alt="User avatar"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-white truncate">{user.full_name}</p>
+                            <p className="text-[9px] text-text-secondary font-mono truncate">Active now</p>
+                          </div>
+                        </div>
+                        <span className="text-[9px] text-green-400 font-bold bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 whitespace-nowrap">
+                          Online
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+
               {/* Skills list */}
               <Card className="bg-[#111318] border-white/5 p-5 space-y-4">
                 <div className="flex items-center justify-between pb-2 border-b border-white/5">
@@ -825,7 +910,7 @@ export const DashboardView: React.FC = () => {
                         <p className="text-white font-semibold leading-normal">{act.title}</p>
                         <p className="text-[10px] text-text-secondary leading-normal">{act.description}</p>
                         <span className="text-[9px] text-text-secondary block font-mono">
-                          {new Date(act.created_at).toLocaleDateString([], { month: "short", day: "numeric" })}
+                          {new Date(act.created_at).toLocaleDateString([], { month: "short", day: "numeric" })} at {new Date(act.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
                       </div>
                     ))
