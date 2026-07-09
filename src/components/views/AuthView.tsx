@@ -286,6 +286,18 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
       });
       if (error) throw error;
 
+      // Trigger server-side Resend welcome email dispatch
+      if (data.user?.email) {
+        fetch("/api/welcome", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: data.user.email,
+            fullName: signUpFullName.trim()
+          })
+        }).catch((err) => console.error("Failed to trigger welcome email:", err));
+      }
+
       if (data.user && data.session) {
         setSuccessMsg("Account registered successfully! Redirecting...");
       } else {
