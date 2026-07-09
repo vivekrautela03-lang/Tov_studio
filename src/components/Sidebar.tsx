@@ -44,6 +44,7 @@ export const Sidebar: React.FC = () => {
     { id: "calendar", label: "Calendar", icon: Calendar },
     { id: "call-sheets", label: "Call Sheets", icon: FileText },
     { id: "team", label: "Team", icon: Users },
+    { id: "cast", label: "Cast", icon: Contact },
     { id: "files", label: "Files", icon: FolderOpen },
     { id: "ai-support", label: "AI Support", icon: Sparkles },
     { id: "settings", label: "Settings", icon: Settings }
@@ -93,8 +94,7 @@ export const Sidebar: React.FC = () => {
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
           {menuItems.map((item) => {
             const IconComponent = item.icon;
-            const isActive = activeView === item.id || 
-              (item.id === "team" && (activeView === "crew" || activeView === "cast"));
+            const isActive = activeView === item.id;
             return (
               <button
                 key={item.id}

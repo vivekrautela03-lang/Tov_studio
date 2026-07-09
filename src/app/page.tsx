@@ -110,9 +110,10 @@ export default function Home() {
         return <CalendarView />;
       case "call-sheets":
         return <CallSheetView />;
-      case "crew":
       case "cast":
+        return <CastView />;
       case "team":
+      case "crew":
         return <TeamView />;
       case "files":
         return <FilesView />;
