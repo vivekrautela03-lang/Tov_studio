@@ -484,7 +484,7 @@ export const DashboardView: React.FC = () => {
             {/* Username + Settings Gear */}
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-bold text-white tracking-tight leading-none">
-                {userProfile?.username || "vivek"}
+                {userProfile?.username || "creator"}
               </h2>
               <button
                 onClick={() => setIsEditModalOpen(true)}
@@ -497,7 +497,7 @@ export const DashboardView: React.FC = () => {
 
             {/* Display Name */}
             <div className="text-xs text-text-secondary font-medium">
-              {userProfile?.full_name || "Vivek Roy"}
+              {userProfile?.full_name || "Creative Filmmaker"}
             </div>
 
             {/* Role Tags (replacing posts/followers count row) */}
@@ -538,7 +538,7 @@ export const DashboardView: React.FC = () => {
 
           {/* Email & Phone */}
           <div className="space-y-0.5 font-mono text-[10px] text-text-secondary">
-            <div>✉ {userProfile?.email || "vivek@tov.studio"}</div>
+            <div>✉ {userProfile?.email || "user@tov.studio"}</div>
             {userProfile?.phone && (
               <div>📞 {userProfile.phone}</div>
             )}

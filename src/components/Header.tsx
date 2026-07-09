@@ -364,12 +364,12 @@ export const Header: React.FC = () => {
                 />
               ) : (
                 <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center font-bold text-black text-sm ring-2 ring-primary/20">
-                  {profile?.full_name?.[0].toUpperCase() || user?.email?.[0].toUpperCase() || "V"}
+                  {profile?.full_name?.[0].toUpperCase() || user?.email?.[0].toUpperCase() || "U"}
                 </div>
               )}
               <div className="hidden lg:flex flex-col text-left">
                 <span className="text-xs font-semibold text-white truncate max-w-[100px]">
-                  {profile?.full_name || user?.email?.split("@")[0] || "Vivek Roy"}
+                  {profile?.full_name || user?.email?.split("@")[0] || "User"}
                 </span>
                 <span className="text-[9px] text-text-secondary font-mono">{profile?.role || "Producer"}</span>
               </div>
@@ -380,7 +380,7 @@ export const Header: React.FC = () => {
               <div className="absolute right-0 mt-2 w-56 bg-card border border-white/5 rounded-lg shadow-2xl z-50 p-1">
                 <div className="px-3 py-2 text-[10px] text-text-secondary border-b border-white/5 break-all">
                   Logged in as:
-                  <div className="text-white font-medium mt-0.5">{user?.email || "vivek@tovstudio.ai"}</div>
+                  <div className="text-white font-medium mt-0.5">{user?.email || "user@tovstudio.ai"}</div>
                 </div>
                 <button
                   onClick={() => {

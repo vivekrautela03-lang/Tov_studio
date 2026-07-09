@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export const AIStudioView: React.FC = () => {
-  const { chatLogs, addChatMessage } = useProjectStore();
+  const { chatLogs, addChatMessage, userProfile } = useProjectStore();
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -42,8 +42,9 @@ export const AIStudioView: React.FC = () => {
       const lower = text.toLowerCase();
 
       if (lower.includes("call sheet")) {
+        const directorName = userProfile?.full_name || "Creative Director";
         aiResponse = `### 🎬 AI GENERATED CALL SHEET: THE MIDNIGHT CODE
-**Date:** July 5, 2026 | **Director:** Vivek Roy | **Call Time:** 18:00 (Night Shoot)
+**Date:** July 5, 2026 | **Director:** ${directorName} | **Call Time:** 18:00 (Night Shoot)
 **Location:** Neo-Tokyo Alleyways Set (Stage 4 Studio)
 
 | Time | Event | Scene / Setup | Talents / Crew |
