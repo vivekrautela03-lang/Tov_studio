@@ -503,6 +503,34 @@ export const DashboardView: React.FC = () => {
     );
   };
 
+  if (!userProfile) {
+    return (
+      <div className="space-y-6 animate-pulse text-xs relative p-6">
+        {/* Profile Header Skeleton */}
+        <div className="bg-[#0b0c0f] border border-white/5 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl relative">
+          <div className="flex items-center gap-6 md:gap-10">
+            <div className="w-20 h-20 md:w-28 md:h-28 rounded-full bg-white/5 border border-white/10 shrink-0" />
+            <div className="space-y-3 flex-1">
+              <div className="h-6 w-32 bg-white/10 rounded-md animate-pulse" />
+              <div className="h-4 w-48 bg-white/5 rounded-md animate-pulse" />
+              <div className="h-3 w-64 bg-white/5 rounded-md animate-pulse" />
+            </div>
+          </div>
+        </div>
+        
+        {/* Main Grid Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-[#0b0c0f] border border-white/5 rounded-2xl h-64 shadow-2xl" />
+          </div>
+          <div className="space-y-6">
+            <div className="bg-[#0b0c0f] border border-white/5 rounded-2xl h-64 shadow-2xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in text-xs relative">
 
