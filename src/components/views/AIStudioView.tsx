@@ -92,15 +92,64 @@ Scope: High altitude tracking shot of supercar speedways.
 *   **Concept 3: Code stream**
     A sleek, abstract dark design. Thin white lines representing screenplays and shoot schedules overlaying a faint silhouette of a camera lens. Minimal green typography centered: *TOV Studio Presents. The Midnight Code. Create. Shoot. Deliver.*`;
       } else {
-        aiResponse = `### 🤖 ASSISTANT ANALYSIS COMPLETE
-I've analyzed your prompt regarding: "${text}". 
+        const state = useProjectStore.getState();
+        const activeProj = state.projects.find(p => p.id === state.activeProjectId);
+        const projectTitle = activeProj ? activeProj.title : "Active Project";
+        const castCount = state.castMembers.length;
+        const crewCount = state.crewMembers.length;
+        const equipCount = (state.equipment[state.activeProjectId] || []).length;
+        const filesCount = (state.files[state.activeProjectId] || []).length;
 
-Based on our active production database for **"${useProjectStore.getState().projects.find(p => p.id === useProjectStore.getState().activeProjectId)?.title}"**:
-- Active schedule: Scene 1 blocks are currently filming.
-- Cast roster: Christian Bale (Sim) is marked "On Set".
-- Equipment: CS15 LED panels are available in Grip Truck 1.
+        if (lower.includes("hello") || lower.includes("hi") || lower.includes("hey")) {
+          aiResponse = `Hello there! I am your AI production assistant. I've fetched the live workspace data for your production **${projectTitle}**. 
 
-How would you like to update our scheduling timeline or shoot setups to accommodate this request? I can automatically write a new Shot Setup Plan to our calendar schedule.`;
+Here is the current real-time overview:
+*   **Team Cast:** ${castCount} registered actor profiles.
+*   **Active Crew:** ${crewCount} members in your departments.
+*   **Equipment Vault:** ${equipCount} tracked cameras, lenses, and lighting units.
+*   **Files Vault:** ${filesCount} uploaded screenplays and footages.
+
+How can I help you coordinate or edit your production details today?`;
+        } else if (lower.includes("cast") || lower.includes("actor")) {
+          if (castCount === 0) {
+            aiResponse = `There are currently no actors registered in the cast database for **${projectTitle}**. You can add cast profiles in the "Cast & Crew" tab.`;
+          } else {
+            const listStr = state.castMembers.slice(0, 5).map(c => `*   **${c.full_name}** (${c.gender}, ${c.experience || "Professional"})`).join("\n");
+            aiResponse = `Here is the real-time cast roster registered for **${projectTitle}** (${castCount} total):
+
+${listStr}
+${castCount > 5 ? `*and ${castCount - 5} other actor profiles.*` : ""}`;
+          }
+        } else if (lower.includes("crew") || lower.includes("member")) {
+          if (crewCount === 0) {
+            aiResponse = `There are currently no crew members registered in your production crew list for **${projectTitle}**.`;
+          } else {
+            const listStr = state.crewMembers.slice(0, 5).map(c => `*   **${c.full_name}** - ${c.role || "Crew"}`).join("\n");
+            aiResponse = `Here is the current crew list for **${projectTitle}** (${crewCount} total):
+
+${listStr}
+${crewCount > 5 ? `*and ${crewCount - 5} other crew members.*` : ""}`;
+          }
+        } else if (lower.includes("equipment") || lower.includes("camera") || lower.includes("lens")) {
+          if (equipCount === 0) {
+            aiResponse = `You haven't registered any equipment items in the vault for **${projectTitle}** yet.`;
+          } else {
+            const listStr = (state.equipment[state.activeProjectId] || []).slice(0, 5).map(e => `*   **${e.name}** - ${e.status} (Battery: ${e.battery || 100}%)`).join("\n");
+            aiResponse = `Here is the live equipment status for **${projectTitle}**:
+
+${listStr}`;
+          }
+        } else {
+          aiResponse = `I've checked the live production database for **${projectTitle}** to answer your prompt. 
+
+Here is what I found in your workspace:
+*   We have **${castCount}** actors on the cast list.
+*   We have **${crewCount}** crew members in department databases.
+*   We have **${equipCount}** hardware units in the equipment vault.
+*   We have **${filesCount}** files stored in the vault.
+
+Please let me know if you would like me to draft call sheets, outline storyboard shot plans, or review scene continuity details based on this information!`;
+        }
       }
 
       addChatMessage({
