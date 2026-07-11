@@ -3,12 +3,15 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useProjectStore } from "@/store/useProjectStore";
-import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { cn } from "@/components/ui/button";
 import { AuthView } from "@/components/views/AuthView";
 import { BrainCircuit } from "lucide-react";
+import { BottomNav } from "@/components/BottomNav";
+import { NotificationsView } from "@/components/views/NotificationsView";
+import { ProfileView } from "@/components/views/ProfileView";
+import { EquipmentView } from "@/components/views/EquipmentView";
 
 // Views
 import { DashboardView } from "@/components/views/DashboardView";
@@ -123,6 +126,12 @@ export default function Home() {
         return <InboxView />;
       case "files":
         return <FilesView />;
+      case "equipment":
+        return <EquipmentView />;
+      case "notifications":
+        return <NotificationsView />;
+      case "profile":
+        return <ProfileView />;
       case "ai-support":
         return <AIStudioView />;
       case "settings":
@@ -162,27 +171,22 @@ export default function Home() {
     return <AuthView initialState={authSubstate} />;
   }
 
-  // 5. Authenticated State: Mount Dashboard Sidebar Shell
+  // 5. Authenticated State: Mount Dashboard Shell with Top/Bottom Navigation
   return (
-    <div className="min-h-screen bg-[#121212] text-white flex">
-      {/* Sidebar - Collapsible */}
-      <Sidebar />
+    <div className="min-h-screen bg-[#121212] text-white flex flex-col pb-24">
+      {/* Top Header Navigation */}
+      <Header />
 
       {/* Main Panel Content Container */}
-      <div
-        className={cn(
-          "flex-1 flex flex-col min-w-0 transition-all duration-300 pl-0",
-          sidebarCollapsed ? "md:pl-16" : "md:pl-64"
-        )}
-      >
-        {/* Top Header Navigation */}
-        <Header />
-
+      <div className="flex-1 flex flex-col min-w-0 animate-fade-in">
         {/* Dynamic Inner Panel View Viewport */}
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto max-w-[1600px] mx-auto w-full">
+        <main className="flex-1 p-4 md:p-8 overflow-y-auto max-w-[1600px] mx-auto w-full">
           {renderViewContent()}
         </main>
       </div>
+
+      {/* Fixed Bottom Navigation (Always Visible) */}
+      <BottomNav />
 
       {/* Cmd+K Global Search Command Palette */}
       <GlobalSearch />

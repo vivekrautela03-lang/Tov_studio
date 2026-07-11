@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from "react";
 import { useProjectStore } from "@/store/useProjectStore";
 import { supabase } from "@/utils/supabaseClient";
-import { ArrowLeft, Film, Calendar, DollarSign, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { motion } from "framer-motion";
 
 // Subviews
@@ -17,6 +18,8 @@ import { CastView } from "./CastView";
 import { FilesView } from "./FilesView";
 import { CalendarView } from "./CalendarView";
 import { CallSheetView } from "./CallSheetView";
+import { ChatView } from "./ChatView";
+import { EquipmentView } from "./EquipmentView";
 
 interface ProjectDetailsViewProps {
   projectId: string;
@@ -39,16 +42,19 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
 
   const tabs = [
     "Overview",
+    "Team",
+    "Cast",
+    "Messages",
+    "Files",
     "Script",
     "Storyboard",
-    "Shot Planner",
+    "Tasks",
     "Calendar",
-    "Call Sheets",
-    "Crew",
-    "Cast",
+    "Equipment",
     "Locations",
-    "Files",
-    "Release"
+    "Budget",
+    "Schedule",
+    "Settings"
   ];
 
   const [activeTab, setActiveTab] = useState("Overview");
@@ -90,39 +96,35 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
     fetchMemberRole();
   }, [projectId]);
 
-  // Filter tabs dynamically based on user role permissions (all tabs available to authenticated users)
-  const filteredTabs = tabs;
-
-  // Ensure active tab fallback if filtered out by role change
-  useEffect(() => {
-    if (!filteredTabs.includes(activeTab)) {
-      setActiveTab("Overview");
-    }
-  }, [memberRole]);
-
   // Render content based on selected tab
   const renderTabContent = () => {
     switch (activeTab) {
+      case "Team":
+        return <CrewView projectScope={projectId} />;
+      case "Cast":
+        return <CastView projectScope={projectId} />;
+      case "Messages":
+        return <ChatView />;
+      case "Files":
+        return <FilesView projectScope={projectId} />;
       case "Script":
         return <ScriptsView projectScope={projectId} />;
       case "Storyboard":
         return <StoryboardView projectScope={projectId} />;
-      case "Shot Planner":
+      case "Tasks":
         return <ShotPlannerView projectScope={projectId} />;
       case "Calendar":
         return <CalendarView projectScope={projectId} />;
-      case "Call Sheets":
-        return <CallSheetView projectScope={projectId} />;
-      case "Crew":
-        return <CrewView projectScope={projectId} />;
-      case "Cast":
-        return <CastView projectScope={projectId} />;
-      case "Files":
-        return <FilesView projectScope={projectId} />;
+      case "Equipment":
+        return <EquipmentView projectScope={projectId} />;
       case "Locations":
         return renderLocationsTab();
-      case "Release":
-        return renderReleaseTab();
+      case "Budget":
+        return renderBudgetTab();
+      case "Schedule":
+        return <CallSheetView projectScope={projectId} />;
+      case "Settings":
+        return renderSettingsTab();
       case "Overview":
       default:
         return renderOverviewTab();
@@ -131,15 +133,15 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
 
   const renderOverviewTab = () => {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in text-xs">
         <div className="lg:col-span-2 space-y-6">
-          <Card>
+          <Card className="border-white/5 bg-neutral-900/40 backdrop-blur-md">
             <CardContent className="p-6 space-y-4">
-              <h3 className="text-base font-bold text-white">Logline & Vision</h3>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Logline & Vision</h3>
               <p className="text-xs text-text-secondary leading-relaxed">
                 {project.tagline}
               </p>
-              <div className="border-t border-white/5 pt-4 grid grid-cols-3 gap-4 text-xs">
+              <div className="border-t border-white/5 pt-4 grid grid-cols-3 gap-4">
                 <div>
                   <span className="text-[10px] text-text-secondary uppercase">Director</span>
                   <div className="text-white font-medium mt-1">{project.director}</div>
@@ -158,10 +160,10 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
         </div>
 
         <div className="space-y-6">
-          <Card>
+          <Card className="border-white/5 bg-neutral-900/40 backdrop-blur-md">
             <CardContent className="p-6 space-y-4">
-              <h3 className="text-base font-bold text-white">Campaign Details</h3>
-              <div className="space-y-3 text-xs border-b border-white/5 pb-4">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Campaign Details</h3>
+              <div className="space-y-3 border-b border-white/5 pb-4">
                 <div className="flex justify-between">
                   <span className="text-text-secondary">Release Date</span>
                   <span className="text-white font-medium">{project.deadline}</span>
@@ -186,18 +188,18 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
     ];
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in text-xs">
         {locations.map((loc, idx) => (
-          <Card key={idx}>
+          <Card key={idx} className="border-white/5 bg-neutral-900/40 backdrop-blur-md">
             <CardContent className="p-5 space-y-4">
               <div className="flex justify-between items-start">
-                <h4 className="text-sm font-bold text-white">{loc.name}</h4>
+                <h4 className="text-xs font-bold text-white">{loc.name}</h4>
                 <span className="text-[9px] px-2 py-0.5 rounded bg-white/5 text-text-secondary font-medium">
                   {loc.type}
                 </span>
               </div>
-              <p className="text-xs text-text-secondary">{loc.address}</p>
-              <div className="border-t border-white/5 pt-3 flex justify-between items-center text-xs">
+              <p className="text-[11px] text-text-secondary">{loc.address}</p>
+              <div className="border-t border-white/5 pt-3 flex justify-between items-center">
                 <span className="text-text-secondary">Status</span>
                 <span className="text-success font-medium">{loc.status}</span>
               </div>
@@ -208,34 +210,83 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
     );
   };
 
-  const renderReleaseTab = () => {
+  const renderBudgetTab = () => {
     return (
-      <Card className="animate-fade-in">
+      <Card className="animate-fade-in border-white/5 bg-neutral-900/40 backdrop-blur-md text-xs">
         <CardContent className="p-6 space-y-6">
-          <h3 className="text-base font-bold text-white">Release & Distribution Milestones</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-            <div className="p-4 bg-white/[0.02] border border-white/5 rounded-lg">
-              <span className="text-xs text-text-secondary uppercase">Teaser Cut</span>
-              <div className="text-base font-bold text-white mt-1">Oct 01, 2026</div>
+          <div className="flex justify-between items-center border-b border-white/5 pb-4">
+            <div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Production Budget</h3>
+              <p className="text-[10px] text-text-secondary">Overview of overall budget distribution & expenditures</p>
             </div>
-            <div className="p-4 bg-white/[0.02] border border-white/5 rounded-lg">
-              <span className="text-xs text-text-secondary uppercase">Trailer Lock</span>
-              <div className="text-base font-bold text-white mt-1">Nov 12, 2026</div>
+            <span className="text-sm font-black text-primary">{project.budget}</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-4 bg-black/30 border border-white/5 rounded-lg space-y-1">
+              <span className="text-[10px] text-text-secondary uppercase">Pre-Production</span>
+              <div className="text-base font-bold text-white">$250,000</div>
+              <div className="text-[9px] text-[#3ecf8e]">100% Spent</div>
             </div>
-            <div className="p-4 bg-white/[0.02] border border-white/5 rounded-lg">
-              <span className="text-xs text-text-secondary uppercase">Festival Premier</span>
-              <div className="text-base font-bold text-white mt-1">Dec 01, 2026</div>
+            <div className="p-4 bg-black/30 border border-white/5 rounded-lg space-y-1">
+              <span className="text-[10px] text-text-secondary uppercase">Principal Photography</span>
+              <div className="text-base font-bold text-white">$900,000</div>
+              <div className="text-[9px] text-[#3ecf8e]">45% Spent</div>
             </div>
-            <div className="p-4 bg-white/[0.02] border border-white/5 rounded-lg">
-              <span className="text-xs text-text-secondary uppercase">Theatrical Release</span>
-              <div className="text-base font-bold text-white mt-1">Dec 15, 2026</div>
+            <div className="p-4 bg-black/30 border border-white/5 rounded-lg space-y-1">
+              <span className="text-[10px] text-text-secondary uppercase">Post-Production</span>
+              <div className="text-base font-bold text-white">$350,000</div>
+              <div className="text-[9px] text-text-secondary font-medium">Pending</div>
             </div>
           </div>
-          <div className="border-t border-white/5 pt-4 space-y-2">
-            <h4 className="text-xs font-semibold text-white uppercase tracking-wider">Distribution Partners</h4>
-            <p className="text-xs text-text-secondary">
-              A24 (Domestic Sales Agent) • Universal Pictures (International Distribution) • Netflix (Subscription Video-on-Demand Streaming Window).
-            </p>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderSettingsTab = () => {
+    return (
+      <Card className="animate-fade-in border-white/5 bg-neutral-900/40 backdrop-blur-md text-xs">
+        <CardContent className="p-6 space-y-4">
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Project Configuration</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[10px] uppercase text-text-secondary mb-1">Production Title</label>
+              <input
+                type="text"
+                defaultValue={project.title}
+                className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase text-text-secondary mb-1">Director</label>
+              <input
+                type="text"
+                defaultValue={project.director}
+                className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase text-text-secondary mb-1">Base Location</label>
+              <input
+                type="text"
+                defaultValue={project.location}
+                className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase text-text-secondary mb-1">Deadline Date</label>
+              <input
+                type="date"
+                defaultValue={project.deadline}
+                className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end pt-3">
+            <Button variant="primary" size="sm" onClick={() => alert("Workspace settings saved successfully!")}>
+              Save Workspace Settings
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -243,7 +294,7 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in text-xs">
       {/* Back Header & Cinematic banner */}
       <div className="flex flex-col gap-4">
         <button
@@ -272,13 +323,13 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
 
       {/* Horizontal Sub tabs */}
       <div className="w-full overflow-x-auto scrollbar-none border-b border-white/5 flex items-center gap-1 py-1">
-        {filteredTabs.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = activeTab === tab;
           return (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className="relative px-4 py-2 text-xs font-medium text-left cursor-pointer transition-all shrink-0 select-none text-text-secondary hover:text-white"
+              className="relative px-4 py-2 text-xs font-bold text-left cursor-pointer transition-all shrink-0 select-none text-text-secondary hover:text-white"
             >
               {isActive && (
                 <motion.div
@@ -287,7 +338,7 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
                   transition={{ type: "spring", stiffness: 380, damping: 30 }}
                 />
               )}
-              <span className={isActive ? "text-primary font-semibold" : "text-text-secondary"}>
+              <span className={isActive ? "text-[#22d3ee] font-extrabold" : "text-text-secondary"}>
                 {tab}
               </span>
             </button>
@@ -296,7 +347,7 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
       </div>
 
       {/* Content Mount Area */}
-      <div className="min-h-[400px]">
+      <div className="mt-4">
         {renderTabContent()}
       </div>
     </div>

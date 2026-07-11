@@ -16,10 +16,12 @@ import {
   FilePlus2,
   CalendarPlus,
   Check,
-  UserCheck
+  UserCheck,
+  MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { HamburgerMenu } from "./HamburgerMenu";
 
 export const Header: React.FC = () => {
   const {
@@ -36,9 +38,9 @@ export const Header: React.FC = () => {
     setMobileSidebarOpen
   } = useProjectStore();
 
-  // Dropdowns States
+  // Hamburger and Dropdown States
+  const [isHamburgerOpen, setIsHamburgerOpen] = useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
-  const [isNotifyDropdownOpen, setIsNotifyDropdownOpen] = useState(false);
   const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -127,23 +129,14 @@ export const Header: React.FC = () => {
     <>
       <header className="h-[73px] sticky top-0 z-30 bg-[#121212]/85 backdrop-blur-md border-b border-white/5 px-4 md:px-6 flex items-center justify-between">
         
-        {/* Left Side: Hamburger (Mobile), Project Switcher, and Search */}
+        {/* Left Side: Project Switcher and Search */}
         <div className="flex items-center gap-2.5 md:gap-4">
-          
-          {/* Hamburger Menu Toggle (Mobile) */}
-          <button
-            onClick={() => setMobileSidebarOpen(true)}
-            className="md:hidden p-2 bg-white/5 hover:bg-white/10 text-white rounded-lg cursor-pointer border border-white/5"
-          >
-            <Menu className="w-4 h-4" />
-          </button>
           
           {/* Project Switcher */}
           <div className="relative">
             <button
               onClick={() => {
                 setIsProjectDropdownOpen(!isProjectDropdownOpen);
-                setIsNotifyDropdownOpen(false);
                 setIsCreateDropdownOpen(false);
               }}
               className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white text-xs px-3 py-2 rounded-lg border border-white/5 transition-all duration-200 cursor-pointer"
@@ -208,196 +201,32 @@ export const Header: React.FC = () => {
           </button>
         </div>
 
-        {/* Right Side: Quick Action, AI, Notifications, Profile */}
+        {/* Right Side: Messages, Hamburger Menu */}
         <div className="flex items-center gap-3">
           
-          {/* Quick Create Action */}
-          <div className="relative">
-            <Button
-              onClick={() => {
-                setIsCreateDropdownOpen(!isCreateDropdownOpen);
-                setIsProjectDropdownOpen(false);
-                setIsNotifyDropdownOpen(false);
-              }}
-              variant="secondary"
-              size="sm"
-              className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5"
-            >
-              <Plus className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">Quick Create</span>
-            </Button>
-
-            {isCreateDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-card border border-white/5 rounded-lg shadow-2xl z-50 p-1">
-                <button
-                  onClick={() => {
-                    setIsCreateDropdownOpen(false);
-                    setIsNewProjOpen(true);
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-white/5 text-xs text-left text-white cursor-pointer transition-colors duration-150"
-                >
-                  <FolderPlus className="w-4 h-4 text-primary" />
-                  <span>New Project</span>
-                </button>
-                
-                <button
-                  onClick={() => {
-                    setIsCreateDropdownOpen(false);
-                    setActiveView("scripts");
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-white/5 text-xs text-left text-white cursor-pointer transition-colors duration-150"
-                >
-                  <FilePlus2 className="w-4 h-4 text-secondary" />
-                  <span>New Screenplay Scene</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setIsCreateDropdownOpen(false);
-                    setActiveView("calendar");
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-white/5 text-xs text-left text-white cursor-pointer transition-colors duration-150"
-                >
-                  <CalendarPlus className="w-4 h-4 text-success" />
-                  <span>Add Calendar Event</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setIsCreateDropdownOpen(false);
-                    setActiveView("ai-support");
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-white/5 text-xs text-left text-white cursor-pointer transition-colors duration-150"
-                >
-                  <Sparkles className="w-4 h-4 text-warning animate-pulse" />
-                  <span>Generate Call Sheet (AI)</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* AI Assistant Button */}
-          <Button
-            onClick={() => setActiveView("ai-support")}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1.5 hover:border-primary/50 text-white p-2 sm:px-3 sm:py-1.5"
+          {/* Messages (💬) Tab Link */}
+          <button
+            onClick={() => setActiveView("chat")}
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white relative transition-all duration-200 cursor-pointer border border-white/5"
+            title="Messages"
           >
-            <Sparkles className="w-4 h-4 text-primary animate-pulse shrink-0" />
-            <span className="hidden sm:inline">AI Support</span>
-          </Button>
+            <MessageSquare className="w-4.5 h-4.5 text-[#22d3ee] drop-shadow-[0_0_8px_rgba(34,211,238,0.2)]" />
+          </button>
 
-          {/* Notifications Center */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setIsNotifyDropdownOpen(!isNotifyDropdownOpen);
-                setIsProjectDropdownOpen(false);
-                setIsCreateDropdownOpen(false);
-              }}
-              className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white relative transition-all duration-200 cursor-pointer border border-white/5"
-            >
-              <Bell className="w-4.5 h-4.5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary animate-pulse" />
-              )}
-            </button>
-
-            {isNotifyDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-80 max-sm:w-72 bg-card border border-white/5 rounded-lg shadow-2xl z-50 p-1 flex flex-col max-h-[400px]">
-                <div className="px-3 py-2.5 border-b border-white/5 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white">Notifications ({unreadCount} new)</span>
-                  <button
-                    onClick={clearNotifications}
-                    className="text-[10px] text-primary hover:underline font-medium cursor-pointer"
-                  >
-                    Clear All
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto py-1 space-y-0.5">
-                  {notifications.length === 0 ? (
-                    <div className="px-4 py-8 text-center text-xs text-text-secondary">
-                      No notifications
-                    </div>
-                  ) : (
-                    notifications.map((n) => (
-                      <div
-                        key={n.id}
-                        onClick={() => markNotificationRead(n.id)}
-                        className={`px-3 py-2.5 rounded-md hover:bg-white/5 cursor-pointer transition-colors duration-150 ${
-                          !n.read ? "bg-white/[0.01]" : ""
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className={`text-xs font-medium ${!n.read ? "text-white" : "text-text-secondary"}`}>
-                            {n.title}
-                          </span>
-                          <span className="text-[9px] text-text-secondary shrink-0">{n.time}</span>
-                        </div>
-                        <p className="text-[10px] text-text-secondary mt-0.5 leading-relaxed">
-                          {n.message}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* User Profile */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setIsProfileDropdownOpen(!isProfileDropdownOpen);
-                setIsProjectDropdownOpen(false);
-                setIsNotifyDropdownOpen(false);
-                setIsCreateDropdownOpen(false);
-              }}
-              className="flex items-center gap-2 pl-2 border-l border-white/5 cursor-pointer hover:opacity-85 select-none"
-            >
-              {profile?.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt=""
-                  className="w-8 h-8 rounded-full object-cover ring-2 ring-primary/20"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center font-bold text-black text-sm ring-2 ring-primary/20">
-                  {profile?.full_name?.[0].toUpperCase() || user?.email?.[0].toUpperCase() || "U"}
-                </div>
-              )}
-              <div className="hidden lg:flex flex-col text-left">
-                <span className="text-xs font-semibold text-white truncate max-w-[100px]">
-                  {profile?.full_name || user?.email?.split("@")[0] || "User"}
-                </span>
-                <span className="text-[9px] text-text-secondary font-mono">{profile?.role || "Producer"}</span>
-              </div>
-              <ChevronDown className="w-3 h-3 text-text-secondary hidden lg:inline" />
-            </button>
-
-            {isProfileDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-card border border-white/5 rounded-lg shadow-2xl z-50 p-1">
-                <div className="px-3 py-2 text-[10px] text-text-secondary border-b border-white/5 break-all">
-                  Logged in as:
-                  <div className="text-white font-medium mt-0.5">{user?.email || "user@tovstudio.ai"}</div>
-                </div>
-                <button
-                  onClick={() => {
-                    setIsProfileDropdownOpen(false);
-                    handleLogout();
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-danger/10 text-danger text-xs text-left cursor-pointer transition-colors mt-1"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Log Out</span>
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Hamburger Menu (☰) Trigger */}
+          <button
+            onClick={() => setIsHamburgerOpen(true)}
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white relative transition-all duration-200 cursor-pointer border border-white/5"
+            title="Open Hub Menu"
+          >
+            <Menu className="w-4.5 h-4.5" />
+          </button>
 
         </div>
       </header>
+
+      {/* Slide-out Hamburger Menu overlay drawer */}
+      <HamburgerMenu isOpen={isHamburgerOpen} onClose={() => setIsHamburgerOpen(false)} />
 
       {/* NEW PROJECT DIALOG */}
       <Dialog
