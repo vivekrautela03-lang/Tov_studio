@@ -65,6 +65,9 @@ export const ChatView: React.FC = () => {
     createChatChannel,
     setActiveChannelId,
     toggleLikeMessage,
+    deleteChatMessage,
+    editChatMessage,
+    markMessagesAsRead,
     userProfile
   } = useProjectStore();
 
@@ -78,6 +81,11 @@ export const ChatView: React.FC = () => {
   
   const activeChannelRef = useRef<any>(null);
   const lastTypingSent = useRef<number>(0);
+
+  // Context Menu & Editing State
+  const [contextMenu, setContextMenu] = useState<{ msgId: string; x: number; y: number } | null>(null);
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+  const [editInput, setEditInput] = useState("");
 
   // Modals
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
@@ -135,19 +143,21 @@ export const ChatView: React.FC = () => {
     if (!activeChannelId || !currentUser) return;
 
     fetchChatMessages(activeChannelId);
+    markMessagesAsRead(activeChannelId);
 
     const channel = supabase
       .channel(`chat-room-${activeChannelId}`)
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "chat_messages",
           filter: `channel_id=eq.${activeChannelId}`
         },
         () => {
           fetchChatMessages(activeChannelId);
+          markMessagesAsRead(activeChannelId);
         }
       )
       .on("broadcast", { event: "typing" }, ({ payload }) => {
@@ -226,6 +236,21 @@ export const ChatView: React.FC = () => {
     await sendChatMessage(activeChannelId, messageInput.trim(), selectedAttachment || undefined);
     setMessageInput("");
     setSelectedAttachment("");
+  };
+
+  useEffect(() => {
+    const closeMenu = () => setContextMenu(null);
+    window.addEventListener("click", closeMenu);
+    return () => window.removeEventListener("click", closeMenu);
+  }, []);
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editInput.trim() || !editingMsgId || !activeChannelId) return;
+
+    await editChatMessage(activeChannelId, editingMsgId, editInput.trim());
+    setEditingMsgId(null);
+    setEditInput("");
   };
 
   const handleCreateChannel = async () => {
@@ -475,10 +500,38 @@ export const ChatView: React.FC = () => {
                         <div className={`flex items-center gap-2 text-[10px] ${isSelf ? "justify-end" : ""}`}>
                           <span className="font-bold text-white">{senderName}</span>
                           <span className="text-[9px] text-text-secondary">{time}</span>
+                          {isSelf && (
+                            <span className="ml-1 text-[10px] shrink-0 font-sans">
+                              {(() => {
+                                const readList = msg.read_by || [];
+                                let isRead = false;
+                                if (activeChannel?.is_group) {
+                                  isRead = readList.length > 0;
+                                } else {
+                                  const otherMember = activeChannel?.chat_channel_members?.find((m: any) => m.user_id !== currentUser?.id);
+                                  isRead = otherMember && readList.includes(otherMember.user_id);
+                                }
+                                return isRead ? (
+                                  <span className="text-cyan-400 font-bold select-none" title="Read">✓✓</span>
+                                ) : (
+                                  <span className="text-white/30 font-bold select-none" title="Sent">✓</span>
+                                );
+                              })()}
+                            </span>
+                          )}
                         </div>
                         <div
                           onDoubleClick={() => toggleLikeMessage(activeChannelId, msg.id)}
-                          className={`p-3 rounded-xl text-xs leading-relaxed break-words font-sans relative select-none ${
+                          onContextMenu={(e) => {
+                            if (!isSelf) return;
+                            e.preventDefault();
+                            setContextMenu({
+                              msgId: msg.id,
+                              x: e.clientX,
+                              y: e.clientY
+                            });
+                          }}
+                          className={`p-3 rounded-xl text-xs leading-relaxed break-words font-sans relative select-none cursor-pointer hover:opacity-95 transition-opacity ${
                             isSelf
                               ? "bg-primary text-black font-semibold rounded-tr-none"
                               : "bg-[#111318] text-white border border-white/5 rounded-tl-none"
@@ -543,33 +596,64 @@ export const ChatView: React.FC = () => {
               </div>
             )}
 
-            {/* Message Input bar */}
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-white/5 bg-[#111318] flex items-center gap-3">
-              <label className="p-2.5 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg cursor-pointer text-white/60 hover:text-white transition-colors shrink-0 flex items-center justify-center">
+            {/* Message Input / Edit bar */}
+            {editingMsgId ? (
+              <form onSubmit={handleEditSubmit} className="p-4 border-t border-white/5 bg-[#111318] flex items-center gap-3">
                 <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAttachmentSelect}
+                  type="text"
+                  placeholder="Edit your message..."
+                  value={editInput}
+                  onChange={(e) => setEditInput(e.target.value)}
+                  className="flex-1 bg-black border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white focus:border-primary focus:outline-none transition-all"
+                  autoFocus
                 />
-                <Image className="w-4 h-4 text-primary" />
-              </label>
-              <input
-                type="text"
-                placeholder="Type your message..."
-                value={messageInput}
-                onChange={(e) => handleInputChange(e.target.value)}
-                className="flex-1 bg-black border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white focus:border-primary focus:outline-none transition-all placeholder-white/20"
-              />
-              <Button
-                type="submit"
-                variant="primary"
-                className="h-10 text-black font-bold px-5 cursor-pointer flex items-center gap-1.5"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Send</span>
-              </Button>
-            </form>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setEditingMsgId(null);
+                    setEditInput("");
+                  }}
+                  variant="outline"
+                  className="h-10 text-white text-xs px-4 cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="h-10 text-black font-bold px-5 cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Save</span>
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleSendMessage} className="p-4 border-t border-white/5 bg-[#111318] flex items-center gap-3">
+                <label className="p-2.5 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg cursor-pointer text-white/60 hover:text-white transition-colors shrink-0 flex items-center justify-center">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAttachmentSelect}
+                  />
+                  <Image className="w-4 h-4 text-primary" />
+                </label>
+                <input
+                  type="text"
+                  placeholder="Type your message..."
+                  value={messageInput}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  className="flex-1 bg-black border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white focus:border-primary focus:outline-none transition-all placeholder-white/20"
+                />
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="h-10 text-black font-bold px-5 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Send</span>
+                </Button>
+              </form>
+            )}
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3">
@@ -683,6 +767,36 @@ export const ChatView: React.FC = () => {
 
           </div>
         </Dialog>
+      )}
+
+      {contextMenu && (
+        <div
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          className="fixed z-50 bg-[#18181B] border border-white/10 rounded-lg shadow-xl py-1 text-xs text-white min-w-[120px] select-none"
+        >
+          <button
+            onClick={() => {
+              const msg = currentMessages.find(m => m.id === contextMenu.msgId);
+              if (msg) {
+                setEditingMsgId(msg.id);
+                setEditInput(msg.content);
+              }
+            }}
+            className="w-full text-left px-4 py-2.5 hover:bg-white/5 cursor-pointer transition-colors block"
+          >
+            Edit Message
+          </button>
+          <button
+            onClick={() => {
+              if (confirm("Delete this message?")) {
+                deleteChatMessage(activeChannelId, contextMenu.msgId);
+              }
+            }}
+            className="w-full text-left px-4 py-2.5 hover:bg-danger/10 hover:text-danger cursor-pointer transition-colors block border-t border-white/5"
+          >
+            Delete Message
+          </button>
+        </div>
       )}
 
     </div>

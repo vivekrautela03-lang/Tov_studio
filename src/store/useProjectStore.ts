@@ -318,6 +318,9 @@ interface ProjectStoreState {
   createChatChannel: (name: string | null, isGroup: boolean, members: string[]) => Promise<string | null>;
   setActiveChannelId: (channelId: string) => void;
   toggleLikeMessage: (channelId: string, messageId: string) => Promise<void>;
+  deleteChatMessage: (channelId: string, messageId: string) => Promise<void>;
+  editChatMessage: (channelId: string, messageId: string, newContent: string) => Promise<void>;
+  markMessagesAsRead: (channelId: string) => Promise<void>;
 
   // Profile Mutations
   updateUserProfile: (profile: Partial<UserProfile>) => Promise<void>;
@@ -2024,6 +2027,62 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     if (error) {
       console.error("Error toggling message like:", error);
       return;
+    }
+
+    await useProjectStore.getState().fetchChatMessages(channelId);
+  },
+
+  deleteChatMessage: async (channelId, messageId) => {
+    const { error } = await supabase
+      .from("chat_messages")
+      .delete()
+      .eq("id", messageId);
+
+    if (error) {
+      console.error("Error deleting chat message:", error);
+      alert(error.message);
+      return;
+    }
+
+    await useProjectStore.getState().fetchChatMessages(channelId);
+  },
+
+  editChatMessage: async (channelId, messageId, newContent) => {
+    const { error } = await supabase
+      .from("chat_messages")
+      .update({ content: newContent.trim() })
+      .eq("id", messageId);
+
+    if (error) {
+      console.error("Error editing chat message:", error);
+      alert(error.message);
+      return;
+    }
+
+    await useProjectStore.getState().fetchChatMessages(channelId);
+  },
+
+  markMessagesAsRead: async (channelId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .select("id, read_by")
+      .eq("channel_id", channelId)
+      .not("sender_id", "eq", user.id);
+
+    if (error || !data) return;
+
+    for (const msg of data) {
+      const readList = msg.read_by || [];
+      if (!readList.includes(user.id)) {
+        const newReadBy = [...readList, user.id];
+        await supabase
+          .from("chat_messages")
+          .update({ read_by: newReadBy })
+          .eq("id", msg.id);
+      }
     }
 
     await useProjectStore.getState().fetchChatMessages(channelId);
