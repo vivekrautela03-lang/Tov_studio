@@ -298,6 +298,7 @@ interface ProjectStoreState {
   setCastAttendance: (projectId: string, castId: string, attendance: CastMember["attendance"]) => Promise<void>;
   updateEquipmentStatus: (projectId: string, equipId: string, status: Equipment["status"], assignedTo?: string) => void;
   addChatMessage: (message: Omit<ChatMessage, "id" | "timestamp">) => void;
+  addNotification: (notification: Omit<NotificationItem, "id" | "read" | "time">) => void;
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
   setSearchQuery: (query: string) => void;
@@ -1344,6 +1345,18 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     };
     return {
       chatLogs: [...state.chatLogs, newMsg]
+    };
+  }),
+
+  addNotification: (notification) => set((state) => {
+    const newNotif: NotificationItem = {
+      ...notification,
+      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      read: false
+    };
+    return {
+      notifications: [newNotif, ...state.notifications]
     };
   }),
 
