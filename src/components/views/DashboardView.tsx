@@ -147,23 +147,23 @@ export const DashboardView: React.FC = () => {
             return (
               <div key={p.id} className="flex flex-col items-center gap-1.5 shrink-0 text-center select-none group">
                 <div className="relative">
-                  <div className={`p-[2.5px] rounded-full ${isOnline ? "bg-gradient-to-tr from-[#22d3ee] to-[#3ecf8e]" : "bg-neutral-800"} ring-1 ring-white/5`}>
+                  <div className={`p-[3px] rounded-full ${isOnline ? "bg-gradient-to-tr from-[#22d3ee] to-[#3ecf8e]" : "bg-neutral-800"} ring-1 ring-white/5`}>
                     {p.avatar_url ? (
                       <img
                         src={p.avatar_url}
-                        className="w-12 h-12 rounded-full object-cover border-2 border-[#121212] bg-neutral-900"
+                        className="w-16 h-16 rounded-full object-cover border-2 border-[#121212] bg-neutral-900"
                         alt=""
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center font-bold text-black text-sm border-2 border-[#121212] select-none">
+                      <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center font-bold text-black text-lg border-2 border-[#121212] select-none">
                         {p.full_name?.[0].toUpperCase() || "U"}
                       </div>
                     )}
                   </div>
                   {/* Status dot presence */}
-                  <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full ring-2 ring-[#121212] ${isOnline ? "bg-[#3ecf8e]" : "bg-text-secondary/40"}`} />
+                  <span className={`absolute bottom-0 right-1 w-3.5 h-3.5 rounded-full ring-2 ring-[#121212] ${isOnline ? "bg-[#3ecf8e]" : "bg-text-secondary/40"}`} />
                 </div>
-                <span className="text-[10px] font-bold text-text-secondary group-hover:text-white truncate max-w-[70px]">
+                <span className="text-[10px] font-bold text-text-secondary group-hover:text-white truncate max-w-[80px]">
                   {p.full_name?.split(" ")[0]}
                 </span>
               </div>
@@ -180,8 +180,8 @@ export const DashboardView: React.FC = () => {
             }}
             className="flex flex-col items-center gap-1.5 shrink-0 text-center cursor-pointer select-none group"
           >
-            <div className="w-13 h-13 rounded-full border border-dashed border-white/20 hover:border-[#22d3ee]/50 flex items-center justify-center bg-white/5 group-hover:bg-[#22d3ee]/10 transition-all duration-200">
-              <Plus className="w-5 h-5 text-text-secondary group-hover:text-[#22d3ee] transition-colors" />
+            <div className="w-[72px] h-[72px] rounded-full border border-dashed border-white/20 hover:border-[#22d3ee]/50 flex items-center justify-center bg-white/5 group-hover:bg-[#22d3ee]/10 transition-all duration-200">
+              <Plus className="w-6 h-6 text-text-secondary group-hover:text-[#22d3ee] transition-colors" />
             </div>
             <span className="text-[10px] font-bold text-text-secondary group-hover:text-[#22d3ee] transition-colors">
               Invite
