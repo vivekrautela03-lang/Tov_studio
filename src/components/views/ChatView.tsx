@@ -114,10 +114,42 @@ export const ChatView: React.FC = () => {
     init();
   }, []);
 
-  // Fetch channel list
+  // Real-time channel list & activity subscription
   useEffect(() => {
     fetchChatChannels();
-  }, []);
+
+    if (!currentUser) return;
+
+    const globalChannel = supabase
+      .channel("global-chat-listener")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "chat_messages"
+        },
+        () => {
+          fetchChatChannels();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "chat_channels"
+        },
+        () => {
+          fetchChatChannels();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(globalChannel);
+    };
+  }, [currentUser]);
 
   // Clean up typing users after 3 seconds of inactivity
   useEffect(() => {
