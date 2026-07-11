@@ -724,40 +724,33 @@ export const DashboardView: React.FC = () => {
     };
   }, [userProfile]);
 
-  // Production Timeline updates mock database
-  const updatesList = [
-    {
-      title: "Today's Shoot & Call Time",
-      time: "07:30 AM",
-      desc: "Scene 4 - Neon Alley (Steadicam sequence). Weather forecast indicates clear sky conditions. Golden hour estimated at 05:45 PM.",
-      type: "shoot",
-      meta: { callTime: "07:30 AM", location: "Stage A, Alleyway set" }
-    },
-    {
-      title: "Producer Announcement",
-      time: "10:00 AM",
-      desc: "A24 international sales agent agreement finalized. International theatrical distribution confirmed.",
-      type: "announcement"
-    },
-    {
-      title: "Director Notes",
-      time: "Yesterday",
-      desc: "Steadicam sequence needs a slow panning transition to highlight the reflection of neon signage.",
-      type: "notes"
-    },
-    {
-      title: "Storyboard & Script Updated",
-      time: "2 days ago",
-      desc: "Storyboard boards revised and updated for sequence 5 in high resolution.",
-      type: "update"
-    },
-    {
-      title: "Equipment Reminder & Weather Update",
-      time: "3 days ago",
-      desc: "Arri Alexa camera sensor calibration due today. Weather updates show slight wind limits.",
-      type: "reminder"
-    }
-  ];
+  const [timelineUpdates, setTimelineUpdates] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchTimelineUpdates = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("production_timeline_updates")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (data) setTimelineUpdates(data);
+      } catch (err) {
+        console.error("Error loading timeline updates:", err);
+      }
+    };
+    fetchTimelineUpdates();
+
+    const channel = supabase
+      .channel("timeline-updates-listener")
+      .on("postgres_changes", { event: "*", schema: "public", table: "production_timeline_updates" }, () => {
+        fetchTimelineUpdates();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   return (
     <div className="space-y-8 animate-fade-in pb-16 text-xs">
@@ -898,8 +891,8 @@ export const DashboardView: React.FC = () => {
         <h3 className="text-[10px] uppercase font-mono tracking-wider font-bold text-white/40">Production Timeline Updates</h3>
         
         <div className="relative border-l border-white/10 pl-6 ml-2.5 space-y-6">
-          {updatesList.map((up, idx) => (
-            <div key={idx} className="relative">
+          {timelineUpdates.map((up, idx) => (
+            <div key={up.id || idx} className="relative">
               <span className="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-[#121212] border-2 border-[#22d3ee] flex items-center justify-center shadow-lg">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#22d3ee]" />
               </span>
@@ -908,21 +901,25 @@ export const DashboardView: React.FC = () => {
                 <CardContent className="p-4 space-y-2">
                   <div className="flex justify-between items-start">
                     <h4 className="text-xs font-bold text-white">{up.title}</h4>
-                    <span className="text-[9px] text-text-secondary font-mono">{up.time}</span>
+                    <span className="text-[9px] text-text-secondary font-mono">{up.time_label || up.time}</span>
                   </div>
                   
-                  <p className="text-[10.5px] text-text-secondary leading-relaxed">{up.desc}</p>
+                  <p className="text-[10.5px] text-text-secondary leading-relaxed">{up.description || up.desc}</p>
                   
-                  {up.meta && (
+                  {up.meta && (up.meta.callTime || up.meta.location) && (
                     <div className="grid grid-cols-2 gap-3 pt-2 text-[9px] font-mono border-t border-white/5 text-text-secondary">
-                      <div>
-                        <span className="text-[8px] uppercase tracking-wider text-text-secondary/50 block">Call Time</span>
-                        <span className="text-white font-medium">{up.meta.callTime}</span>
-                      </div>
-                      <div>
-                        <span className="text-[8px] uppercase tracking-wider text-text-secondary/50 block">Location</span>
-                        <span className="text-white font-medium">{up.meta.location}</span>
-                      </div>
+                      {up.meta.callTime && (
+                        <div>
+                          <span className="text-[8px] uppercase tracking-wider text-text-secondary/50 block">Call Time</span>
+                          <span className="text-white font-medium">{up.meta.callTime}</span>
+                        </div>
+                      )}
+                      {up.meta.location && (
+                        <div>
+                          <span className="text-[8px] uppercase tracking-wider text-text-secondary/50 block">Location</span>
+                          <span className="text-white font-medium">{up.meta.location}</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
