@@ -42,13 +42,23 @@ export const SettingsView: React.FC = () => {
     return projectId;
   };
 
-  // Profile States
   const [profile, setProfile] = useState<any>(null);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [profileRole, setProfileRole] = useState("Crew");
+
+  const isSuperAdmin = profile && (
+    profile.email?.toLowerCase() === "theoldverse@gmail.com" || 
+    profile.email?.toLowerCase() === "theoldverse@gamil.com"
+  );
+
+  useEffect(() => {
+    if (profile && !isSuperAdmin && activeSubTab !== "profile") {
+      setActiveSubTab("profile");
+    }
+  }, [profile, isSuperAdmin, activeSubTab]);
   
   // Loading & Alerts states
   const [profileLoading, setProfileLoading] = useState(false);
@@ -429,30 +439,34 @@ export const SettingsView: React.FC = () => {
         >
           Profile Settings
         </button>
-        <button
-          onClick={() => setActiveSubTab("team")}
-          className={`flex-1 py-2 text-center rounded-md font-semibold cursor-pointer transition-colors ${
-            activeSubTab === "team" ? "bg-primary text-black" : "text-text-secondary hover:text-white"
-          }`}
-        >
-          Team Directory
-        </button>
-        <button
-          onClick={() => setActiveSubTab("system")}
-          className={`flex-1 py-2 text-center rounded-md font-semibold cursor-pointer transition-colors ${
-            activeSubTab === "system" ? "bg-primary text-black" : "text-text-secondary hover:text-white"
-          }`}
-        >
-          System Integrations
-        </button>
-        <button
-          onClick={() => setActiveSubTab("admin")}
-          className={`flex-1 py-2 text-center rounded-md font-semibold cursor-pointer transition-colors ${
-            activeSubTab === "admin" ? "bg-primary text-black" : "text-text-secondary hover:text-white"
-          }`}
-        >
-          Admin Panel
-        </button>
+        {isSuperAdmin && (
+          <>
+            <button
+              onClick={() => setActiveSubTab("team")}
+              className={`flex-1 py-2 text-center rounded-md font-semibold cursor-pointer transition-colors ${
+                activeSubTab === "team" ? "bg-primary text-black" : "text-text-secondary hover:text-white"
+              }`}
+            >
+              Team Directory
+            </button>
+            <button
+              onClick={() => setActiveSubTab("system")}
+              className={`flex-1 py-2 text-center rounded-md font-semibold cursor-pointer transition-colors ${
+                activeSubTab === "system" ? "bg-primary text-black" : "text-text-secondary hover:text-white"
+              }`}
+            >
+              System Integrations
+            </button>
+            <button
+              onClick={() => setActiveSubTab("admin")}
+              className={`flex-1 py-2 text-center rounded-md font-semibold cursor-pointer transition-colors ${
+                activeSubTab === "admin" ? "bg-primary text-black" : "text-text-secondary hover:text-white"
+              }`}
+            >
+              Admin Panel
+            </button>
+          </>
+        )}
       </div>
 
       {/* RENDER ACTIVE SUBTAB CONTENT */}
@@ -581,7 +595,7 @@ export const SettingsView: React.FC = () => {
         )}
 
         {/* Team Directory view */}
-        {activeSubTab === "team" && (
+        {activeSubTab === "team" && isSuperAdmin && (
           <motion.div
             key="team"
             initial={{ opacity: 0, y: 10 }}
@@ -715,7 +729,7 @@ export const SettingsView: React.FC = () => {
         )}
 
         {/* System Integrations view */}
-        {activeSubTab === "system" && (
+        {activeSubTab === "system" && isSuperAdmin && (
           <motion.div
             key="system"
             initial={{ opacity: 0, y: 10 }}
@@ -796,7 +810,7 @@ export const SettingsView: React.FC = () => {
         )}
 
         {/* Owner Admin Panel view */}
-        {activeSubTab === "admin" && (
+        {activeSubTab === "admin" && isSuperAdmin && (
           <motion.div
             key="admin"
             initial={{ opacity: 0, y: 10 }}
