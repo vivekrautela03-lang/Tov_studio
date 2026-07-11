@@ -222,6 +222,25 @@ export const Header: React.FC = () => {
             <Menu className="w-4.5 h-4.5" />
           </button>
 
+          {/* Profile Avatar trigger */}
+          <button
+            onClick={() => setActiveView("profile")}
+            className="w-9 h-9 rounded-full overflow-hidden border border-white/10 hover:border-[#22d3ee] transition-all duration-200 cursor-pointer shrink-0"
+            title="Profile"
+          >
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                className="w-full h-full object-cover"
+                alt=""
+              />
+            ) : (
+              <div className="w-full h-full bg-[#22d3ee] flex items-center justify-center font-bold text-black text-xs">
+                {profile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+              </div>
+            )}
+          </button>
+
         </div>
       </header>
 

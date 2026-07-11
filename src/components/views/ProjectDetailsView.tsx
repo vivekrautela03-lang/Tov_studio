@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useProjectStore } from "@/store/useProjectStore";
 import { supabase } from "@/utils/supabaseClient";
-import { ArrowLeft, Clock } from "lucide-react";
+import { ArrowLeft, Clock, Plus, Trash2, MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -59,6 +59,87 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
 
   const [activeTab, setActiveTab] = useState("Overview");
   const [memberRole, setMemberRole] = useState<string>("Crew");
+
+  // Locations CRUD State
+  const [locations, setLocations] = useState<any[]>([]);
+  const [locLoading, setLocLoading] = useState(false);
+  const [isAddLocOpen, setIsAddLocOpen] = useState(false);
+  const [newLoc, setNewLoc] = useState({
+    name: "",
+    type: "Indoor Soundstage",
+    address: "",
+    notes: "",
+    photoUrl: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&q=80",
+    status: "Active"
+  });
+
+  // Fetch locations
+  const fetchLocations = async () => {
+    try {
+      setLocLoading(true);
+      const { data, error } = await supabase
+        .from("production_locations")
+        .select("*")
+        .eq("project_id", projectId);
+      if (data) setLocations(data);
+    } catch (err) {
+      console.error("Error fetching locations:", err);
+    } finally {
+      setLocLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLocations();
+  }, [projectId]);
+
+  // Handle Add Location
+  const handleAddLocationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLoc.name.trim() || !newLoc.address.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from("production_locations")
+        .insert({
+          project_id: projectId,
+          name: newLoc.name.trim(),
+          type: newLoc.type,
+          address: newLoc.address.trim(),
+          notes: newLoc.notes.trim(),
+          photo_url: newLoc.photoUrl,
+          status: newLoc.status
+        });
+      if (error) throw error;
+      fetchLocations();
+      setIsAddLocOpen(false);
+      setNewLoc({
+        name: "",
+        type: "Indoor Soundstage",
+        address: "",
+        notes: "",
+        photoUrl: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&q=80",
+        status: "Active"
+      });
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  // Handle Delete Location
+  const handleDeleteLocation = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this location?")) return;
+    try {
+      const { error } = await supabase
+        .from("production_locations")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      fetchLocations();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
 
   // Load user role for this production to enable RBAC
   useEffect(() => {
@@ -181,31 +262,180 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
   };
 
   const renderLocationsTab = () => {
-    const locations = [
-      { name: "Neo-Tokyo Alleyways Set", type: "Studio Stage 4", address: "Tokyo, Koto City, Aomi 2-chome", status: "Active" },
-      { name: "Shibuya Crossing Cyber Overlay", type: "On-Location Permits", address: "Tokyo, Shibuya Crossing", status: "Permit Approved" },
-      { name: "Rainforest Soundstage B", type: "Indoor Soundstage", address: "London, Pinewood Studios", status: "Booked" }
-    ];
-
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in text-xs">
-        {locations.map((loc, idx) => (
-          <Card key={idx} className="border-white/5 bg-neutral-900/40 backdrop-blur-md">
-            <CardContent className="p-5 space-y-4">
-              <div className="flex justify-between items-start">
-                <h4 className="text-xs font-bold text-white">{loc.name}</h4>
-                <span className="text-[9px] px-2 py-0.5 rounded bg-white/5 text-text-secondary font-medium">
-                  {loc.type}
-                </span>
+      <div className="space-y-6 animate-fade-in text-xs">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Filming Locations</h3>
+            <p className="text-[10px] text-text-secondary">Manage filming sets, permits, and indoor/outdoor staging venues.</p>
+          </div>
+          <Button
+            onClick={() => setIsAddLocOpen(true)}
+            variant="primary"
+            size="sm"
+            className="flex items-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Location</span>
+          </Button>
+        </div>
+
+        {locations.length === 0 ? (
+          <div className="text-center py-10 bg-[#121212]/30 border border-dashed border-white/10 rounded-2xl">
+            <span className="text-2xl">📍</span>
+            <p className="text-[10px] font-bold text-text-secondary uppercase mt-2">No locations recorded</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {locations.map((loc) => (
+              <Card key={loc.id} className="border-white/5 bg-neutral-900/40 backdrop-blur-md overflow-hidden flex flex-col justify-between hover:border-[#22d3ee]/20 transition-all duration-200">
+                <div className="relative h-32">
+                  <img src={loc.photo_url || "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&q=80"} className="w-full h-full object-cover" alt="" />
+                  <span className="absolute top-2 right-2 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-black/40 text-primary border border-primary/20 backdrop-blur-md">
+                    {loc.type}
+                  </span>
+                </div>
+                <CardContent className="p-5 space-y-4">
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-white truncate">{loc.name}</h4>
+                    <p className="text-[10px] text-text-secondary font-mono flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-[#22d3ee] shrink-0" />
+                      <span className="truncate">{loc.address}</span>
+                    </p>
+                  </div>
+
+                  {loc.notes && (
+                    <p className="text-[10.5px] text-text-secondary leading-relaxed bg-black/20 p-2.5 rounded-lg border border-white/5">
+                      {loc.notes}
+                    </p>
+                  )}
+
+                  <div className="border-t border-white/5 pt-3 flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-[#22d3ee]">{loc.status}</span>
+                    <button
+                      onClick={() => handleDeleteLocation(loc.id)}
+                      className="p-1.5 rounded bg-danger/10 hover:bg-danger text-danger hover:text-white transition-colors cursor-pointer"
+                      title="Delete Location"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Add Location Modal */}
+        {isAddLocOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm">
+            <div className="w-[420px] max-w-full bg-neutral-900 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 text-white">
+              <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                <span className="text-xs font-bold uppercase tracking-widest text-[#22d3ee]">Add Filming Location</span>
+                <button
+                  onClick={() => setIsAddLocOpen(false)}
+                  className="p-1 rounded bg-white/5 text-text-secondary hover:text-white cursor-pointer"
+                >
+                  X
+                </button>
               </div>
-              <p className="text-[11px] text-text-secondary">{loc.address}</p>
-              <div className="border-t border-white/5 pt-3 flex justify-between items-center">
-                <span className="text-text-secondary">Status</span>
-                <span className="text-success font-medium">{loc.status}</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+
+              <form onSubmit={handleAddLocationSubmit} className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-[10px] uppercase text-text-secondary mb-1">Location Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Neo-Tokyo Stage 4"
+                    value={newLoc.name}
+                    onChange={(e) => setNewLoc({ ...newLoc, name: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase text-text-secondary mb-1">Venue Type</label>
+                    <select
+                      value={newLoc.type}
+                      onChange={(e) => setNewLoc({ ...newLoc, type: e.target.value })}
+                      className="w-full bg-neutral-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                    >
+                      <option value="Indoor Soundstage">Indoor Soundstage</option>
+                      <option value="Outdoor Permits">Outdoor Permits</option>
+                      <option value="Public Space">Public Space</option>
+                      <option value="Studio Stage">Studio Stage</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase text-text-secondary mb-1">Permit Status</label>
+                    <select
+                      value={newLoc.status}
+                      onChange={(e) => setNewLoc({ ...newLoc, status: e.target.value })}
+                      className="w-full bg-neutral-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Permit Approved">Permit Approved</option>
+                      <option value="Booked">Booked</option>
+                      <option value="Pending Approval">Pending Approval</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase text-text-secondary mb-1">Full Address</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Address, city, country..."
+                    value={newLoc.address}
+                    onChange={(e) => setNewLoc({ ...newLoc, address: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase text-text-secondary mb-1">Photo URL</label>
+                  <input
+                    type="url"
+                    value={newLoc.photoUrl}
+                    onChange={(e) => setNewLoc({ ...newLoc, photoUrl: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase text-text-secondary mb-1">Staging Notes</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Special details (lighting rigging, power limits)..."
+                    value={newLoc.notes}
+                    onChange={(e) => setNewLoc({ ...newLoc, notes: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee] resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-3 border-t border-white/5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsAddLocOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                  >
+                    Add Location
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   };

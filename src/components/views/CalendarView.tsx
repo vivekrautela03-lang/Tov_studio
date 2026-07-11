@@ -32,6 +32,25 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
     time: "10:00 - 12:00"
   });
 
+  // Weather state
+  const [weather, setWeather] = useState<any>(null);
+
+  // Fetch real-time weather for shooting locations
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=30.3165&longitude=78.0322&current_weather=true");
+        if (res.ok) {
+          const data = await res.json();
+          setWeather(data.current_weather);
+        }
+      } catch (err) {
+        console.error("Error loading calendar weather:", err);
+      }
+    };
+    fetchWeather();
+  }, []);
+
   // Calendar parameters for July 2026
   const daysInMonth = 31;
   const startDayOffset = 3; // Wednesday (0=Sun, 1=Mon, 2=Tue, 3=Wed...)
@@ -80,7 +99,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
         const data = await response.json();
         const googleEvents = data.items || [];
         
-        let addedCount = 0;
         googleEvents.forEach((evt: any) => {
           const startStr = evt.start?.dateTime || evt.start?.date || "";
           if (!startStr) return;
@@ -99,26 +117,23 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
               type: "meeting", // Default category
               time: timePart
             });
-            addedCount++;
           }
         });
 
         setSyncStatus({
           type: "success",
-          message: `Successfully synchronized and imported ${addedCount} events directly from Google Calendar.`
+          message: `Successfully synchronized production calendar with Google Calendar.`
         });
       } else {
-        const errData = await response.json().catch(() => ({}));
         setSyncStatus({
           type: "error",
-          message: errData.error?.message || "Google Authentication key refused. Double check Authorized redirect domains."
+          message: "Failed to access Google Calendar API. Check authorization permissions."
         });
       }
     } catch (err: any) {
-      console.error("Google Calendar Sync error details:", err);
       setSyncStatus({
         type: "error",
-        message: err.message || "Network exception. Google connection timed out."
+        message: err.message || "An unexpected synchronization error occurred."
       });
     } finally {
       setSyncLoading(false);
@@ -126,27 +141,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
   };
 
   const handleGoogleSyncRedirect = () => {
-    setSyncLoading(true);
-    setSyncStatus(null);
-
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "816922124665-sdgbpt8jlq2cbh3n927s6duu1d96agib.apps.googleusercontent.com";
-    const redirectUri = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-
+    const clientId = "215865217983-clientidplaceholder.apps.googleusercontent.com";
+    const redirectUri = typeof window !== "undefined" ? window.location.origin + "/" : "";
+    const scope = "https://www.googleapis.com/auth/calendar.readonly";
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(
       redirectUri
-    )}&response_type=token&scope=https://www.googleapis.com/auth/calendar.readonly`;
-
-    console.log("Redirecting to Google OAuth2 consent portal...");
+    )}&response_type=token&scope=${encodeURIComponent(scope)}`;
+    
+    // Redirect user to Google OAuth Concent Screen
     window.location.href = authUrl;
   };
 
-  const getEventColor = (type: CalendarEvent["type"]) => {
+  const getEventColor = (type?: string) => {
     switch (type) {
-      case "shoot": return "bg-primary border-primary/20 text-white";
-      case "meeting": return "bg-secondary border-secondary/20 text-white";
-      case "deadline": return "bg-danger border-danger/20 text-white";
-      case "marketing": return "bg-warning border-warning/20 text-white";
-      default: return "bg-success border-success/20 text-white";
+      case "shoot":
+        return "bg-primary/20 text-[#22d3ee] border border-primary/30";
+      case "meeting":
+        return "bg-secondary/20 text-white border border-white/10";
+      case "deadline":
+        return "bg-danger/20 text-danger border border-danger/30";
+      default:
+        return "bg-success/20 text-success border border-success/30";
     }
   };
 
@@ -170,7 +185,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in text-xs">
       
       {/* Calendar Header with toggles */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/[0.01] border border-white/5 p-4 rounded-xl">
@@ -212,41 +227,26 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
             size="sm"
             onClick={handleGoogleSyncRedirect}
             disabled={syncLoading}
-            className="flex items-center gap-1.5 cursor-pointer border-white/10 hover:border-primary/50 text-white p-2 sm:px-3 sm:py-1.5 text-xs"
+            className="flex items-center gap-1.5 cursor-pointer border-white/10 hover:border-[#22d3ee]/50 text-white p-2 sm:px-3 sm:py-1.5 text-xs"
           >
             {syncLoading ? (
               <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             ) : (
-              <Calendar className="w-3.5 h-3.5 text-primary animate-pulse shrink-0" />
+              <Calendar className="w-3.5 h-3.5 text-[#22d3ee] animate-pulse shrink-0" />
             )}
-            <span>Sync Google Calendar</span>
-          </Button>
-
-          {/* Add Local Event Button */}
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              setSelectedDate("2026-07-05");
-              setIsAddOpen(true);
-            }}
-            className="flex items-center gap-1.5 cursor-pointer text-xs p-2 sm:px-3 sm:py-1.5"
-          >
-            <Plus className="w-4 h-4 shrink-0" />
-            <span>Add Event</span>
+            <span className="hidden sm:inline">Google Sync</span>
           </Button>
         </div>
       </div>
 
       {/* Sync Status Banner */}
       {syncStatus && (
-        <div className={`p-3 rounded-lg text-xs flex gap-2.5 items-start ${
+        <div className={`p-4 rounded-xl border flex items-start gap-3 text-xs ${
           syncStatus.type === "success" 
-            ? "bg-[#3ecf8e]/10 border border-[#3ecf8e]/20 text-[#3ecf8e]" 
-            : "bg-danger/10 border border-danger/20 text-danger"
+            ? "bg-[#3ecf8e]/10 border-[#3ecf8e]/30 text-[#3ecf8e]" 
+            : "bg-danger/10 border-danger/30 text-danger"
         }`}>
-          <HelpCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <div className="flex-1">
+          <div className="space-y-0.5">
             <p className="font-semibold">{syncStatus.type === "success" ? "Google Calendar Synchronized" : "Sync Error Notification"}</p>
             <p className="mt-0.5 opacity-90 leading-relaxed">{syncStatus.message}</p>
           </div>
@@ -280,11 +280,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
                     onClick={() => handleDayClick(day.dateString)}
                     className={`min-h-[100px] p-2 flex flex-col justify-between transition-colors relative cursor-pointer select-none ${
                       day.isCurrentMonth ? "hover:bg-white/[0.01]" : "bg-black/10 opacity-30 pointer-events-none"
-                    } ${isSelected ? "bg-primary/5 border border-primary/20" : ""}`}
+                    } ${isSelected ? "bg-white/5 border border-primary/20" : ""}`}
                   >
                     {/* Day Number */}
                     <span className={`text-[10px] font-bold font-mono ${
-                      isSelected ? "text-primary" : "text-text-secondary"
+                      isSelected ? "text-[#22d3ee]" : "text-text-secondary"
                     }`}>
                       {day.dayNumber}
                     </span>
@@ -326,13 +326,31 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
           <CardContent className="p-5 flex flex-col gap-4">
             <div className="flex justify-between items-center border-b border-white/5 pb-2">
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-primary" />
+                <Clock className="w-4 h-4 text-[#22d3ee]" />
                 <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Agenda: {selectedDate}</h4>
               </div>
               <button onClick={() => setSelectedDate(null)} className="text-text-secondary hover:text-white cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Real-time shooting weather banner */}
+            {weather && (
+              <div className="bg-[#121212]/60 border border-white/5 rounded-xl p-3 flex justify-between items-center text-xs">
+                <div className="space-y-0.5">
+                  <span className="text-[9px] text-[#22d3ee] uppercase font-bold tracking-wider">📍 Shooting Location Weather</span>
+                  <div className="text-white font-medium flex items-center gap-1.5 mt-0.5">
+                    <span>Temp: {weather.temperature}°C</span>
+                    <span className="text-[9px] text-text-secondary/60 font-mono">| Wind: {weather.windspeed} km/h</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] uppercase font-black text-[#22d3ee]">Optimal Clear</span>
+                  <p className="text-[8px] text-text-secondary mt-0.5">Ready for external filming</p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <div className="space-y-2">
                 {events.filter((e) => e.date === selectedDate).length === 0 ? (
@@ -347,8 +365,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projectScope }) => {
                       >
                         <div className="flex items-center gap-2.5">
                           <span className={`w-1.5 h-6 rounded-full shrink-0 ${
-                            evt.type === "shoot" ? "bg-primary" : 
-                            evt.type === "meeting" ? "bg-secondary" : 
+                            evt.type === "shoot" ? "bg-[#22d3ee]" : 
+                            evt.type === "meeting" ? "bg-neutral-400" : 
                             evt.type === "deadline" ? "bg-danger" : "bg-success"
                           }`} />
                           <div>
