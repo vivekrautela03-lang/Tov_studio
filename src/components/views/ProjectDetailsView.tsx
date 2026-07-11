@@ -20,6 +20,7 @@ import { CalendarView } from "./CalendarView";
 import { CallSheetView } from "./CallSheetView";
 import { ChatView } from "./ChatView";
 import { EquipmentView } from "./EquipmentView";
+import { StoryboardScriptView } from "./StoryboardScriptView";
 
 interface ProjectDetailsViewProps {
   projectId: string;
@@ -42,19 +43,12 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
 
   const tabs = [
     "Overview",
-    "Team",
-    "Cast",
-    "Messages",
-    "Files",
-    "Script",
-    "Storyboard",
-    "Tasks",
-    "Calendar",
-    "Equipment",
+    "Storyboard & Script",
+    "Team Allocation",
+    "Cast Allocation",
     "Locations",
-    "Budget",
-    "Schedule",
-    "Settings"
+    "Calendar & Weather",
+    "Schedule"
   ];
 
   const [activeTab, setActiveTab] = useState("Overview");
@@ -180,32 +174,18 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
   // Render content based on selected tab
   const renderTabContent = () => {
     switch (activeTab) {
-      case "Team":
+      case "Storyboard & Script":
+        return <StoryboardScriptView projectScope={projectId} />;
+      case "Team Allocation":
         return <CrewView projectScope={projectId} />;
-      case "Cast":
+      case "Cast Allocation":
         return <CastView projectScope={projectId} />;
-      case "Messages":
-        return <ChatView />;
-      case "Files":
-        return <FilesView projectScope={projectId} />;
-      case "Script":
-        return <ScriptsView projectScope={projectId} />;
-      case "Storyboard":
-        return <StoryboardView projectScope={projectId} />;
-      case "Tasks":
-        return <ShotPlannerView projectScope={projectId} />;
-      case "Calendar":
-        return <CalendarView projectScope={projectId} />;
-      case "Equipment":
-        return <EquipmentView projectScope={projectId} />;
       case "Locations":
         return renderLocationsTab();
-      case "Budget":
-        return renderBudgetTab();
+      case "Calendar & Weather":
+        return <CalendarView projectScope={projectId} />;
       case "Schedule":
         return <CallSheetView projectScope={projectId} />;
-      case "Settings":
-        return renderSettingsTab();
       case "Overview":
       default:
         return renderOverviewTab();
