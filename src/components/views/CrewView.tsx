@@ -11,10 +11,14 @@ import {
   Briefcase,
   Globe,
   Info,
-  X
+  X,
+  Plus,
+  Trash2,
+  UploadCloud
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 
 interface Department {
   id: string;
@@ -34,6 +38,7 @@ interface CrewMember {
   skills: string[];
   notes: string;
   photo_url: string;
+  project_id?: string;
   departments?: Department;
 }
 
@@ -42,16 +47,49 @@ interface CrewViewProps {
 }
 
 export const CrewView: React.FC<CrewViewProps> = ({ projectScope }) => {
-  const { crewMembers, fetchWorkspaceData } = useProjectStore();
   const [loading, setLoading] = useState(false);
+  const [crew, setCrew] = useState<CrewMember[]>([]);
   const [search, setSearch] = useState("");
   const [selectedMember, setSelectedMember] = useState<CrewMember | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
+  // Add Member State
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [newMember, setNewMember] = useState({
+    full_name: "",
+    department_id: "",
+    position: "",
+    phone: "",
+    email: "",
+    college: "",
+    availability: "Available" as any,
+    experience: "",
+    skillsInput: "",
+    notes: "",
+    photo_url: ""
+  });
+
   const fetchCrew = async () => {
     setLoading(true);
     try {
-      await fetchWorkspaceData();
+      let query = supabase.from("crew_members").select(`
+        *,
+        departments (
+          id,
+          name
+        )
+      `);
+
+      if (projectScope) {
+        query = query.eq("project_id", projectScope);
+      }
+
+      const { data, error } = await query.order("full_name");
+      if (data) setCrew(data);
+
+      const { data: deptData } = await supabase.from("departments").select("*").order("name");
+      if (deptData) setDepartments(deptData);
     } catch (err) {
       console.error("Error fetching crew:", err);
     } finally {
@@ -61,9 +99,78 @@ export const CrewView: React.FC<CrewViewProps> = ({ projectScope }) => {
 
   useEffect(() => {
     fetchCrew();
-  }, []);
+  }, [projectScope]);
 
-  const filteredCrew = crewMembers.filter((c) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setNewMember((prev) => ({ ...prev, photo_url: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMember.full_name.trim()) return;
+
+    try {
+      const skills = newMember.skillsInput.split(",").map((s) => s.trim()).filter(Boolean);
+      const { error } = await supabase
+        .from("crew_members")
+        .insert({
+          full_name: newMember.full_name.trim(),
+          department_id: newMember.department_id || null,
+          position: newMember.position.trim(),
+          phone: newMember.phone.trim(),
+          email: newMember.email.trim(),
+          college: newMember.college.trim(),
+          availability: newMember.availability,
+          experience: newMember.experience.trim(),
+          skills: skills,
+          notes: newMember.notes.trim(),
+          photo_url: newMember.photo_url,
+          project_id: projectScope || null
+        });
+
+      if (error) throw error;
+      alert("Crew member added successfully!");
+      setIsAddOpen(false);
+      setNewMember({
+        full_name: "",
+        department_id: "",
+        position: "",
+        phone: "",
+        email: "",
+        college: "",
+        availability: "Available",
+        experience: "",
+        skillsInput: "",
+        notes: "",
+        photo_url: ""
+      });
+      fetchCrew();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteMember = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this crew member?")) return;
+
+    try {
+      const { error } = await supabase.from("crew_members").delete().eq("id", id);
+      if (error) throw error;
+      fetchCrew();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const filteredCrew = crew.filter((c) => {
     const searchLower = search.toLowerCase();
     const deptName = c.departments?.name || "Others";
     return (
@@ -72,13 +179,12 @@ export const CrewView: React.FC<CrewViewProps> = ({ projectScope }) => {
       (c.college || "").toLowerCase().includes(searchLower) ||
       (c.phone || "").toLowerCase().includes(searchLower) ||
       (c.email || "").toLowerCase().includes(searchLower) ||
-      deptName.toLowerCase().includes(searchLower) ||
-      (c.skills || []).some((s: string) => s.toLowerCase().includes(searchLower))
+      deptName.toLowerCase().includes(searchLower)
     );
   });
 
   return (
-    <div className="space-y-6 animate-fade-in text-white select-none">
+    <div className="space-y-6 animate-fade-in text-white text-xs">
       
       {/* Search and filter header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/[0.01] border border-white/5 p-4 rounded-xl">
@@ -86,26 +192,37 @@ export const CrewView: React.FC<CrewViewProps> = ({ projectScope }) => {
           <Search className="absolute left-3 top-2.5 w-4.5 h-4.5 text-text-secondary" />
           <input
             type="text"
-            placeholder="Search crew name, role, or skills..."
+            placeholder="Search crew name, role, or position..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white focus:border-primary focus:outline-none"
+            className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white focus:border-[#22d3ee] focus:outline-none"
           />
         </div>
-        <div className="text-xs text-text-secondary">
-          Showing <span className="text-white font-semibold">{filteredCrew.length}</span> crew members
+        <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+          <span className="text-text-secondary font-mono">
+            Count: <span className="text-white font-semibold">{filteredCrew.length}</span>
+          </span>
+          <Button
+            onClick={() => setIsAddOpen(true)}
+            variant="primary"
+            size="sm"
+            className="flex items-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Team Member</span>
+          </Button>
         </div>
       </div>
 
       {/* Grid of Crew Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
-          <div className="col-span-full py-16 text-center text-xs text-text-secondary border border-dashed border-white/5 rounded-xl animate-pulse">
+          <div className="col-span-full py-16 text-center text-text-secondary border border-dashed border-white/5 rounded-xl animate-pulse">
             Loading crew database...
           </div>
         ) : filteredCrew.length === 0 ? (
-          <div className="col-span-full py-16 text-center text-xs text-text-secondary border border-dashed border-white/5 rounded-xl">
-            No crew members match your search criteria.
+          <div className="col-span-full py-16 text-center text-text-secondary border border-dashed border-white/5 rounded-xl">
+            No crew members assigned or found. Click Add Team Member to input crew data.
           </div>
         ) : (
           filteredCrew.map((c) => {
@@ -117,7 +234,6 @@ export const CrewView: React.FC<CrewViewProps> = ({ projectScope }) => {
             return (
               <Card key={c.id} className="border border-white/5 hover:border-white/10 bg-[#09090B] flex flex-col justify-between overflow-hidden group transition-all duration-300">
                 <CardContent className="p-5 space-y-4">
-                  {/* Top section: Avatar & Details */}
                   <div className="flex gap-4 items-start">
                     <img
                       src={c.photo_url || avatarPlaceholder}
@@ -131,7 +247,6 @@ export const CrewView: React.FC<CrewViewProps> = ({ projectScope }) => {
                     </div>
                   </div>
 
-                  {/* Contact & Experience details */}
                   <div className="space-y-1.5 text-[11px] text-text-secondary border-t border-white/5 pt-3">
                     {c.phone && (
                       <div className="flex items-center gap-2">
@@ -145,82 +260,21 @@ export const CrewView: React.FC<CrewViewProps> = ({ projectScope }) => {
                         <span className="text-white truncate">{c.email}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-2">
-                      <span className="text-white/40">Exp:</span>
-                      <span className="text-white">{c.experience || "N/A"}</span>
-                    </div>
                   </div>
 
-                  {/* Skills tags */}
-                  {c.skills && c.skills.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {c.skills.map((s: string) => (
-                        <span key={s} className="text-[9px] bg-white/5 px-2 py-0.5 rounded text-text-secondary border border-white/5">
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Notes Preview */}
-                  {c.notes && (
-                    <p className="text-[10px] text-text-secondary italic line-clamp-2 bg-black/20 p-2 rounded border border-white/5">
-                      {c.notes}
-                    </p>
-                  )}
-
-                  {/* Availability Info */}
                   <div className="flex justify-between items-center border-t border-white/5 pt-3">
-                    <div>
-                      <span className="text-[9px] text-text-secondary block uppercase">College</span>
-                      <span className="text-xs text-white font-medium truncate block max-w-[120px]">{c.college}</span>
-                    </div>
-                    <div>
-                      <span className="text-[9px] text-text-secondary block uppercase">Availability</span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded inline-block ${
-                        c.availability === "Available" ? "bg-green-500/10 text-green-400" :
-                        c.availability === "Shooting" ? "bg-primary/20 text-primary" :
-                        "bg-red-500/10 text-red-400"
-                      }`}>
-                        {c.availability}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Actions Suite */}
-                  <div className="border-t border-white/5 pt-3 flex gap-2">
-                    <Button
-                      onClick={() => {
-                        setSelectedMember(c);
-                        setIsDetailOpen(true);
-                      }}
-                      className="flex-1 bg-white/5 hover:bg-white/10 text-white text-[11px] py-1.5 rounded-lg border border-white/10 cursor-pointer"
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                      c.availability === "Available" ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
+                    }`}>
+                      {c.availability}
+                    </span>
+                    <button
+                      onClick={(e) => handleDeleteMember(c.id, e)}
+                      className="p-1 rounded bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors cursor-pointer"
                     >
-                      View Profile
-                    </Button>
-
-                    <div className="flex gap-1.5">
-                      {c.phone && (
-                        <a
-                          href={`tel:${c.phone}`}
-                          title="Call"
-                          className="bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg border border-white/10 flex items-center justify-center"
-                        >
-                          <Phone className="w-3.5 h-3.5" />
-                        </a>
-                      )}
-                      {c.email && (
-                        <a
-                          href={`mailto:${c.email}`}
-                          title="Email"
-                          className="bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg border border-white/10 flex items-center justify-center"
-                        >
-                          <Mail className="w-3.5 h-3.5" />
-                        </a>
-                      )}
-                    </div>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-
                 </CardContent>
               </Card>
             );
@@ -228,105 +282,140 @@ export const CrewView: React.FC<CrewViewProps> = ({ projectScope }) => {
         )}
       </div>
 
-      {/* Detailed Member Profile Modal Overlay */}
-      {isDetailOpen && selectedMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
-          <div className="bg-[#09090B] border border-white/10 w-full max-w-md rounded-xl overflow-hidden shadow-2xl relative">
-            
-            {/* Close */}
-            <button
-              onClick={() => setIsDetailOpen(false)}
-              className="absolute right-4 top-4 p-1.5 hover:bg-white/5 rounded-lg text-text-secondary hover:text-white transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      {/* ADD MEMBER DIALOG */}
+      {isAddOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm">
+          <div className="w-[480px] max-w-full max-h-[90vh] overflow-y-auto bg-neutral-900 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 text-white scrollbar-none">
+            <div className="flex justify-between items-center border-b border-white/5 pb-3">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#22d3ee]">Add Crew Data</span>
+              <button
+                onClick={() => setIsAddOpen(false)}
+                className="p-1 rounded bg-white/5 text-text-secondary hover:text-white cursor-pointer font-bold"
+              >
+                X
+              </button>
+            </div>
 
-            {/* Content Header Banner */}
-            <div className="h-28 bg-white/5 border-b border-white/5 flex items-end px-6 pb-4">
-              <div className="flex gap-4 items-end translate-y-8">
-                <img
-                  src={selectedMember.photo_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(selectedMember.full_name)}&backgroundColor=030712&textColor=ffffff`}
-                  alt={selectedMember.full_name}
-                  className="w-20 h-24 object-cover rounded-xl border-2 border-white ring-4 ring-black"
+            <form onSubmit={handleAddSubmit} className="space-y-4">
+              <div className="flex justify-center">
+                <label className="relative cursor-pointer group flex flex-col items-center">
+                  <div className="w-16 h-16 rounded-full border-2 border-dashed border-white/20 hover:border-primary/50 flex items-center justify-center overflow-hidden bg-black/40">
+                    {newMember.photo_url ? (
+                      <img src={newMember.photo_url} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                      <UploadCloud className="w-6 h-6 text-text-secondary" />
+                    )}
+                  </div>
+                  <span className="text-[9px] text-text-secondary mt-1 font-bold">Avatar Photo</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase text-text-secondary mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Crew member name"
+                  value={newMember.full_name}
+                  onChange={(e) => setNewMember({ ...newMember, full_name: e.target.value })}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
                 />
-                <div className="pb-1">
-                  <h2 className="text-base font-bold text-white leading-tight">{selectedMember.full_name}</h2>
-                  <span className="text-[10px] text-primary font-semibold tracking-wider uppercase block mt-1">
-                    {selectedMember.position || "Crew Member"}
-                  </span>
-                </div>
               </div>
-            </div>
 
-            {/* Profile Info Fields */}
-            <div className="p-6 pt-12 space-y-5">
-              
-              {/* College & Availability */}
-              <div className="grid grid-cols-2 gap-4 bg-white/[0.01] border border-white/5 p-3 rounded-lg text-xs">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-[9px] text-text-secondary block uppercase font-mono">College</span>
-                  <span className="text-white font-medium">{selectedMember.college || "N/A"}</span>
+                  <label className="block text-[10px] uppercase text-text-secondary mb-1">Department</label>
+                  <select
+                    value={newMember.department_id}
+                    onChange={(e) => setNewMember({ ...newMember, department_id: e.target.value })}
+                    className="w-full bg-[#1e1e1e] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <span className="text-[9px] text-text-secondary block uppercase font-mono">Availability</span>
-                  <span className={`text-[10px] font-bold uppercase mt-1 px-2 py-0.5 rounded inline-block ${
-                    selectedMember.availability === "Available" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                  }`}>
-                    {selectedMember.availability}
-                  </span>
+                  <label className="block text-[10px] uppercase text-text-secondary mb-1">Position / Role</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Director, Gaffer"
+                    value={newMember.position}
+                    onChange={(e) => setNewMember({ ...newMember, position: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                  />
                 </div>
               </div>
 
-              {/* Core Details */}
-              <div className="space-y-3.5 text-xs text-text-secondary">
-                {selectedMember.phone && (
-                  <div className="flex items-center gap-3">
-                    <Phone className="w-4 h-4 text-white/40" />
-                    <span className="text-white">{selectedMember.phone}</span>
-                  </div>
-                )}
-                {selectedMember.email && (
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-4 h-4 text-white/40" />
-                    <span className="text-white">{selectedMember.email}</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-3">
-                  <Briefcase className="w-4 h-4 text-white/40" />
-                  <span>Experience: <strong className="text-white">{selectedMember.experience || "Not listed"}</strong></span>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase text-text-secondary mb-1">Phone</label>
+                  <input
+                    type="text"
+                    placeholder="Contact number"
+                    value={newMember.phone}
+                    onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase text-text-secondary mb-1">Email</label>
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={newMember.email}
+                    onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                  />
                 </div>
               </div>
 
-              {/* Skills Tags */}
-              <div className="space-y-3">
-                {selectedMember.skills && selectedMember.skills.length > 0 && (
-                  <div>
-                    <span className="text-[9px] text-text-secondary block uppercase font-mono mb-1.5">Specialization & Skills</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedMember.skills.map((s: string) => (
-                        <span key={s} className="text-[10px] bg-white/5 border border-white/5 text-white px-2 py-0.5 rounded font-mono">
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase text-text-secondary mb-1">College</label>
+                  <input
+                    type="text"
+                    placeholder="College / Institute"
+                    value={newMember.college}
+                    onChange={(e) => setNewMember({ ...newMember, college: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase text-text-secondary mb-1">Availability</label>
+                  <select
+                    value={newMember.availability}
+                    onChange={(e) => setNewMember({ ...newMember, availability: e.target.value as any })}
+                    className="w-full bg-[#1e1e1e] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                  >
+                    <option value="Available">Available</option>
+                    <option value="Busy">Busy</option>
+                    <option value="Shooting">Shooting</option>
+                  </select>
+                </div>
               </div>
 
-              {/* Private Director Notes */}
-              {selectedMember.notes && (
-                <div className="bg-black/40 border border-white/5 p-3 rounded-lg text-xs leading-relaxed text-text-secondary font-sans">
-                  <span className="text-[9px] text-text-secondary block uppercase font-mono mb-1">Director Notes</span>
-                  {selectedMember.notes}
-                </div>
-              )}
+              <div>
+                <label className="block text-[10px] uppercase text-text-secondary mb-1">Skills (comma separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Editing, Sound Mix"
+                  value={newMember.skillsInput}
+                  onChange={(e) => setNewMember({ ...newMember, skillsInput: e.target.value })}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                />
+              </div>
 
-            </div>
-
+              <div className="flex justify-end gap-3 pt-3 border-t border-white/5">
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                <Button type="submit" variant="primary" size="sm">Add Crew Member</Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
-
     </div>
   );
 };
