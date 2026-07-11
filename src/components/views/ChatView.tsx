@@ -456,7 +456,7 @@ export const ChatView: React.FC = () => {
                 <div key={channel.id} className="relative group/channel flex items-center w-full">
                   <button
                     onClick={() => setActiveChannelId(channel.id)}
-                    className={`flex-1 flex items-center gap-3 px-3 py-3 rounded-xl text-left text-xs transition-all duration-200 cursor-pointer relative ${
+                    className={`flex-1 flex items-center gap-3 pl-3 pr-12 py-3 rounded-xl text-left text-xs transition-all duration-200 cursor-pointer relative ${
                       isActive
                         ? "bg-[#22d3ee]/10 text-white border-l-2 border-[#22d3ee]"
                         : "hover:bg-white/5 text-text-secondary"
@@ -512,7 +512,7 @@ export const ChatView: React.FC = () => {
                     </div>
                   </button>
 
-                  {/* Absolute positioned delete button on hover */}
+                  {/* Absolute positioned delete button, visible on mobile & desktop */}
                   <button
                     onClick={async (e) => {
                       e.stopPropagation();
@@ -527,7 +527,7 @@ export const ChatView: React.FC = () => {
                         }
                       }
                     }}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 hidden group-hover/channel:flex p-1.5 rounded-lg bg-danger/10 hover:bg-danger text-danger hover:text-white transition-all cursor-pointer z-10 border border-danger/10"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 flex p-1.5 rounded-lg bg-danger/10 hover:bg-danger text-danger hover:text-white transition-all cursor-pointer z-10 border border-danger/10"
                     title="Delete Conversation"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
