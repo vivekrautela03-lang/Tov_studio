@@ -66,6 +66,14 @@ export const ProfileView: React.FC = () => {
   const [isAddPortfolioOpen, setIsAddPortfolioOpen] = useState(false);
   const [newPortfolio, setNewPortfolio] = useState({ title: "", description: "", url: "", coverUrl: "" });
 
+  // Avatar Resizer / Drag States
+  const [isEditAvatarOpen, setIsEditAvatarOpen] = useState(false);
+  const [tempImageSrc, setTempImageSrc] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
   const fetchProfileData = async (currentUser: any) => {
     if (!currentUser) return;
     try {
@@ -177,7 +185,7 @@ export const ProfileView: React.FC = () => {
     }
   };
 
-  // Save Note Bubble
+  // Note Bubble
   const handleSaveNote = () => {
     if (!user) return;
     const cleanNote = newNoteInput.trim() || "Note...";
@@ -186,7 +194,7 @@ export const ProfileView: React.FC = () => {
     setIsEditingNote(false);
   };
 
-  // Upload highlight photo (FileReader base64)
+  // Upload highlight photo
   const handleHighlightPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -283,6 +291,109 @@ export const ProfileView: React.FC = () => {
     }
   };
 
+  // --- Avatar Image Resize Drag Dragging Handlers ---
+  const handleSelectTempFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setTempImageSrc(reader.result as string);
+      setZoom(1);
+      setOffset({ x: 0, y: 0 });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!tempImageSrc) return;
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !tempImageSrc) return;
+    setOffset({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!tempImageSrc || e.touches.length === 0) return;
+    setIsDragging(true);
+    setDragStart({
+      x: e.touches[0].clientX - offset.x,
+      y: e.touches[0].clientY - offset.y
+    });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !tempImageSrc || e.touches.length === 0) return;
+    setOffset({
+      x: e.touches[0].clientX - dragStart.x,
+      y: e.touches[0].clientY - dragStart.y
+    });
+  };
+
+  const handleSaveCrop = () => {
+    if (!tempImageSrc || !user) return;
+    setLoading(true);
+
+    const img = new Image();
+    img.src = tempImageSrc;
+    img.onload = async () => {
+      const canvas = document.createElement("canvas");
+      const size = 300;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+
+      if (ctx) {
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, size, size);
+
+        // Center offsets
+        ctx.translate(size / 2, size / 2);
+        ctx.translate(offset.x, offset.y);
+        ctx.scale(zoom, zoom);
+
+        const imgRatio = img.width / img.height;
+        let drawW = size;
+        let drawH = size;
+        if (imgRatio > 1) {
+          drawW = size * imgRatio;
+        } else {
+          drawH = size / imgRatio;
+        }
+
+        ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+
+        const base64 = canvas.toDataURL("image/jpeg", 0.9);
+        
+        try {
+          const { error } = await supabase
+            .from("profiles")
+            .update({ avatar_url: base64 })
+            .eq("id", user.id);
+
+          if (error) throw error;
+          alert("Profile photo updated successfully!");
+          setIsEditAvatarOpen(false);
+          setTempImageSrc(null);
+          fetchProfileData(user);
+        } catch (err: any) {
+          alert(err.message);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+  };
+
   if (loading && !profile) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -316,12 +427,21 @@ export const ProfileView: React.FC = () => {
             <span className="text-[8px] opacity-40">▼</span>
           </div>
 
-          <div className="w-28 h-28 rounded-full border border-white/10 ring-4 ring-neutral-900 flex items-center justify-center overflow-hidden bg-neutral-800">
+          {/* Interactive Instagram Style Avatar Container */}
+          <div
+            onClick={() => setIsEditAvatarOpen(true)}
+            className="w-28 h-28 rounded-full border border-white/10 ring-4 ring-neutral-900 flex items-center justify-center overflow-hidden bg-neutral-800 cursor-pointer group relative"
+            title="Change Profile Photo"
+          >
             <img
               src={profile?.avatar_url || avatarPlaceholder}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover group-hover:opacity-70 transition-all duration-200"
               alt=""
             />
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all duration-200 text-[9px] font-bold text-[#22d3ee] uppercase tracking-wider gap-1">
+              <Camera className="w-4 h-4" />
+              <span>Edit photo</span>
+            </div>
           </div>
         </div>
 
@@ -519,6 +639,103 @@ export const ProfileView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* INSTAGRAM STYLE PROFILE IMAGE CROP / RESIZE DIALOG */}
+      {isEditAvatarOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-sm">
+          <div className="w-[420px] max-w-full bg-neutral-900 border border-white/10 rounded-2xl p-5 shadow-2xl space-y-5 text-white">
+            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#22d3ee]">Edit Profile Photo</span>
+              <button
+                onClick={() => {
+                  setIsEditAvatarOpen(false);
+                  setTempImageSrc(null);
+                }}
+                className="p-1.5 rounded bg-white/5 text-text-secondary hover:text-white cursor-pointer font-bold"
+              >
+                X
+              </button>
+            </div>
+
+            {!tempImageSrc ? (
+              <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-white/10 rounded-xl bg-black/40">
+                <UploadCloud className="w-10 h-10 text-text-secondary mb-2" />
+                <label className="px-4 py-2 bg-[#22d3ee] text-black font-bold rounded-lg text-xs cursor-pointer hover:bg-[#22d3ee]/90">
+                  Choose Photo
+                  <input type="file" accept="image/*" className="hidden" onChange={handleSelectTempFile} />
+                </label>
+                <span className="text-[10px] text-text-secondary mt-2">Supports JPG, PNG, WebP</span>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                
+                {/* Viewport Mask */}
+                <div className="text-[10px] text-text-secondary text-center">
+                  Drag the photo to reposition it inside the circle
+                </div>
+
+                <div 
+                  className="w-64 h-64 mx-auto rounded-full border-2 border-[#22d3ee] overflow-hidden bg-black relative cursor-move select-none"
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleMouseUp}
+                >
+                  <img
+                    src={tempImageSrc}
+                    style={{
+                      transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                      transformOrigin: "center center",
+                      transition: isDragging ? "none" : "transform 0.15s ease-out"
+                    }}
+                    className="w-full h-full object-contain pointer-events-none"
+                    alt=""
+                  />
+                </div>
+
+                {/* Resizing zoom slider */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[10px] text-text-secondary font-mono">
+                    <span>ZOOM / RESIZE</span>
+                    <span>{zoom.toFixed(1)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="3"
+                    step="0.1"
+                    value={zoom}
+                    onChange={(e) => setZoom(Number(e.target.value))}
+                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#22d3ee]"
+                  />
+                </div>
+
+                <div className="flex gap-3 justify-end pt-3 border-t border-white/5 text-xs">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setTempImageSrc(null)}
+                  >
+                    Change Image
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={handleSaveCrop}
+                  >
+                    Save Photo
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* EDIT PROFILE MODAL */}
       {isEditing && (
