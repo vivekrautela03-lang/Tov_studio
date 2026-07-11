@@ -601,45 +601,69 @@ export const ChatView: React.FC = () => {
               const isMuted = channel.muted_by?.includes(currentUser?.id);
 
               return (
-                <button
-                  key={channel.id}
-                  onClick={() => setActiveChannelId(channel.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-xs transition-colors cursor-pointer relative ${
-                    isActive
-                      ? "bg-[#3ecf8e]/10 text-white border-l-2 border-[#3ecf8e]"
-                      : "hover:bg-white/5 text-text-secondary"
-                  }`}
-                >
-                  {/* Avatar section */}
-                  <div className="relative">
-                    {details.isGroup ? (
-                      <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-[#3ecf8e] text-xs">
-                        {details.title.substring(0, 2).toUpperCase()}
-                      </div>
-                    ) : (
-                      <img
-                        src={details.avatar || ""}
-                        className="w-9 h-9 rounded-full object-cover border border-white/10"
-                        alt=""
-                      />
-                    )}
-                    {/* Active online Presence dot */}
-                    {!details.isGroup && details.userId && onlineUsers.includes(details.userId) && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success rounded-full ring-2 ring-black" />
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold truncate text-white block pr-2">{details.title}</span>
-                      <div className="flex gap-1 items-center shrink-0">
-                        {isMuted && <VolumeX className="w-3 h-3 text-text-secondary/55" />}
-                        {isPinned && <Pin className="w-3 h-3 text-[#3ecf8e]/70" />}
-                      </div>
+                <div key={channel.id} className="relative group/channel flex items-center w-full">
+                  <button
+                    onClick={() => setActiveChannelId(channel.id)}
+                    className={`flex-1 flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-xs transition-colors cursor-pointer relative ${
+                      isActive
+                        ? "bg-[#3ecf8e]/10 text-white border-l-2 border-[#3ecf8e]"
+                        : "hover:bg-white/5 text-text-secondary"
+                    }`}
+                  >
+                    {/* Avatar section */}
+                    <div className="relative">
+                      {details.isGroup ? (
+                        <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-[#3ecf8e] text-xs">
+                          {details.title.substring(0, 2).toUpperCase()}
+                        </div>
+                      ) : (
+                        <img
+                          src={details.avatar || ""}
+                          className="w-9 h-9 rounded-full object-cover border border-white/10"
+                          alt=""
+                        />
+                      )}
+                      {/* Active online Presence dot */}
+                      {!details.isGroup && details.userId && onlineUsers.includes(details.userId) && (
+                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success rounded-full ring-2 ring-black" />
+                      )}
                     </div>
-                    <p className="text-[10px] text-text-secondary truncate mt-0.5">{details.description}</p>
-                  </div>
-                </button>
+
+                    <div className="flex-1 min-w-0 pr-6">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold truncate text-white block pr-2">{details.title}</span>
+                        <div className="flex gap-1 items-center shrink-0">
+                          {isMuted && <VolumeX className="w-3 h-3 text-text-secondary/55" />}
+                          {isPinned && <Pin className="w-3 h-3 text-[#3ecf8e]/70" />}
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-text-secondary truncate mt-0.5">{details.description}</p>
+                    </div>
+                  </button>
+
+                  {/* Absolute positioned delete button on hover */}
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (confirm(`Are you sure you want to delete the conversation with "${details.title}"? This action cannot be undone.`)) {
+                        const { error } = await supabase
+                          .from("chat_channels")
+                          .delete()
+                          .eq("id", channel.id);
+                        if (error) {
+                          alert(error.message);
+                        } else {
+                          if (isActive) setActiveChannelId("");
+                          fetchChatChannels();
+                        }
+                      }
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden group-hover/channel:flex p-1.5 rounded-md bg-danger/10 hover:bg-danger text-danger hover:text-white transition-colors cursor-pointer z-10"
+                    title="Delete Conversation"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               );
             })
           )}
