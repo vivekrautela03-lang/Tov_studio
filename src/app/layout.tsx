@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { PWARegister } from "@/components/PWARegister";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -24,6 +25,7 @@ export default function RootLayout({
       style={{ colorScheme: "dark" }}
     >
       <body className="min-h-full flex flex-col bg-[#09090B] text-white">
+        <PWARegister />
         {children}
       </body>
     </html>
