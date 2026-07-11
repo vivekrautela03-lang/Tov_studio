@@ -315,13 +315,27 @@ interface ProjectStoreState {
   deleteCastMember: (id: string) => Promise<void>;
   fetchChatChannels: () => Promise<void>;
   fetchChatMessages: (channelId: string) => Promise<void>;
-  sendChatMessage: (channelId: string, content: string, attachmentUrl?: string) => Promise<void>;
+  sendChatMessage: (channelId: string, content: string, attachmentUrl?: string, replyToMessageId?: string, forwardedFromSenderId?: string, isAnnouncement?: boolean) => Promise<void>;
   createChatChannel: (name: string | null, isGroup: boolean, members: string[]) => Promise<string | null>;
   setActiveChannelId: (channelId: string) => void;
   toggleLikeMessage: (channelId: string, messageId: string) => Promise<void>;
   deleteChatMessage: (channelId: string, messageId: string) => Promise<void>;
   editChatMessage: (channelId: string, messageId: string, newContent: string) => Promise<void>;
   markMessagesAsRead: (channelId: string) => Promise<void>;
+  toggleMessageReaction: (channelId: string, messageId: string, emoji: string) => Promise<void>;
+  toggleMuteChannel: (channelId: string) => Promise<void>;
+  togglePinChannel: (channelId: string) => Promise<void>;
+  toggleArchiveChannel: (channelId: string) => Promise<void>;
+  blockUser: (blockedUserId: string) => Promise<void>;
+  unblockUser: (blockedUserId: string) => Promise<void>;
+  reportUser: (reportedUserId: string, reason: string) => Promise<void>;
+  updateGroupDetails: (channelId: string, name: string, description: string, avatarUrl: string) => Promise<void>;
+  updateGroupMemberRole: (channelId: string, userId: string, role: string) => Promise<void>;
+  addGroupMembers: (channelId: string, userIds: string[]) => Promise<void>;
+  removeGroupMember: (channelId: string, userId: string) => Promise<void>;
+  leaveGroup: (channelId: string) => Promise<void>;
+  uploadChatAttachment: (file: File) => Promise<string>;
+  updateProfilePrivacySettings: (settings: { message_privacy?: string; online_privacy?: string; pfp_privacy?: string; add_to_groups_privacy?: string }) => Promise<void>;
 
   // Profile Mutations
   updateUserProfile: (profile: Partial<UserProfile>) => Promise<void>;
@@ -1916,6 +1930,11 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
           id,
           full_name,
           avatar_url
+        ),
+        message_reactions (
+          id,
+          emoji,
+          user_id
         )
       `)
       .eq("channel_id", channelId)
@@ -1934,7 +1953,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     }));
   },
 
-  sendChatMessage: async (channelId, content, attachmentUrl) => {
+  sendChatMessage: async (channelId, content, attachmentUrl, replyToMessageId, forwardedFromSenderId, isAnnouncement) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -1944,7 +1963,10 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         channel_id: channelId,
         sender_id: user.id,
         content: content.trim(),
-        attachment_url: attachmentUrl || null
+        attachment_url: attachmentUrl || null,
+        reply_to_message_id: replyToMessageId || null,
+        forwarded_from_sender_id: forwardedFromSenderId || null,
+        is_announcement: isAnnouncement || false
       })
       .select(`
         *,
@@ -2099,5 +2121,194 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     }
 
     await useProjectStore.getState().fetchChatMessages(channelId);
+  },
+
+  toggleMessageReaction: async (channelId, messageId, emoji) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: existing } = await supabase
+      .from("message_reactions")
+      .select("id")
+      .eq("message_id", messageId)
+      .eq("user_id", user.id)
+      .eq("emoji", emoji)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await supabase
+        .from("message_reactions")
+        .delete()
+        .eq("id", existing.id);
+      if (error) console.error("Error deleting reaction:", error);
+    } else {
+      const { error } = await supabase
+        .from("message_reactions")
+        .insert({
+          message_id: messageId,
+          user_id: user.id,
+          emoji: emoji
+        });
+      if (error) console.error("Error inserting reaction:", error);
+    }
+
+    await useProjectStore.getState().fetchChatMessages(channelId);
+  },
+
+  toggleMuteChannel: async (channelId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: channel } = await supabase.from("chat_channels").select("muted_by").eq("id", channelId).single();
+    if (!channel) return;
+    const list = channel.muted_by || [];
+    const newList = list.includes(user.id) ? list.filter((id: string) => id !== user.id) : [...list, user.id];
+    await supabase.from("chat_channels").update({ muted_by: newList }).eq("id", channelId);
+    await useProjectStore.getState().fetchChatChannels();
+  },
+
+  togglePinChannel: async (channelId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: channel } = await supabase.from("chat_channels").select("pinned_by").eq("id", channelId).single();
+    if (!channel) return;
+    const list = channel.pinned_by || [];
+    const newList = list.includes(user.id) ? list.filter((id: string) => id !== user.id) : [...list, user.id];
+    await supabase.from("chat_channels").update({ pinned_by: newList }).eq("id", channelId);
+    await useProjectStore.getState().fetchChatChannels();
+  },
+
+  toggleArchiveChannel: async (channelId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: channel } = await supabase.from("chat_channels").select("archived_by").eq("id", channelId).single();
+    if (!channel) return;
+    const list = channel.archived_by || [];
+    const newList = list.includes(user.id) ? list.filter((id: string) => id !== user.id) : [...list, user.id];
+    await supabase.from("chat_channels").update({ archived_by: newList }).eq("id", channelId);
+    await useProjectStore.getState().fetchChatChannels();
+  },
+
+  blockUser: async (blockedUserId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("blocked_users").insert({ user_id: user.id, blocked_user_id: blockedUserId });
+    if (error) {
+      console.error("Error blocking user:", error);
+      alert(error.message);
+    }
+  },
+
+  unblockUser: async (blockedUserId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("blocked_users").delete().eq("user_id", user.id).eq("blocked_user_id", blockedUserId);
+    if (error) {
+      console.error("Error unblocking user:", error);
+      alert(error.message);
+    }
+  },
+
+  reportUser: async (reportedUserId, reason) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("reported_users").insert({ reporter_id: user.id, reported_user_id: reportedUserId, reason });
+    if (error) {
+      console.error("Error reporting user:", error);
+      alert(error.message);
+    } else {
+      alert("Report submitted successfully.");
+    }
+  },
+
+  updateGroupDetails: async (channelId, name, description, avatarUrl) => {
+    const { error } = await supabase.from("chat_channels").update({ name, description, avatar_url: avatarUrl }).eq("id", channelId);
+    if (error) {
+      console.error("Error updating group details:", error);
+      alert(error.message);
+    }
+    await useProjectStore.getState().fetchChatChannels();
+  },
+
+  updateGroupMemberRole: async (channelId, userId, role) => {
+    const { error } = await supabase.from("chat_channel_members").update({ role }).eq("channel_id", channelId).eq("user_id", userId);
+    if (error) {
+      console.error("Error updating member role:", error);
+      alert(error.message);
+    }
+    await useProjectStore.getState().fetchChatChannels();
+  },
+
+  addGroupMembers: async (channelId, userIds) => {
+    const rows = userIds.map(uId => ({ channel_id: channelId, user_id: uId }));
+    const { error } = await supabase.from("chat_channel_members").insert(rows);
+    if (error) {
+      console.error("Error adding members:", error);
+      alert(error.message);
+    }
+    await useProjectStore.getState().fetchChatChannels();
+  },
+
+  removeGroupMember: async (channelId, userId) => {
+    const { error } = await supabase.from("chat_channel_members").delete().eq("channel_id", channelId).eq("user_id", userId);
+    if (error) {
+      console.error("Error removing member:", error);
+      alert(error.message);
+    }
+    await useProjectStore.getState().fetchChatChannels();
+  },
+
+  leaveGroup: async (channelId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("chat_channel_members").delete().eq("channel_id", channelId).eq("user_id", user.id);
+    if (error) {
+      console.error("Error leaving group:", error);
+      alert(error.message);
+    }
+    await useProjectStore.getState().fetchChatChannels();
+  },
+
+  uploadChatAttachment: async (file) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+    const filePath = `attachments/${fileName}`;
+
+    try {
+      const { data, error } = await supabase.storage
+        .from("chat_attachments")
+        .upload(filePath, file);
+
+      if (!error && data) {
+        const { data: urlData } = supabase.storage
+          .from("chat_attachments")
+          .getPublicUrl(filePath);
+        return urlData.publicUrl;
+      }
+    } catch (err) {
+      console.warn("Storage upload failed, falling back to base64 encoding", err);
+    }
+
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = (err) => {
+        reject(err);
+      };
+      reader.readAsDataURL(file);
+    });
+  },
+
+  updateProfilePrivacySettings: async (settings) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("profiles").update(settings).eq("id", user.id);
+    if (error) {
+      console.error("Error updating privacy settings:", error);
+      alert(error.message);
+    } else {
+      await useProjectStore.getState().fetchWorkspaceData();
+    }
   }
 }));
