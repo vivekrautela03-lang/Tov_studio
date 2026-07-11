@@ -22,6 +22,38 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 
+const formatMessageDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  
+  // Check if today
+  const isToday = date.toDateString() === now.toDateString();
+  
+  // Check if yesterday
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  const timeString = date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  if (isToday) {
+    return `Today at ${timeString}`;
+  }
+  if (isYesterday) {
+    return `Yesterday at ${timeString}`;
+  }
+  
+  const dateOptions: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  if (date.getFullYear() !== now.getFullYear()) {
+    dateOptions.year = "numeric";
+  }
+  
+  return `${date.toLocaleDateString([], dateOptions)} at ${timeString}`;
+};
+
 export const ChatView: React.FC = () => {
   const {
     chatChannels,
@@ -32,12 +64,20 @@ export const ChatView: React.FC = () => {
     sendChatMessage,
     createChatChannel,
     setActiveChannelId,
-    toggleLikeMessage
+    toggleLikeMessage,
+    userProfile
   } = useProjectStore();
 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Presence & Typing State
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [typingUsers, setTypingUsers] = useState<Record<string, { name: string; timestamp: number }>>({});
+  
+  const activeChannelRef = useRef<any>(null);
+  const lastTypingSent = useRef<number>(0);
 
   // Modals
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
@@ -71,9 +111,28 @@ export const ChatView: React.FC = () => {
     fetchChatChannels();
   }, []);
 
-  // Real-time message subscription
+  // Clean up typing users after 3 seconds of inactivity
   useEffect(() => {
-    if (!activeChannelId) return;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setTypingUsers((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        for (const [id, data] of Object.entries(next)) {
+          if (now - data.timestamp > 3000) {
+            delete next[id];
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Real-time message, presence, and typing subscription
+  useEffect(() => {
+    if (!activeChannelId || !currentUser) return;
 
     fetchChatMessages(activeChannelId);
 
@@ -91,12 +150,38 @@ export const ChatView: React.FC = () => {
           fetchChatMessages(activeChannelId);
         }
       )
-      .subscribe();
+      .on("broadcast", { event: "typing" }, ({ payload }) => {
+        if (payload?.userId === currentUser?.id) return;
+        setTypingUsers((prev) => ({
+          ...prev,
+          [payload.userId]: { name: payload.userName, timestamp: Date.now() }
+        }));
+      })
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        const activeIds = Object.values(state)
+          .flatMap((presences: any) => presences.map((p: any) => p.user_id))
+          .filter(Boolean);
+        setOnlineUsers(activeIds);
+      });
+
+    channel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        await channel.track({
+          user_id: currentUser?.id,
+          user_name: userProfile?.full_name || "Someone",
+          online_at: new Date().toISOString()
+        });
+      }
+    });
+
+    activeChannelRef.current = channel;
 
     return () => {
       supabase.removeChannel(channel);
+      activeChannelRef.current = null;
     };
-  }, [activeChannelId]);
+  }, [activeChannelId, currentUser, userProfile]);
 
   // Scroll to bottom on new message
   useEffect(() => {
@@ -114,6 +199,24 @@ export const ChatView: React.FC = () => {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleInputChange = (value: string) => {
+    setMessageInput(value);
+
+    const now = Date.now();
+    if (now - lastTypingSent.current > 1500 && activeChannelRef.current) {
+      lastTypingSent.current = now;
+      activeChannelRef.current.send({
+        type: "broadcast",
+        event: "typing",
+        payload: {
+          userId: currentUser?.id,
+          userName: userProfile?.full_name || "Someone",
+          isTyping: true
+        }
+      });
+    }
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -270,11 +373,20 @@ export const ChatView: React.FC = () => {
                       <Hash className="w-4 h-4 text-primary" />
                     </div>
                   ) : (
-                    <img
-                      src={details.avatar}
-                      className="w-8 h-8 rounded-lg object-cover border border-white/10 shrink-0"
-                      alt={details.title}
-                    />
+                    <div className="relative shrink-0">
+                      <img
+                        src={details.avatar}
+                        className="w-8 h-8 rounded-lg object-cover border border-white/10"
+                        alt={details.title}
+                      />
+                      {(() => {
+                        const otherMember = channel.chat_channel_members?.find((m: any) => m.user_id !== currentUser?.id);
+                        const isOnline = otherMember && onlineUsers.includes(otherMember.user_id);
+                        return isOnline ? (
+                          <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 border border-[#111318] rounded-full animate-pulse" />
+                        ) : null;
+                      })()}
+                    </div>
                   )}
                   <div className="min-w-0 flex-1">
                     <span className="font-semibold block truncate text-white">{details.title}</span>
@@ -308,9 +420,30 @@ export const ChatView: React.FC = () => {
               )}
               <div>
                 <h4 className="text-xs font-bold text-white leading-tight">{activeChannelDetails.title}</h4>
-                <div className="text-[9px] text-text-secondary mt-0.5 flex items-center gap-1 font-mono">
-                  <Clock className="w-3 h-3 text-primary" />
-                  <span>Real-time channel active</span>
+                <div className="text-[9px] text-text-secondary mt-1 flex items-center gap-1.5 font-mono">
+                  {(() => {
+                    if (activeChannel?.is_group) {
+                      return (
+                        <>
+                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                          <span>Group Workspace Active</span>
+                        </>
+                      );
+                    }
+                    const otherMember = activeChannel?.chat_channel_members?.find((m: any) => m.user_id !== currentUser?.id);
+                    const isOnline = otherMember && onlineUsers.includes(otherMember.user_id);
+                    return isOnline ? (
+                      <>
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                        <span className="text-green-400 font-semibold">Active now</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-1.5 h-1.5 bg-white/20 rounded-full" />
+                        <span>Offline</span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -326,10 +459,7 @@ export const ChatView: React.FC = () => {
                   const isSelf = msg.sender_id === currentUser?.id;
                   const senderName = msg.profiles?.full_name || "User";
                   const avatar = msg.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(senderName)}`;
-                  const time = new Date(msg.created_at).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                  });
+                  const time = formatMessageDate(msg.created_at);
 
                   return (
                     <div
@@ -380,6 +510,19 @@ export const ChatView: React.FC = () => {
                   );
                 })
               )}
+              {Object.keys(typingUsers).length > 0 && (
+                <div className="flex gap-2 items-center text-[10px] text-text-secondary font-mono italic animate-pulse pl-11">
+                  <div className="flex gap-1">
+                    <span className="w-1.5 h-1.5 bg-[#38bdf8] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-1.5 h-1.5 bg-[#38bdf8] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-1.5 h-1.5 bg-[#38bdf8] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                  <span>
+                    {Object.values(typingUsers).map((u) => u.name).join(", ")}{" "}
+                    {Object.keys(typingUsers).length === 1 ? "is typing..." : "are typing..."}
+                  </span>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
 
@@ -415,7 +558,7 @@ export const ChatView: React.FC = () => {
                 type="text"
                 placeholder="Type your message..."
                 value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
+                onChange={(e) => handleInputChange(e.target.value)}
                 className="flex-1 bg-black border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white focus:border-primary focus:outline-none transition-all placeholder-white/20"
               />
               <Button
