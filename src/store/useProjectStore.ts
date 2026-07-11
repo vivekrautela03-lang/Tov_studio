@@ -1999,6 +1999,30 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
+    if (!isGroup && members.length > 0) {
+      const targetUserId = members[0];
+      const { data: dmChannels, error: dmErr } = await supabase
+        .from("chat_channels")
+        .select(`
+          id,
+          chat_channel_members (
+            user_id
+          )
+        `)
+        .eq("is_group", false);
+
+      if (!dmErr && dmChannels) {
+        const existing = dmChannels.find((ch) => {
+          const mIds = ch.chat_channel_members?.map((m: any) => m.user_id) || [];
+          return mIds.length === 2 && mIds.includes(user.id) && mIds.includes(targetUserId);
+        });
+
+        if (existing) {
+          return existing.id;
+        }
+      }
+    }
+
     const { data: channel, error: cErr } = await supabase
       .from("chat_channels")
       .insert({
