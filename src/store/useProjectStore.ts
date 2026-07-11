@@ -267,6 +267,9 @@ interface ProjectStoreState {
   castMembers: any[];
   crewMembers: any[];
   departmentsList: any[];
+  chatChannels: any[];
+  chatMessages: Record<string, any[]>;
+  activeChannelId: string;
 
   // Actions
   setActiveView: (view: string) => void;
@@ -303,6 +306,18 @@ interface ProjectStoreState {
   addCallSheet: (projectId: string, callSheet: Omit<CallSheet, "id" | "production_id">) => Promise<void>;
   deleteCallSheet: (projectId: string, callSheetId: string) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
+  updateProject: (id: string, updates: Partial<Omit<Project, "id" | "progress" | "completion" | "crewCount" | "castCount">>) => Promise<void>;
+  deleteStoryboardShot: (projectId: string, shotId: string) => Promise<void>;
+  updateStoryboardShot: (projectId: string, shotId: string, updates: Partial<StoryboardShot>) => Promise<void>;
+  addCastMember: (member: any) => Promise<void>;
+  updateCastMember: (id: string, updates: any) => Promise<void>;
+  deleteCastMember: (id: string) => Promise<void>;
+  fetchChatChannels: () => Promise<void>;
+  fetchChatMessages: (channelId: string) => Promise<void>;
+  sendChatMessage: (channelId: string, content: string, attachmentUrl?: string) => Promise<void>;
+  createChatChannel: (name: string | null, isGroup: boolean, members: string[]) => Promise<string | null>;
+  setActiveChannelId: (channelId: string) => void;
+  toggleLikeMessage: (channelId: string, messageId: string) => Promise<void>;
 
   // Profile Mutations
   updateUserProfile: (profile: Partial<UserProfile>) => Promise<void>;
@@ -382,6 +397,9 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   castMembers: [],
   crewMembers: [],
   departmentsList: [],
+  chatChannels: [],
+  chatMessages: {},
+  activeChannelId: "",
 
   // Actions
   setActiveView: (view) => set({ activeView: view }),
@@ -588,6 +606,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         crewMembers: crewData || [],
         departmentsList: depts || []
       });
+      useProjectStore.getState().fetchChatChannels();
     }
 
     // 1. Fetch productions from Supabase
@@ -622,9 +641,9 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         castCount: 2,
         deadline: p.end_date || new Date(Date.now() + 180*24*60*60*1000).toISOString().split("T")[0],
         completion: 35,
-        coverImage: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&q=80",
-        director: "Director Name",
-        location: "Neo Tokyo Sets, Stage 4"
+        coverImage: p.cover_image || "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&q=80",
+        director: p.director || "Director Name",
+        location: p.location || "Neo Tokyo Sets, Stage 4"
       };
     });
 
@@ -802,14 +821,19 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         .select("*")
         .eq("production_id", prodId);
       
-      newFiles[prodId] = (filesData || []).map((f) => ({
-        id: f.id,
-        name: f.name,
-        type: f.type || "file",
-        size: f.size || "1.2 MB",
-        modified: f.created_at ? f.created_at.substring(0, 10) : "2026-07-05",
-        version: 1
-      }));
+      newFiles[prodId] = (filesData || []).map((f) => {
+        const nameParts = (f.name || "").split(".");
+        const ext = nameParts.length > 1 ? nameParts[nameParts.length - 1].toLowerCase() : "";
+        return {
+          id: f.id,
+          name: f.name,
+          type: f.type || "file",
+          size: f.size || "1.2 MB",
+          extension: ext,
+          modified: f.created_at ? f.created_at.substring(0, 10) : "2026-07-05",
+          version: 1
+        };
+      });
 
       // 9. Fetch call sheets
       const { data: callSheetsData } = await supabase
@@ -854,7 +878,10 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         description: proj.tagline,
         status: proj.status,
         budget: budgetVal,
-        user_id: user.id
+        user_id: user.id,
+        cover_image: proj.coverImage,
+        director: proj.director,
+        location: proj.location
       })
       .select()
       .single();
@@ -1031,6 +1058,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         lighting: shot.lighting,
         notes: shot.notes,
         status: shot.status,
+        photo: shot.previewImage,
         user_id: user?.id
       })
       .select()
@@ -1442,6 +1470,182 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     });
   },
 
+  updateProject: async (id, updates) => {
+    const budgetVal = updates.budgetVal;
+    const { error } = await supabase
+      .from("productions")
+      .update({
+        title: updates.title,
+        description: updates.tagline,
+        status: updates.status,
+        budget: budgetVal,
+        cover_image: updates.coverImage,
+        director: updates.director,
+        location: updates.location
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error updating production:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => {
+      const updatedProjects = state.projects.map((p) => {
+        if (p.id === id) {
+          const budgetValNew = Number(budgetVal) || p.budgetVal;
+          const budgetTextNew = budgetValNew ? `$${(budgetValNew / 1000000).toFixed(1)}M` : p.budget;
+          return {
+            ...p,
+            ...updates,
+            budget: budgetTextNew,
+            budgetVal: budgetValNew
+          };
+        }
+        return p;
+      });
+      return { projects: updatedProjects };
+    });
+  },
+
+  deleteStoryboardShot: async (projectId, shotId) => {
+    const { error } = await supabase
+      .from("storyboard_shots")
+      .delete()
+      .eq("id", shotId);
+
+    if (error) {
+      console.error("Error deleting storyboard shot:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => {
+      const shots = state.storyboards[projectId] || [];
+      return {
+        storyboards: {
+          ...state.storyboards,
+          [projectId]: shots.filter((s) => s.id !== shotId)
+        }
+      };
+    });
+  },
+
+  updateStoryboardShot: async (projectId, shotId, updates) => {
+    const { error } = await supabase
+      .from("storyboard_shots")
+      .update({
+        shot_number: updates.shotNumber,
+        camera: updates.camera,
+        lens: updates.lens,
+        lighting: updates.lighting,
+        notes: updates.notes,
+        status: updates.status,
+        photo: updates.previewImage
+      })
+      .eq("id", shotId);
+
+    if (error) {
+      console.error("Error updating storyboard shot:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => {
+      const shots = state.storyboards[projectId] || [];
+      const updatedShots = shots.map((sh) => (sh.id === shotId ? { ...sh, ...updates } : sh));
+      return {
+        storyboards: {
+          ...state.storyboards,
+          [projectId]: updatedShots
+        }
+      };
+    });
+  },
+
+  addCastMember: async (member) => {
+    const { data, error } = await supabase
+      .from("cast_members")
+      .insert({
+        full_name: member.full_name,
+        gender: member.gender,
+        phone: member.phone,
+        email: member.email,
+        college: member.college,
+        status: member.status,
+        skills: member.skills,
+        languages: member.languages,
+        age: member.age ? Number(member.age) : null,
+        experience: member.experience,
+        instagram: member.instagram,
+        portfolio: member.portfolio,
+        notes: member.notes,
+        photo_url: member.photo_url
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating cast member:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => ({
+      castMembers: [...state.castMembers, data]
+    }));
+  },
+
+  updateCastMember: async (id, updates) => {
+    const { error } = await supabase
+      .from("cast_members")
+      .update({
+        full_name: updates.full_name,
+        gender: updates.gender,
+        phone: updates.phone,
+        email: updates.email,
+        college: updates.college,
+        status: updates.status,
+        skills: updates.skills,
+        languages: updates.languages,
+        age: updates.age ? Number(updates.age) : null,
+        experience: updates.experience,
+        instagram: updates.instagram,
+        portfolio: updates.portfolio,
+        notes: updates.notes,
+        photo_url: updates.photo_url
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error updating cast member:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => ({
+      castMembers: state.castMembers.map((m) => m.id === id ? { ...m, ...updates } : m)
+    }));
+  },
+
+  deleteCastMember: async (id) => {
+    const { error } = await supabase
+      .from("cast_members")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deleting cast member:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => ({
+      castMembers: state.castMembers.filter((m) => m.id !== id)
+    }));
+  },
+
   updateUserProfile: async (profile) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -1661,5 +1865,167 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     }
 
     useProjectStore.getState().fetchWorkspaceData();
+  },
+
+  fetchChatChannels: async () => {
+    const { data, error } = await supabase
+      .from("chat_channels")
+      .select(`
+        *,
+        chat_channel_members (
+          user_id,
+          profiles:user_id (
+            id,
+            full_name,
+            avatar_url,
+            email
+          )
+        )
+      `);
+
+    if (error) {
+      console.error("Error fetching chat channels:", error);
+      return;
+    }
+
+    set({ chatChannels: data || [] });
+  },
+
+  fetchChatMessages: async (channelId) => {
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .select(`
+        *,
+        profiles:sender_id (
+          id,
+          full_name,
+          avatar_url
+        )
+      `)
+      .eq("channel_id", channelId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching chat messages:", error);
+      return;
+    }
+
+    set((state) => ({
+      chatMessages: {
+        ...state.chatMessages,
+        [channelId]: data || []
+      }
+    }));
+  },
+
+  sendChatMessage: async (channelId, content, attachmentUrl) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .insert({
+        channel_id: channelId,
+        sender_id: user.id,
+        content: content.trim(),
+        attachment_url: attachmentUrl || null
+      })
+      .select(`
+        *,
+        profiles:sender_id (
+          id,
+          full_name,
+          avatar_url
+        )
+      `)
+      .single();
+
+    if (error) {
+      console.error("Error sending chat message:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => {
+      const currentMsgs = state.chatMessages[channelId] || [];
+      return {
+        chatMessages: {
+          ...state.chatMessages,
+          [channelId]: [...currentMsgs, data]
+        }
+      };
+    });
+  },
+
+  createChatChannel: async (name, isGroup, members) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data: channel, error: cErr } = await supabase
+      .from("chat_channels")
+      .insert({
+        name: name || null,
+        is_group: isGroup,
+        created_by: user.id
+      })
+      .select()
+      .single();
+
+    if (cErr) {
+      console.error("Error creating chat channel:", cErr);
+      alert(cErr.message);
+      return null;
+    }
+
+    const uniqueMembers = Array.from(new Set([...members, user.id]));
+    const memberRows = uniqueMembers.map((mId) => ({
+      channel_id: channel.id,
+      user_id: mId
+    }));
+
+    const { error: mErr } = await supabase
+      .from("chat_channel_members")
+      .insert(memberRows);
+
+    if (mErr) {
+      console.error("Error adding channel members:", mErr);
+      alert(mErr.message);
+      return null;
+    }
+
+    await useProjectStore.getState().fetchChatChannels();
+    return channel.id;
+  },
+
+  setActiveChannelId: (channelId) => set({ activeChannelId: channelId }),
+
+  toggleLikeMessage: async (channelId, messageId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: msg } = await supabase
+      .from("chat_messages")
+      .select("likes")
+      .eq("id", messageId)
+      .single();
+
+    if (!msg) return;
+
+    const likesList = msg.likes || [];
+    const newLikes = likesList.includes(user.id)
+      ? likesList.filter((id: string) => id !== user.id)
+      : [...likesList, user.id];
+
+    const { error } = await supabase
+      .from("chat_messages")
+      .update({ likes: newLikes })
+      .eq("id", messageId);
+
+    if (error) {
+      console.error("Error toggling message like:", error);
+      return;
+    }
+
+    await useProjectStore.getState().fetchChatMessages(channelId);
   }
 }));

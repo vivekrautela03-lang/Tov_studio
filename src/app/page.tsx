@@ -20,6 +20,8 @@ import { CalendarView } from "@/components/views/CalendarView";
 import { CrewView } from "@/components/views/CrewView";
 import { CastView } from "@/components/views/CastView";
 import { TeamView } from "@/components/views/TeamView";
+import { ChatView } from "@/components/views/ChatView";
+import { InboxView } from "@/components/views/InboxView";
 import { FilesView } from "@/components/views/FilesView";
 import { AIStudioView } from "@/components/views/AIStudioView";
 import { SettingsView } from "@/components/views/SettingsView";
@@ -115,6 +117,10 @@ export default function Home() {
       case "team":
       case "crew":
         return <TeamView />;
+      case "chat":
+        return <ChatView />;
+      case "inbox":
+        return <InboxView />;
       case "files":
         return <FilesView />;
       case "ai-support":

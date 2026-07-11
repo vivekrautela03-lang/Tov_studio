@@ -295,3 +295,67 @@ export async function sendResendChangeEmailConfirmation(email: string, link: str
     return { success: false, error };
   }
 }
+
+/**
+ * Sends confirmation email to visitor and notification email to admin.
+ */
+export async function sendContactEmails(params: {
+  name: string;
+  email: string;
+  phone?: string;
+  subject: string;
+  message: string;
+  date: Date;
+}) {
+  const { name, email, phone, subject, message, date } = params;
+
+  // 1. Visitor confirmation email
+  const visitorHtml = getEmailWrapper(`
+    <p>Thank you for contacting TheOldverse Productions.</p>
+    <p>Our team has received your message and will respond within 24–48 hours.</p>
+    <p>Regards,<br/>TheOldverse Productions</p>
+  `);
+
+  // 2. Admin notification email
+  const dateString = date.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }) + " IST";
+  const adminHtml = getEmailWrapper(`
+    <h1>New Contact Submission</h1>
+    <p>A new contact message was received from the website form.</p>
+    <hr style="border: none; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 20px 0;" />
+    <p><strong>Name:</strong> ${name}</p>
+    <p><strong>Email:</strong> ${email}</p>
+    <p><strong>Phone:</strong> ${phone || "Not provided"}</p>
+    <p><strong>Subject:</strong> ${subject}</p>
+    <p><strong>Submission Date:</strong> ${dateString}</p>
+    <hr style="border: none; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 20px 0;" />
+    <p><strong>Complete Message:</strong></p>
+    <p style="white-space: pre-wrap; background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05); font-family: sans-serif; font-size: 13px; line-height: 1.5; color: #e5e7eb;">${message}</p>
+  `);
+
+  try {
+    // Send email to visitor
+    const visitorRes = await resend.emails.send({
+      from: "TheOldverse Productions <onboarding@resend.dev>",
+      to: [email],
+      subject: "We received your message — TheOldverse Productions",
+      html: visitorHtml,
+    });
+
+    // Send email to admin (theoldverse@gmail.com)
+    const adminRes = await resend.emails.send({
+      from: "TheOldverse Productions Notification <onboarding@resend.dev>",
+      to: ["theoldverse@gmail.com"],
+      subject: `New Contact Submission: ${subject} — TheOldverse Productions`,
+      html: adminHtml,
+    });
+
+    return {
+      success: true,
+      visitorEmailId: visitorRes.data?.id,
+      adminEmailId: adminRes.data?.id,
+    };
+  } catch (error) {
+    console.error("Error sending contact emails via Resend:", error);
+    return { success: false, error };
+  }
+}

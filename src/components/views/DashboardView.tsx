@@ -379,6 +379,17 @@ export const DashboardView: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
+  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setEditCover(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Form Submit Handler
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -745,15 +756,34 @@ export const DashboardView: React.FC = () => {
                           </select>
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[9px] font-mono uppercase text-text-secondary font-bold">URL</label>
-                          <input
-                            type="url"
-                            required
-                            value={newAssetUrl}
-                            onChange={(e) => setNewAssetUrl(e.target.value)}
-                            placeholder="https://vimeo.com/..."
-                            className="w-full bg-[#09090B] border border-white/10 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary focus:outline-none"
-                          />
+                          <label className="text-[9px] font-mono uppercase text-text-secondary font-bold">URL / Upload</label>
+                          {newAssetType === "image" ? (
+                            <input
+                              type="file"
+                              accept="image/*"
+                              required={!newAssetUrl}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    setNewAssetUrl(reader.result as string);
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="w-full bg-[#09090B] border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none"
+                            />
+                          ) : (
+                            <input
+                              type="url"
+                              required
+                              value={newAssetUrl}
+                              onChange={(e) => setNewAssetUrl(e.target.value)}
+                              placeholder="https://vimeo.com/..."
+                              className="w-full bg-[#09090B] border border-white/10 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary focus:outline-none"
+                            />
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1146,13 +1176,30 @@ export const DashboardView: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-[9px] font-mono text-text-secondary uppercase font-bold">Cover URL</label>
-                  <input
-                    type="url"
-                    value={editCover}
-                    onChange={(e) => setEditCover(e.target.value)}
-                    className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none"
-                  />
+                  <label className="block text-[9px] font-mono text-text-secondary uppercase font-bold">Profile Cover Backdrop</label>
+                  <div className="flex items-center gap-3 py-1">
+                    <img
+                      src={editCover || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80"}
+                      className="w-16 h-10 object-cover border border-white/10 rounded shrink-0"
+                      alt="Cover Preview"
+                    />
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCoverUpload}
+                        className="hidden"
+                        id="cover-file-upload"
+                      />
+                      <label
+                        htmlFor="cover-file-upload"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white text-[10px] font-bold cursor-pointer transition-colors duration-150"
+                      >
+                        <UploadCloud className="w-3.5 h-3.5" />
+                        <span>Upload Cover Image</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="block text-[9px] font-mono text-text-secondary uppercase font-bold">Location</label>

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useProjectStore, StoryboardShot } from "@/store/useProjectStore";
-import { Plus, MoveLeft, MoveRight, CheckCircle2, RotateCcw, AlertCircle, Camera, Lightbulb } from "lucide-react";
+import { Plus, MoveLeft, MoveRight, CheckCircle2, RotateCcw, AlertCircle, Camera, Lightbulb, Edit2, Trash2, UploadCloud, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -18,7 +18,9 @@ export const StoryboardView: React.FC<StoryboardViewProps> = ({ projectScope }) 
     storyboards,
     addStoryboardShot,
     updateStoryboardOrder,
-    updateStoryboardShotStatus
+    updateStoryboardShotStatus,
+    deleteStoryboardShot,
+    updateStoryboardShot
   } = useProjectStore();
 
   const targetProjectId = projectScope || activeProjectId;
@@ -26,6 +28,9 @@ export const StoryboardView: React.FC<StoryboardViewProps> = ({ projectScope }) 
 
   // Form State
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editShotData, setEditShotData] = useState<StoryboardShot | null>(null);
+
   const [newShot, setNewShot] = useState({
     shotNumber: "",
     previewImage: "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&q=80",
@@ -36,6 +41,39 @@ export const StoryboardView: React.FC<StoryboardViewProps> = ({ projectScope }) 
     notes: "",
     status: "Draft" as StoryboardShot["status"]
   });
+
+  const handleDeleteShot = async (shotId: string) => {
+    if (!confirm("Are you sure you want to delete this storyboard shot block?")) return;
+    await deleteStoryboardShot(targetProjectId, shotId);
+  };
+
+  const openEditModal = (shot: StoryboardShot) => {
+    setEditShotData({ ...shot });
+    setIsEditOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editShotData) return;
+    await updateStoryboardShot(targetProjectId, editShotData.id, editShotData);
+    setIsEditOpen(false);
+    setEditShotData(null);
+  };
+
+  const handleShotImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (isEdit) {
+        setEditShotData((prev) => prev ? { ...prev, previewImage: reader.result as string } : null);
+      } else {
+        setNewShot((prev) => ({ ...prev, previewImage: reader.result as string }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +151,28 @@ export const StoryboardView: React.FC<StoryboardViewProps> = ({ projectScope }) 
                       <span className="absolute top-3 left-3 text-[10px] font-mono font-bold bg-black/70 backdrop-blur-md border border-white/10 px-2 py-0.5 rounded text-white select-none">
                         Shot {shot.shotNumber}
                       </span>
+
+                      {/* Edit/Delete Actions overlay */}
+                      <div className="absolute top-3 right-3 flex gap-1 z-20">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditModal(shot);
+                          }}
+                          className="p-1 bg-black/80 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-text-secondary hover:text-primary rounded cursor-pointer transition-colors"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteShot(shot.id);
+                          }}
+                          className="p-1 bg-black/80 hover:bg-danger/20 border border-white/10 hover:border-danger/30 text-text-secondary hover:text-danger rounded cursor-pointer transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
 
                       {/* Reordering Controls Overlaid */}
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
@@ -247,18 +307,30 @@ export const StoryboardView: React.FC<StoryboardViewProps> = ({ projectScope }) 
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-white mb-1.5">Shot Sketch (Unsplash Stock)</label>
-            <select
-              value={newShot.previewImage}
-              onChange={(e) => setNewShot({ ...newShot, previewImage: e.target.value })}
-              className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none transition-all"
-            >
-              <option value="https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&q=80">Cyberpunk Game Scene</option>
-              <option value="https://images.unsplash.com/photo-1511512578047-dfb367046420?w=600&q=80">Console Neon Server</option>
-              <option value="https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&q=80">Red Street Glowing</option>
-              <option value="https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?w=600&q=80">Macro Piano Strings</option>
-              <option value="https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&q=80">Film Camera Gear</option>
-            </select>
+            <label className="block text-xs font-medium text-white mb-1.5">Storyboard Frame / Sketch File</label>
+            <div className="flex items-center gap-3 py-1 bg-black/20 p-2.5 rounded-lg border border-white/5">
+              <img
+                src={newShot.previewImage}
+                className="w-16 h-10 object-cover border border-white/10 rounded shrink-0"
+                alt="Frame Preview"
+              />
+              <div className="flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleShotImageUpload(e, false)}
+                  className="hidden"
+                  id="shot-add-image"
+                />
+                <label
+                  htmlFor="shot-add-image"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white text-[10px] font-bold cursor-pointer transition-colors"
+                >
+                  <UploadCloud className="w-3.5 h-3.5 text-primary" />
+                  <span>Upload Drawing</span>
+                </label>
+              </div>
+            </div>
           </div>
 
           <div>
@@ -286,6 +358,124 @@ export const StoryboardView: React.FC<StoryboardViewProps> = ({ projectScope }) 
           </div>
         </form>
       </Dialog>
+
+      {/* EDIT SHOT DIALOG */}
+      {isEditOpen && editShotData && (
+        <Dialog
+          isOpen={isEditOpen}
+          onClose={() => {
+            setIsEditOpen(false);
+            setEditShotData(null);
+          }}
+          title={`Configure Storyboard Shot Block ${editShotData.shotNumber}`}
+          size="md"
+        >
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-white mb-1.5">Shot Number</label>
+                <input
+                  type="text"
+                  required
+                  value={editShotData.shotNumber}
+                  onChange={(e) => setEditShotData({ ...editShotData, shotNumber: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-white mb-1.5">Shot Type / Angle</label>
+                <select
+                  value={editShotData.shotType}
+                  onChange={(e) => setEditShotData({ ...editShotData, shotType: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none"
+                >
+                  <option value="Extreme Wide Shot (EWS)">Extreme Wide Shot (EWS)</option>
+                  <option value="Wide Shot (WS)">Wide Shot (WS)</option>
+                  <option value="Medium Shot (MS)">Medium Shot (MS)</option>
+                  <option value="Medium Close Up (MCU)">Medium Close Up (MCU)</option>
+                  <option value="Close Up (CU)">Close Up (CU)</option>
+                  <option value="Extreme Close Up (ECU)">Extreme Close Up (ECU)</option>
+                  <option value="Over the Shoulder (OTS)">Over the Shoulder (OTS)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-white mb-1.5">Camera Focal Lens</label>
+                <input
+                  type="text"
+                  value={editShotData.lens}
+                  onChange={(e) => setEditShotData({ ...editShotData, lens: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-white mb-1.5">Lighting Environment</label>
+                <input
+                  type="text"
+                  value={editShotData.lighting}
+                  onChange={(e) => setEditShotData({ ...editShotData, lighting: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-white mb-1.5">Storyboard Frame / Sketch File</label>
+              <div className="flex items-center gap-3 py-1 bg-black/20 p-2.5 rounded-lg border border-white/5">
+                <img
+                  src={editShotData.previewImage}
+                  className="w-16 h-10 object-cover border border-white/10 rounded shrink-0"
+                  alt="Frame Preview"
+                />
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleShotImageUpload(e, true)}
+                    className="hidden"
+                    id="shot-edit-image"
+                  />
+                  <label
+                    htmlFor="shot-edit-image"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white text-[10px] font-bold cursor-pointer transition-colors"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5 text-primary" />
+                    <span>Upload Drawing</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-white mb-1.5">Production Notes</label>
+              <textarea
+                rows={3}
+                value={editShotData.notes}
+                onChange={(e) => setEditShotData({ ...editShotData, notes: e.target.value })}
+                className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:outline-none h-20 resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsEditOpen(false);
+                  setEditShotData(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
 
     </div>
   );

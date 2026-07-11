@@ -12,10 +12,15 @@ import {
   Globe,
   Info,
   X,
-  UserCheck
+  UserCheck,
+  Plus,
+  Edit2,
+  Trash2,
+  UploadCloud
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 
 interface CastMember {
   id: string;
@@ -40,11 +45,116 @@ interface CastViewProps {
 }
 
 export const CastView: React.FC<CastViewProps> = ({ projectScope }) => {
-  const { castMembers, fetchWorkspaceData } = useProjectStore();
+  const { castMembers, fetchWorkspaceData, addCastMember, updateCastMember, deleteCastMember } = useProjectStore();
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedMember, setSelectedMember] = useState<CastMember | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editMemberData, setEditMemberData] = useState<any>(null);
+
+  const [newMember, setNewMember] = useState({
+    full_name: "",
+    gender: "Female" as any,
+    phone: "",
+    email: "",
+    college: "",
+    status: "Available" as any,
+    skills: [] as string[],
+    languages: [] as string[],
+    age: "",
+    experience: "",
+    instagram: "",
+    portfolio: "",
+    notes: "",
+    photo_url: ""
+  });
+
+  const [skillsInput, setSkillsInput] = useState("");
+  const [languagesInput, setLanguagesInput] = useState("");
+
+  const handleActorPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (isEdit) {
+        setEditMemberData((prev: any) => prev ? { ...prev, photo_url: reader.result as string } : null);
+      } else {
+        setNewMember((prev) => ({ ...prev, photo_url: reader.result as string }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMember.full_name.trim()) return;
+
+    const skills = skillsInput.split(",").map((s) => s.trim()).filter(Boolean);
+    const languages = languagesInput.split(",").map((l) => l.trim()).filter(Boolean);
+
+    await addCastMember({
+      ...newMember,
+      skills,
+      languages,
+      age: newMember.age ? Number(newMember.age) : undefined
+    });
+
+    setIsAddOpen(false);
+    // Reset
+    setNewMember({
+      full_name: "",
+      gender: "Female",
+      phone: "",
+      email: "",
+      college: "",
+      status: "Available",
+      skills: [],
+      languages: [],
+      age: "",
+      experience: "",
+      instagram: "",
+      portfolio: "",
+      notes: "",
+      photo_url: ""
+    });
+    setSkillsInput("");
+    setLanguagesInput("");
+  };
+
+  const openEditModal = (member: any) => {
+    setEditMemberData({ ...member });
+    setSkillsInput((member.skills || []).join(", "));
+    setLanguagesInput((member.languages || []).join(", "));
+    setIsEditOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editMemberData) return;
+
+    const skills = skillsInput.split(",").map((s) => s.trim()).filter(Boolean);
+    const languages = languagesInput.split(",").map((l) => l.trim()).filter(Boolean);
+
+    await updateCastMember(editMemberData.id, {
+      ...editMemberData,
+      skills,
+      languages,
+      age: editMemberData.age ? Number(editMemberData.age) : undefined
+    });
+
+    setIsEditOpen(false);
+    setEditMemberData(null);
+  };
+
+  const handleDeleteMember = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this cast member profile?")) return;
+    await deleteCastMember(id);
+  };
 
   const fetchCast = async () => {
     setLoading(true);
@@ -78,17 +188,27 @@ export const CastView: React.FC<CastViewProps> = ({ projectScope }) => {
       
       {/* Search and filter header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/[0.01] border border-white/5 p-4 rounded-xl">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-2.5 w-4.5 h-4.5 text-text-secondary" />
-          <input
-            type="text"
-            placeholder="Search character name or actor name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white focus:border-primary focus:outline-none"
-          />
+        <div className="flex flex-1 gap-3 items-center w-full">
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-2.5 w-4.5 h-4.5 text-text-secondary" />
+            <input
+              type="text"
+              placeholder="Search character name or actor name..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-[#09090B] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white focus:border-primary focus:outline-none"
+            />
+          </div>
+          <Button
+            onClick={() => setIsAddOpen(true)}
+            variant="primary"
+            className="flex items-center gap-1.5 cursor-pointer text-xs h-9 text-black font-bold"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Actor</span>
+          </Button>
         </div>
-        <div className="text-xs text-text-secondary">
+        <div className="text-xs text-text-secondary font-mono">
           Showing <span className="text-white font-semibold">{filteredCast.length}</span> actors
         </div>
       </div>
@@ -187,34 +307,48 @@ export const CastView: React.FC<CastViewProps> = ({ projectScope }) => {
                   </div>
 
                   {/* Actions Suite */}
-                  <div className="border-t border-white/5 pt-3 flex gap-2">
-                    <Button
-                      onClick={() => {
-                        setSelectedMember(c);
-                        setIsDetailOpen(true);
-                      }}
-                      className="flex-1 bg-white/5 hover:bg-white/10 text-white text-[11px] py-1.5 rounded-lg border border-white/10 cursor-pointer"
-                    >
-                      View Profile
-                    </Button>
+                  <div className="border-t border-white/5 pt-3 flex flex-col gap-2">
+                    <div className="flex gap-2 w-full">
+                      <Button
+                        onClick={() => {
+                          setSelectedMember(c);
+                          setIsDetailOpen(true);
+                        }}
+                        className="flex-1 bg-white/5 hover:bg-white/10 text-white text-[11px] py-1.5 rounded-lg border border-white/10 cursor-pointer"
+                      >
+                        View Profile
+                      </Button>
+                      <Button
+                        onClick={() => openEditModal(c)}
+                        className="bg-white/5 hover:bg-white/10 text-white px-2.5 py-1.5 rounded-lg border border-white/10 cursor-pointer flex items-center justify-center shrink-0"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        onClick={() => handleDeleteMember(c.id)}
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-2.5 py-1.5 rounded-lg border border-red-500/20 cursor-pointer flex items-center justify-center shrink-0"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
 
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-2 justify-end w-full">
                       {c.phone && (
                         <a
                           href={`tel:${c.phone}`}
                           title="Call"
-                          className="bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg border border-white/10 flex items-center justify-center"
+                          className="flex-1 bg-white/5 hover:bg-white/10 text-white py-1.5 rounded-lg border border-white/10 flex items-center justify-center gap-1.5 text-[10px]"
                         >
-                          <Phone className="w-3.5 h-3.5" />
+                          <Phone className="w-3 h-3 text-primary" /> Call
                         </a>
                       )}
                       {c.email && (
                         <a
                           href={`mailto:${c.email}`}
                           title="Email"
-                          className="bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg border border-white/10 flex items-center justify-center"
+                          className="flex-1 bg-white/5 hover:bg-white/10 text-white py-1.5 rounded-lg border border-white/10 flex items-center justify-center gap-1.5 text-[10px]"
                         >
-                          <Mail className="w-3.5 h-3.5" />
+                          <Mail className="w-3 h-3 text-primary" /> Email
                         </a>
                       )}
                     </div>
@@ -357,10 +491,438 @@ export const CastView: React.FC<CastViewProps> = ({ projectScope }) => {
                 )}
               </div>
 
+              {/* Administrative Actions */}
+              <div className="flex gap-3 border-t border-white/5 pt-4">
+                <Button
+                  onClick={() => {
+                    setIsDetailOpen(false);
+                    openEditModal(selectedMember);
+                  }}
+                  className="flex-1 bg-white/5 hover:bg-white/10 text-white text-xs py-2 rounded-lg font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Edit2 className="w-3.5 h-3.5" /> Edit Profile
+                </Button>
+                <Button
+                  onClick={() => {
+                    setIsDetailOpen(false);
+                    handleDeleteMember(selectedMember.id);
+                  }}
+                  className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs py-2 rounded-lg font-semibold flex items-center justify-center gap-1.5 cursor-pointer border border-red-500/20"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Remove Profile
+                </Button>
+              </div>
+
             </div>
 
           </div>
         </div>
+      )}
+      {/* ADD ACTOR DIALOG */}
+      {isAddOpen && (
+        <Dialog
+          isOpen={isAddOpen}
+          onClose={() => setIsAddOpen(false)}
+          title="Add Cast Actor Profile"
+          size="md"
+        >
+          <form onSubmit={handleAddSubmit} className="space-y-4 text-xs select-none">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Apeksha"
+                  value={newMember.full_name}
+                  onChange={(e) => setNewMember({ ...newMember, full_name: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Gender</label>
+                <select
+                  value={newMember.gender}
+                  onChange={(e) => setNewMember({ ...newMember, gender: e.target.value as any })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none cursor-pointer"
+                >
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Phone</label>
+                <input
+                  type="text"
+                  placeholder="e.g. +91 99999 99999"
+                  value={newMember.phone}
+                  onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Email</label>
+                <input
+                  type="email"
+                  placeholder="e.g. actor@domain.com"
+                  value={newMember.email}
+                  onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">College</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Graphic Era University"
+                  value={newMember.college}
+                  onChange={(e) => setNewMember({ ...newMember, college: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Availability</label>
+                <select
+                  value={newMember.status}
+                  onChange={(e) => setNewMember({ ...newMember, status: e.target.value as any })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none cursor-pointer"
+                >
+                  <option value="Available">Available</option>
+                  <option value="Busy">Busy</option>
+                  <option value="Shooting">Shooting</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Age</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 23"
+                  value={newMember.age}
+                  onChange={(e) => setNewMember({ ...newMember, age: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Experience</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 2 Years, 3 Short Films"
+                  value={newMember.experience}
+                  onChange={(e) => setNewMember({ ...newMember, experience: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Skills (comma separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Acting, Dancing, Swimming"
+                  value={skillsInput}
+                  onChange={(e) => setSkillsInput(e.target.value)}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Languages (comma separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Hindi, English"
+                  value={languagesInput}
+                  onChange={(e) => setLanguagesInput(e.target.value)}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Instagram (@handle)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. @username"
+                  value={newMember.instagram}
+                  onChange={(e) => setNewMember({ ...newMember, instagram: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Portfolio link</label>
+                <input
+                  type="url"
+                  placeholder="e.g. https://youtube.com/..."
+                  value={newMember.portfolio}
+                  onChange={(e) => setNewMember({ ...newMember, portfolio: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Profile Photo</label>
+              <div className="flex items-center gap-3 py-1 bg-black/20 p-2.5 rounded-lg border border-white/5">
+                <img
+                  src={newMember.photo_url || "https://api.dicebear.com/7.x/initials/svg?seed=Actor"}
+                  className="w-10 h-12 object-cover border border-white/10 rounded shrink-0"
+                  alt="Actor Preview"
+                />
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleActorPhotoUpload(e, false)}
+                    className="hidden"
+                    id="actor-add-photo"
+                  />
+                  <label
+                    htmlFor="actor-add-photo"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white text-[10px] font-bold cursor-pointer transition-colors"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5 text-primary" />
+                    <span>Upload Profile Photo</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Director Notes</label>
+              <textarea
+                placeholder="Internal notes regarding auditions or typecasting..."
+                rows={2}
+                value={newMember.notes}
+                onChange={(e) => setNewMember({ ...newMember, notes: e.target.value })}
+                className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none h-16 resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-3 border-t border-white/5">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => setIsAddOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" className="flex-1 text-black font-bold">
+                Create Profile
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+
+      {/* EDIT ACTOR DIALOG */}
+      {isEditOpen && editMemberData && (
+        <Dialog
+          isOpen={isEditOpen}
+          onClose={() => {
+            setIsEditOpen(false);
+            setEditMemberData(null);
+          }}
+          title={`Edit Profile - ${editMemberData.full_name}`}
+          size="md"
+        >
+          <form onSubmit={handleEditSubmit} className="space-y-4 text-xs select-none">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editMemberData.full_name}
+                  onChange={(e) => setEditMemberData({ ...editMemberData, full_name: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Gender</label>
+                <select
+                  value={editMemberData.gender}
+                  onChange={(e) => setEditMemberData({ ...editMemberData, gender: e.target.value as any })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none cursor-pointer"
+                >
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Phone</label>
+                <input
+                  type="text"
+                  value={editMemberData.phone}
+                  onChange={(e) => setEditMemberData({ ...editMemberData, phone: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editMemberData.email}
+                  onChange={(e) => setEditMemberData({ ...editMemberData, email: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">College</label>
+                <input
+                  type="text"
+                  value={editMemberData.college}
+                  onChange={(e) => setEditMemberData({ ...editMemberData, college: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Availability</label>
+                <select
+                  value={editMemberData.status}
+                  onChange={(e) => setEditMemberData({ ...editMemberData, status: e.target.value as any })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none cursor-pointer"
+                >
+                  <option value="Available">Available</option>
+                  <option value="Busy">Busy</option>
+                  <option value="Shooting">Shooting</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Age</label>
+                <input
+                  type="number"
+                  value={editMemberData.age || ""}
+                  onChange={(e) => setEditMemberData({ ...editMemberData, age: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Experience</label>
+                <input
+                  type="text"
+                  value={editMemberData.experience}
+                  onChange={(e) => setEditMemberData({ ...editMemberData, experience: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Skills (comma separated)</label>
+                <input
+                  type="text"
+                  value={skillsInput}
+                  onChange={(e) => setSkillsInput(e.target.value)}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Languages (comma separated)</label>
+                <input
+                  type="text"
+                  value={languagesInput}
+                  onChange={(e) => setLanguagesInput(e.target.value)}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Instagram (@handle)</label>
+                <input
+                  type="text"
+                  value={editMemberData.instagram}
+                  onChange={(e) => setEditMemberData({ ...editMemberData, instagram: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Portfolio link</label>
+                <input
+                  type="url"
+                  value={editMemberData.portfolio}
+                  onChange={(e) => setEditMemberData({ ...editMemberData, portfolio: e.target.value })}
+                  className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Profile Photo</label>
+              <div className="flex items-center gap-3 py-1 bg-black/20 p-2.5 rounded-lg border border-white/5">
+                <img
+                  src={editMemberData.photo_url || "https://api.dicebear.com/7.x/initials/svg?seed=Actor"}
+                  className="w-10 h-12 object-cover border border-white/10 rounded shrink-0"
+                  alt="Actor Preview"
+                />
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleActorPhotoUpload(e, true)}
+                    className="hidden"
+                    id="actor-edit-photo"
+                  />
+                  <label
+                    htmlFor="actor-edit-photo"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white text-[10px] font-bold cursor-pointer transition-colors"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5 text-primary" />
+                    <span>Upload Profile Photo</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-text-secondary text-[10px] uppercase font-semibold mb-1">Director Notes</label>
+              <textarea
+                rows={2}
+                value={editMemberData.notes}
+                onChange={(e) => setEditMemberData({ ...editMemberData, notes: e.target.value })}
+                className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white focus:border-primary focus:outline-none h-16 resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-3 border-t border-white/5">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setIsEditOpen(false);
+                  setEditMemberData(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" className="flex-1 text-black font-bold">
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Dialog>
       )}
 
     </div>
