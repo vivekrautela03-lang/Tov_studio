@@ -344,12 +344,6 @@ export const ProfileView: React.FC = () => {
             <div>
               <span className="text-white font-bold">{portfolio.length}</span> posts
             </div>
-            <div>
-              <span className="text-white font-bold">121</span> followers
-            </div>
-            <div>
-              <span className="text-white font-bold">121</span> following
-            </div>
           </div>
 
           {/* Bio text block */}
