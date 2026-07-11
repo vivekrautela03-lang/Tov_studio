@@ -15,6 +15,8 @@ import { ShotPlannerView } from "./ShotPlannerView";
 import { CrewView } from "./CrewView";
 import { CastView } from "./CastView";
 import { FilesView } from "./FilesView";
+import { CalendarView } from "./CalendarView";
+import { CallSheetView } from "./CallSheetView";
 
 interface ProjectDetailsViewProps {
   projectId: string;
@@ -39,7 +41,9 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
     "Overview",
     "Script",
     "Storyboard",
-    "Schedule",
+    "Shot Planner",
+    "Calendar",
+    "Call Sheets",
     "Crew",
     "Cast",
     "Locations",
@@ -103,8 +107,12 @@ export const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({
         return <ScriptsView projectScope={projectId} />;
       case "Storyboard":
         return <StoryboardView projectScope={projectId} />;
-      case "Schedule":
+      case "Shot Planner":
         return <ShotPlannerView projectScope={projectId} />;
+      case "Calendar":
+        return <CalendarView projectScope={projectId} />;
+      case "Call Sheets":
+        return <CallSheetView projectScope={projectId} />;
       case "Crew":
         return <CrewView projectScope={projectId} />;
       case "Cast":

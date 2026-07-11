@@ -40,11 +40,6 @@ export const Sidebar: React.FC = () => {
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "projects", label: "Projects", icon: Film },
-    { id: "scripts", label: "Scripts", icon: FileText },
-    { id: "storyboards", label: "Storyboards", icon: ImageIcon },
-    { id: "shot-planner", label: "Shot Planner", icon: Clapperboard },
-    { id: "calendar", label: "Calendar", icon: Calendar },
-    { id: "call-sheets", label: "Call Sheets", icon: FileText },
     { id: "team", label: "Team", icon: Users },
     { id: "chat", label: "Chat", icon: MessageSquare },
     { id: "inbox", label: "Inbox", icon: Mail },

@@ -7,12 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Plus, X, Calendar, Clock, CloudRain, Trash2, Eye, Sparkles, Printer, FileText } from "lucide-react";
 import { motion } from "framer-motion";
 
-export const CallSheetView: React.FC = () => {
+interface CallSheetViewProps {
+  projectScope?: string;
+}
+
+export const CallSheetView: React.FC<CallSheetViewProps> = ({ projectScope }) => {
   const { activeProjectId, callSheets, addCallSheet, deleteCallSheet, crew, cast } = useProjectStore();
 
-  const projectCallSheets = callSheets[activeProjectId] || [];
-  const projectCrew = crew[activeProjectId] || [];
-  const projectCast = cast[activeProjectId] || [];
+  const targetProjectId = projectScope || activeProjectId;
+  const projectCallSheets = callSheets[targetProjectId] || [];
+  const projectCrew = crew[targetProjectId] || [];
+  const projectCast = cast[targetProjectId] || [];
 
   // Modal States
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -31,7 +36,7 @@ export const CallSheetView: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await addCallSheet(activeProjectId, {
+      await addCallSheet(targetProjectId, {
         date: newSheet.date,
         call_time: newSheet.call_time,
         weather_notes: newSheet.weather_notes.trim(),
@@ -54,7 +59,7 @@ export const CallSheetView: React.FC = () => {
   const handleDelete = async (sheetId: string) => {
     if (confirm("Are you sure you want to delete this Call Sheet?")) {
       try {
-        await deleteCallSheet(activeProjectId, sheetId);
+        await deleteCallSheet(targetProjectId, sheetId);
       } catch (err) {
         console.error(err);
       }
