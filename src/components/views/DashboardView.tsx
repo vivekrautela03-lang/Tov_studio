@@ -27,101 +27,166 @@ import {
   Moon,
   ChevronDown,
   ChevronUp,
-  Cloud
+  Cloud,
+  RefreshCw,
+  Zap,
+  CloudSun,
+  CloudRain,
+  CloudLightning,
+  Snowflake,
+  CloudFog,
+  Timer
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
 
-// --- CUSTOM SVG ANIMATED WEATHER ILLUSTRATIONS ---
+// --- CUTE & MODERN ANIMATED WEATHER ILLUSTRATIONS ---
 
-const SunnyIllustration = () => (
-  <div className="relative w-16 h-16 flex items-center justify-center">
-    <div className="absolute inset-0 bg-[#22d3ee]/10 rounded-full blur-xl animate-pulse" />
-    <svg className="w-12 h-12 text-[#22d3ee] drop-shadow-[0_0_8px_rgba(34,211,238,0.4)] animate-float" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="12" cy="12" r="4" className="animate-spin-slow origin-center" />
-      <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" strokeLinecap="round" className="animate-pulse" />
+const SunnyIllustration: React.FC = () => (
+  <div className="relative w-36 h-36 flex items-center justify-center">
+    <div className="absolute inset-0 bg-yellow-500/10 rounded-full blur-2xl animate-pulse" />
+    <svg className="w-28 h-28 text-[#22d3ee] drop-shadow-[0_0_12px_rgba(34,211,238,0.4)] animate-float" viewBox="0 0 100 100" fill="none">
+      {/* Sun Rays */}
+      <circle cx="50" cy="50" r="22" stroke="currentColor" strokeWidth="1.5" strokeDasharray="6 6" className="animate-spin-slow origin-center" />
+      {/* Sun Circle */}
+      <circle cx="50" cy="50" r="16" fill="#09090b" stroke="currentColor" strokeWidth="2.5" />
+      {/* Cute Smiling Face */}
+      <circle cx="44" cy="46" r="2.5" fill="currentColor" />
+      <circle cx="56" cy="46" r="2.5" fill="currentColor" />
+      <path d="M 45,54 Q 50,58 55,54" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      {/* Sun Flare Dots */}
+      <circle cx="50" cy="18" r="1.5" fill="currentColor" className="animate-pulse" />
+      <circle cx="50" cy="82" r="1.5" fill="currentColor" className="animate-pulse" />
+      <circle cx="18" cy="50" r="1.5" fill="currentColor" className="animate-pulse" />
+      <circle cx="82" cy="50" r="1.5" fill="currentColor" className="animate-pulse" />
+      
+      {/* Floating Birds */}
+      <path d="M 15,30 Q 20,25 25,30 Q 30,25 35,30" stroke="rgba(255,255,255,0.4)" strokeWidth="1" strokeLinecap="round" className="animate-bird-fly-1" />
+      <path d="M 70,25 Q 73,21 76,25 Q 79,21 82,25" stroke="rgba(255,255,255,0.3)" strokeWidth="1" strokeLinecap="round" className="animate-bird-fly-2" />
     </svg>
   </div>
 );
 
-const CloudyIllustration = () => (
-  <div className="relative w-16 h-16 flex items-center justify-center">
-    <div className="absolute inset-0 bg-neutral-500/5 rounded-full blur-xl" />
-    <svg className="w-12 h-12 text-text-secondary animate-float" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M17.5 19A3.5 3.5 0 0 0 21 15.5c0-2.79-2.54-4.5-5-4.5-.47 0-.89.09-1.25.26A5 5 0 0 0 5 13c0 2.2 1.8 4 4 4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M12 9a4 4 0 0 1 7.5-1.5" className="animate-float-cloud origin-center" strokeLinecap="round" />
+const CloudyIllustration: React.FC = () => (
+  <div className="relative w-36 h-36 flex items-center justify-center">
+    <div className="absolute inset-0 bg-neutral-500/5 rounded-full blur-2xl" />
+    <svg className="w-28 h-28 text-text-secondary animate-float" viewBox="0 0 100 100" fill="none">
+      {/* Shadows */}
+      <path d="M68 64a12 12 0 0 0 12-12c0-9.6-8.7-15.4-17.1-15.4-.6 0-1.2.1-1.7.3A17 17 0 0 0 25 43c0 7.5 6.2 13.7 13.7 13.7" stroke="rgba(255,255,255,0.05)" strokeWidth="4" strokeLinecap="round" />
+      {/* Fluffy clouds */}
+      <path d="M70 60c6 0 10-4.5 10-10 0-8-7-13-14-13-.4 0-.8.1-1.2.2A14 14 0 0 0 35 41c0 6.5 5 11 11 11" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M50 48c4.5 0 8.5-3.5 8.5-8 0-6.5-6-10.5-12-10.5-.3 0-.6 0-.9.1A12 12 0 0 0 22 38c0 5 4 9 9 9" stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-float-cloud origin-center" />
     </svg>
   </div>
 );
 
-const RainIllustration = () => (
-  <div className="relative w-16 h-16 flex items-center justify-center">
-    <div className="absolute inset-0 bg-cyan-500/5 rounded-full blur-xl" />
-    <svg className="w-12 h-12 text-[#22d3ee] animate-float" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M17 14A5 5 0 1 0 7 14h10z" strokeLinecap="round" strokeLinejoin="round" />
-      <line x1="8" y1="17" x2="8" y2="20" className="animate-rain-fall" style={{ animationDelay: '0.2s' }} />
-      <line x1="12" y1="17" x2="12" y2="20" className="animate-rain-fall" style={{ animationDelay: '0.5s' }} />
-      <line x1="16" y1="17" x2="16" y2="20" className="animate-rain-fall" style={{ animationDelay: '0.8s' }} />
+const RainIllustration: React.FC = () => (
+  <div className="relative w-36 h-36 flex items-center justify-center">
+    <div className="absolute inset-0 bg-[#22d3ee]/5 rounded-full blur-2xl" />
+    <svg className="w-28 h-28 text-[#22d3ee] animate-float" viewBox="0 0 100 100" fill="none">
+      <path d="M65 52a14 14 0 0 0 0-28H62.6a19 19 0 0 0-36.8 4.2A11 11 0 0 0 34 50" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      {/* Rain lines */}
+      <line x1="30" y1="58" x2="25" y2="70" className="animate-rain-fall" style={{ animationDelay: '0.1s' }} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="45" y1="58" x2="40" y2="70" className="animate-rain-fall" style={{ animationDelay: '0.4s' }} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="60" y1="58" x2="55" y2="70" className="animate-rain-fall" style={{ animationDelay: '0.7s' }} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="75" y1="58" x2="70" y2="70" className="animate-rain-fall" style={{ animationDelay: '0.2s' }} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Water ripple arcs */}
+      <path d="M22,78 Q28,76 34,78" stroke="rgba(34,211,238,0.2)" strokeWidth="1" strokeLinecap="round" className="animate-pulse" />
+      <path d="M52,78 Q58,76 64,78" stroke="rgba(34,211,238,0.2)" strokeWidth="1" strokeLinecap="round" className="animate-pulse" style={{ animationDelay: '0.5s' }} />
     </svg>
   </div>
 );
 
-const StormIllustration = () => (
-  <div className="relative w-16 h-16 flex items-center justify-center">
-    <div className="absolute inset-0 bg-neutral-900/40 rounded-full blur-xl animate-pulse" />
-    <svg className="w-12 h-12 text-[#22d3ee] animate-float" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M17 12A5 5 0 1 0 7 12h10z" className="text-text-secondary" strokeLinecap="round" strokeLinejoin="round" />
-      <line x1="9" y1="15" x2="9" y2="18" className="animate-rain-fall" style={{ animationDelay: '0.1s' }} />
-      <line x1="13" y1="15" x2="13" y2="18" className="animate-rain-fall" style={{ animationDelay: '0.4s' }} />
-      <path d="M11 15l-2 3h4l-2 3" className="animate-flash text-yellow-400 fill-yellow-400" />
+const StormIllustration: React.FC = () => (
+  <div className="relative w-36 h-36 flex items-center justify-center">
+    <div className="absolute inset-0 bg-[#22d3ee]/10 rounded-full blur-2xl animate-pulse" />
+    <svg className="w-28 h-28 text-[#22d3ee] animate-float" viewBox="0 0 100 100" fill="none">
+      <path d="M65 48a14 14 0 0 0 0-28H62.6a19 19 0 0 0-36.8 4.2A11 11 0 0 0 34 46" stroke="rgba(255,255,255,0.2)" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="30" y1="54" x2="26" y2="66" className="animate-rain-fall" style={{ animationDelay: '0.1s' }} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="50" y1="54" x2="46" y2="66" className="animate-rain-fall" style={{ animationDelay: '0.4s' }} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="70" y1="54" x2="66" y2="66" className="animate-rain-fall" style={{ animationDelay: '0.7s' }} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      
+      {/* Lightning Flash bolt */}
+      <path d="M48 50l-6 10h10l-4 12" className="animate-flash text-yellow-400 fill-yellow-400" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   </div>
 );
 
-const SnowIllustration = () => (
-  <div className="relative w-16 h-16 flex items-center justify-center">
-    <div className="absolute inset-0 bg-white/5 rounded-full blur-xl" />
-    <svg className="w-12 h-12 text-white animate-float" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M17 14A5 5 0 1 0 7 14h10z" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="8" cy="18" r="1" className="animate-rain-fall" style={{ animationDelay: '0.3s' }} />
-      <circle cx="12" cy="19" r="1.2" className="animate-rain-fall" style={{ animationDelay: '0.7s' }} />
-      <circle cx="16" cy="18" r="1" className="animate-rain-fall" style={{ animationDelay: '1.1s' }} />
+const SnowIllustration: React.FC = () => (
+  <div className="relative w-36 h-36 flex items-center justify-center">
+    <div className="absolute inset-0 bg-white/5 rounded-full blur-2xl" />
+    <svg className="w-28 h-28 text-white animate-float" viewBox="0 0 100 100" fill="none">
+      <path d="M65 50a14 14 0 0 0 0-28H62.6a19 19 0 0 0-36.8 4.2A11 11 0 0 0 34 48" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      {/* Snowflakes */}
+      <path d="M26 58h4m-2-2v4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" className="animate-rain-fall" style={{ animationDelay: '0.2s' }} />
+      <path d="M48 60h4m-2-2v4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" className="animate-rain-fall" style={{ animationDelay: '0.6s' }} />
+      <path d="M70 58h4m-2-2v4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" className="animate-rain-fall" style={{ animationDelay: '1.0s' }} />
     </svg>
   </div>
 );
 
-const PartlyCloudyIllustration = () => (
-  <div className="relative w-16 h-16 flex items-center justify-center">
-    <div className="absolute inset-0 bg-[#22d3ee]/5 rounded-full blur-xl animate-pulse" />
-    <svg className="w-12 h-12 animate-float" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="10" cy="10" r="3.5" className="text-[#22d3ee]" />
-      <path d="M10 2v2M10 16v2M4.34 4.34l1.42 1.42M14.24 14.24l1.42 1.42M2 10h2M16 10h2M4.34 15.66l1.42-1.42M14.24 5.76l1.42-1.42" strokeLinecap="round" className="text-[#22d3ee]/70 animate-pulse" />
-      <path d="M17.5 18A3.5 3.5 0 0 0 21 14.5c0-2.79-2.54-4.5-5-4.5-.47 0-.89.09-1.25.26A5 5 0 0 0 5 12c0 2.2 1.8 4 4 4" className="text-text-secondary fill-neutral-900/80" strokeLinecap="round" strokeLinejoin="round" />
+const PartlyCloudyIllustration: React.FC = () => (
+  <div className="relative w-36 h-36 flex items-center justify-center">
+    <div className="absolute inset-0 bg-[#22d3ee]/10 rounded-full blur-2xl animate-pulse" />
+    <svg className="w-28 h-28 animate-float" viewBox="0 0 100 100" fill="none">
+      {/* Sun */}
+      <circle cx="40" cy="40" r="12" fill="#09090b" stroke="#22d3ee" strokeWidth="2.5" />
+      <path d="M40 20v4M40 56v4M20 40h4M56 40h4" stroke="#22d3ee" strokeWidth="1.5" strokeLinecap="round" className="animate-pulse" />
+      {/* Cloud */}
+      <path d="M70 62c6 0 10-4.5 10-10 0-8-7-13-14-13-.4 0-.8.1-1.2.2A14 14 0 0 0 35 43c0 6.5 5 11 11 11" stroke="rgba(255,255,255,0.7)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="#09090b" />
     </svg>
   </div>
 );
 
-const FogIllustration = () => (
-  <div className="relative w-16 h-16 flex items-center justify-center">
-    <div className="absolute inset-0 bg-neutral-500/5 rounded-full blur-xl" />
-    <svg className="w-12 h-12 text-text-secondary animate-float" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <line x1="4" y1="8" x2="20" y2="8" className="animate-float-cloud" style={{ animationDelay: '0.1s' }} strokeLinecap="round" />
-      <line x1="6" y1="12" x2="18" y2="12" className="animate-float-cloud" style={{ animationDelay: '0.5s' }} strokeLinecap="round" />
-      <line x1="3" y1="16" x2="17" y2="16" className="animate-float-cloud" style={{ animationDelay: '0.9s' }} strokeLinecap="round" />
+const NightIllustration: React.FC = () => (
+  <div className="relative w-36 h-36 flex items-center justify-center">
+    <div className="absolute inset-0 bg-indigo-950/15 rounded-full blur-2xl animate-pulse" />
+    <svg className="w-28 h-28 text-white animate-float" viewBox="0 0 100 100" fill="none">
+      {/* Crescent Moon */}
+      <path d="M60 30c-13.8 0-25 11.2-25 25s11.2 25 25 25c2.4 0 4.7-.3 6.9-1-10.7-3.9-18.4-14.2-18.4-26.3s7.7-22.4 18.4-26.3c-2.2-.7-4.5-1-6.9-1z" fill="#09090b" stroke="#22d3ee" strokeWidth="2.5" />
+      {/* Stars */}
+      <circle cx="25" cy="30" r="1" fill="#22d3ee" className="animate-twinkle" />
+      <circle cx="35" cy="22" r="1.5" fill="#fff" className="animate-twinkle" style={{ animationDelay: '0.8s' }} />
+      <circle cx="75" cy="25" r="1" fill="#22d3ee" className="animate-twinkle" style={{ animationDelay: '1.5s' }} />
+      <circle cx="30" cy="70" r="1.2" fill="#fff" className="animate-twinkle" style={{ animationDelay: '2s' }} />
+      {/* Slow moving clouds */}
+      <path d="M72 65c4.5 0 8.5-3.5 8.5-8 0-6.5-6-10.5-12-10.5-.3 0-.6 0-.9.1A12 12 0 0 0 44 55c0 5 4 9 9 9" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="#09090b" className="animate-float-cloud origin-center" />
     </svg>
   </div>
 );
 
-// --- PREMIUM LIVE WEATHER CARD COMPONENT ---
+// --- COMPACT MINIFIED STATIC WEATHER ICONS FOR LISTS ---
 
-const LiveWeatherCard: React.FC = () => {
+const renderMiniWeatherIcon = (type: string) => {
+  switch (type) {
+    case "sunny":
+      return <Sun className="w-4.5 h-4.5 text-[#22d3ee]" />;
+    case "cloudy":
+      return <Cloud className="w-4.5 h-4.5 text-text-secondary" />;
+    case "rain":
+      return <CloudRain className="w-4.5 h-4.5 text-primary" />;
+    case "storm":
+      return <CloudLightning className="w-4.5 h-4.5 text-[#22d3ee]" />;
+    case "snow":
+      return <Snowflake className="w-4.5 h-4.5 text-white" />;
+    default:
+      return <CloudSun className="w-4.5 h-4.5 text-[#22d3ee]" />;
+  }
+};
+
+// --- GOOGLE WEATHER EXPERIENCE OUTLOOK ---
+
+const GoogleWeatherDashboard: React.FC = () => {
   const [weather, setWeather] = useState<any>(null);
+  const [aqi, setAqi] = useState<number | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
   const [locationName, setLocationName] = useState("Dehradun, Uttarakhand");
   const [lastUpdated, setLastUpdated] = useState("");
+  const [currentTime, setCurrentTime] = useState("");
+  const [currentDay, setCurrentDay] = useState("");
+  const [currentDate, setCurrentDate] = useState("");
 
   const getWeatherCondition = (code: number) => {
     if (code === 0) return { label: "Sunny", type: "sunny" };
@@ -130,28 +195,58 @@ const LiveWeatherCard: React.FC = () => {
     if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return { label: "Rainy", type: "rain" };
     if ([95, 96, 99].includes(code)) return { label: "Thunderstorm", type: "storm" };
     if ([71, 73, 75, 85, 86].includes(code)) return { label: "Snowy", type: "snow" };
-    return { label: "Clear", type: "sunny" };
+    return { label: "Partly Cloudy", type: "cloudy" };
   };
 
   const fetchWeather = async (lat: number, lon: number, name?: string) => {
     try {
       setWeatherLoading(true);
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,pressure_msl,wind_speed_10m,wind_direction_10m,uv_index,visibility&hourly=temperature_2m,precipitation_probability,relative_humidity_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max&timezone=auto`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const urlForecast = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,pressure_msl,wind_speed_10m,wind_direction_10m,uv_index,visibility&hourly=temperature_2m,precipitation_probability,relative_humidity_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max&timezone=auto`;
+      const urlAqi = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`;
       
-      if (data && data.current) {
-        setWeather(data);
+      const [resForecast, resAqi] = await Promise.all([
+        fetch(urlForecast),
+        fetch(urlAqi)
+      ]);
+      
+      const dataForecast = await resForecast.json();
+      const dataAqi = await resAqi.json();
+      
+      if (dataForecast && dataForecast.current) {
+        setWeather(dataForecast);
         if (name) setLocationName(name);
-        setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      }
+      if (dataAqi && dataAqi.current) {
+        setAqi(dataAqi.current.us_aqi);
       }
     } catch (err) {
-      console.error("Error fetching weather:", err);
+      console.error("Error fetching weather experience:", err);
     } finally {
       setWeatherLoading(false);
     }
   };
 
+  const triggerRefresh = () => {
+    if (weather?.latitude) {
+      fetchWeather(weather.latitude, weather.longitude);
+    }
+  };
+
+  // Clock ticks
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      setCurrentDay(now.toLocaleDateString([], { weekday: 'long' }));
+      setCurrentDate(now.toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Initial fetch and coordinates permissions
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -171,17 +266,17 @@ const LiveWeatherCard: React.FC = () => {
       if (weather?.latitude) {
         fetchWeather(weather.latitude, weather.longitude);
       }
-    }, 180000);
+    }, 240000); // 4 min auto-refresh
 
     return () => clearInterval(interval);
   }, []);
 
   if (weatherLoading && !weather) {
     return (
-      <div className="p-6 rounded-[28px] border border-white/5 bg-neutral-900/40 backdrop-blur-[24px] flex items-center justify-center py-12">
-        <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-[#22d3ee]" />
-          <span className="text-[10px] text-text-secondary uppercase tracking-widest font-mono">Syncing Atmospheric Feeds...</span>
+      <div className="p-10 rounded-[24px] border border-white/5 bg-neutral-900/30 backdrop-blur-[24px] flex items-center justify-center min-h-[300px]">
+        <div className="text-center space-y-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-[#22d3ee] mx-auto" />
+          <span className="text-[10px] text-text-secondary uppercase tracking-widest font-mono block">Loading Weather Dashboard...</span>
         </div>
       </div>
     );
@@ -191,6 +286,27 @@ const LiveWeatherCard: React.FC = () => {
   const daily = weather?.daily;
   const hourly = weather?.hourly;
   const condition = getWeatherCondition(current?.weather_code || 0);
+
+  // Precise Dew Point calculation
+  const getDewPoint = (t: number, rh: number) => {
+    const a = 17.625;
+    const b = 243.04;
+    const alpha = ((a * t) / (b + t)) + Math.log(rh / 100);
+    return ((b * alpha) / (a - alpha)).toFixed(1);
+  };
+
+  const dewPoint = getDewPoint(current?.temperature_2m || 0, current?.relative_humidity_2m || 100);
+
+  // Air Quality Rating
+  const getAqiRating = (val: number | null) => {
+    if (val === null) return "Good";
+    if (val <= 50) return "Good";
+    if (val <= 100) return "Moderate";
+    if (val <= 150) return "Unhealthy for Sensitive Groups";
+    return "Unhealthy";
+  };
+
+  const aqiRating = getAqiRating(aqi);
 
   const getDayPeriod = () => {
     const hours = new Date().getHours();
@@ -202,90 +318,33 @@ const LiveWeatherCard: React.FC = () => {
 
   const period = getDayPeriod();
   const themeStyles = {
-    morning: "border-yellow-500/15 bg-gradient-to-br from-yellow-500/[0.02] to-neutral-950/35 shadow-[0_0_15px_rgba(234,179,8,0.05),inset_0_1px_1px_rgba(255,255,255,0.05)]",
-    afternoon: "border-[#22d3ee]/15 bg-gradient-to-br from-[#22d3ee]/[0.02] to-neutral-950/35 shadow-[0_0_15px_rgba(34,211,238,0.05),inset_0_1px_1px_rgba(255,255,255,0.05)]",
-    evening: "border-orange-500/15 bg-gradient-to-br from-orange-500/[0.02] to-neutral-950/35 shadow-[0_0_15px_rgba(249,115,22,0.05),inset_0_1px_1px_rgba(255,255,255,0.05)]",
-    night: "border-[#22d3ee]/10 bg-gradient-to-br from-indigo-950/[0.03] to-neutral-950/50 shadow-[0_0_15px_rgba(34,211,238,0.02),inset_0_1px_1px_rgba(255,255,255,0.02)]"
+    morning: "border-yellow-500/15 bg-gradient-to-br from-yellow-500/[0.01] to-neutral-950/40 shadow-[0_4px_30px_rgba(0,0,0,0.4)]",
+    afternoon: "border-[#22d3ee]/15 bg-gradient-to-br from-[#22d3ee]/[0.01] to-neutral-950/40 shadow-[0_4px_30px_rgba(0,0,0,0.4)]",
+    evening: "border-orange-500/15 bg-gradient-to-br from-orange-500/[0.01] to-neutral-950/40 shadow-[0_4px_30px_rgba(0,0,0,0.4)]",
+    night: "border-indigo-500/10 bg-gradient-to-br from-indigo-950/[0.02] to-neutral-950/50 shadow-[0_4px_30px_rgba(0,0,0,0.4)]"
   }[period];
 
-  const renderIllustration = (type: string) => {
+  const renderIllustration = (type: string, isDay: number) => {
+    if (isDay === 0) return <NightIllustration />;
     switch (type) {
       case "sunny":
         return <SunnyIllustration />;
       case "cloudy":
-        return <PartlyCloudyIllustration />;
+        return <CloudyIllustration />;
       case "rain":
         return <RainIllustration />;
       case "storm":
         return <StormIllustration />;
       case "snow":
         return <SnowIllustration />;
-      case "fog":
-        return <FogIllustration />;
       default:
-        return <SunnyIllustration />;
+        return <PartlyCloudyIllustration />;
     }
   };
 
-  // Custom inline SVG temperature curve path
-  const renderTempGraph = () => {
-    if (!hourly || !hourly.temperature_2m) return null;
-    const temps = hourly.temperature_2m.slice(0, 8);
-    const minTemp = Math.min(...temps);
-    const maxTemp = Math.max(...temps);
-    const range = maxTemp - minTemp || 1;
-
-    const points = temps.map((t: number, i: number) => {
-      const x = i * 40 + 20;
-      const y = 45 - ((t - minTemp) / range) * 30;
-      return `${x},${y}`;
-    }).join(" ");
-
-    return (
-      <div className="space-y-2">
-        <span className="text-[9px] uppercase font-mono tracking-wider font-bold text-white/30 block">24h Temperature Curve</span>
-        <div className="bg-black/30 p-4 rounded-2xl border border-white/5 flex items-center justify-center">
-          <svg className="w-full h-16 text-[#22d3ee]" viewBox="0 0 320 60" fill="none">
-            <defs>
-              <linearGradient id="tempGlow" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.2" />
-                <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.0" />
-              </linearGradient>
-            </defs>
-            <path
-              d={`M20,60 L${points} L300,60 Z`}
-              fill="url(#tempGlow)"
-            />
-            <polyline
-              fill="none"
-              stroke="#22d3ee"
-              strokeWidth="1.5"
-              points={points}
-            />
-            {temps.map((t: number, idx: number) => {
-              const x = idx * 40 + 20;
-              const y = 45 - ((t - minTemp) / range) * 30;
-              return (
-                <g key={idx}>
-                  <circle cx={x} cy={y} r="3" fill="#22d3ee" className="animate-pulse" />
-                  <text x={x} y={y - 8} fill="white" fontSize="7" textAnchor="middle" fontWeight="bold">
-                    {Math.round(t)}°
-                  </text>
-                  <text x={x} y={55} fill="rgba(255,255,255,0.4)" fontSize="6" textAnchor="middle" fontFamily="monospace">
-                    {idx * 3}h
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-        </div>
-      </div>
-    );
-  };
-
   return (
-    <div className="space-y-3">
-      {/* Styles Injection for pure CSS animations */}
+    <div className="space-y-6">
+      {/* Style Injection for animations */}
       <style>{`
         @keyframes spin-slow {
           0% { transform: rotate(0deg); }
@@ -293,182 +352,290 @@ const LiveWeatherCard: React.FC = () => {
         }
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-4px); }
+          50% { transform: translateY(-6px); }
         }
         @keyframes float-cloud {
           0%, 100% { transform: translateX(0px); }
-          50% { transform: translateX(5px); }
+          50% { transform: translateX(4px); }
         }
         @keyframes rain-fall {
           0% { transform: translateY(-8px); opacity: 0; }
           50% { opacity: 0.8; }
-          100% { transform: translateY(16px); opacity: 0; }
+          100% { transform: translateY(18px); opacity: 0; }
         }
         @keyframes flash {
-          0%, 100% { opacity: 0.2; }
-          45%, 55% { opacity: 0.2; }
+          0%, 100% { opacity: 0.15; }
+          45%, 55% { opacity: 0.15; }
           50% { opacity: 1; }
         }
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.2; }
+          50% { opacity: 1; }
+        }
+        @keyframes bird-fly-1 {
+          0% { transform: translate(-10px, 0px) scale(0.8); opacity: 0; }
+          10% { opacity: 0.8; }
+          90% { opacity: 0.8; }
+          100% { transform: translate(30px, -10px) scale(0.8); opacity: 0; }
+        }
+        @keyframes bird-fly-2 {
+          0% { transform: translate(20px, 10px) scale(0.7); opacity: 0; }
+          15% { opacity: 0.6; }
+          85% { opacity: 0.6; }
+          100% { transform: translate(-20px, 0px) scale(0.7); opacity: 0; }
+        }
         .animate-spin-slow {
-          animation: spin-slow 25s linear infinite;
+          animation: spin-slow 30s linear infinite;
         }
         .animate-float {
-          animation: float 5s ease-in-out infinite;
+          animation: float 6s ease-in-out infinite;
         }
         .animate-float-cloud {
-          animation: float-cloud 7s ease-in-out infinite;
+          animation: float-cloud 8s ease-in-out infinite;
         }
         .animate-rain-fall {
-          animation: rain-fall 1.2s linear infinite;
+          animation: rain-fall 1.4s linear infinite;
         }
         .animate-flash {
           animation: flash 4s ease-in-out infinite;
         }
+        .animate-twinkle {
+          animation: twinkle 3s ease-in-out infinite;
+        }
+        .animate-bird-fly-1 {
+          animation: bird-fly-1 12s ease-in-out infinite;
+        }
+        .animate-bird-fly-2 {
+          animation: bird-fly-2 15s ease-in-out infinite;
+        }
       `}</style>
 
-      <div
-        onClick={() => setExpanded(!expanded)}
-        className={`p-6 rounded-[28px] border backdrop-blur-[28px] ${themeStyles} hover:scale-[1.01] hover:shadow-[0_0_20px_rgba(34,211,238,0.08)] transition-all duration-300 cursor-pointer overflow-hidden space-y-6 relative group`}
-      >
-        {/* Soft reflection flare overlay */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.01] to-transparent pointer-events-none" />
-
-        {/* 1. PRIMARY WEATHER STATE ROW */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-4">
-            {renderIllustration(condition.type)}
-            <div>
-              <div className="flex items-center gap-1.5 text-white">
-                <MapPin className="w-3.5 h-3.5 text-[#22d3ee]" />
-                <span className="font-bold tracking-wide text-xs">{locationName}</span>
-              </div>
-              <h2 className="text-3xl font-black text-white tracking-tight mt-0.5">
-                {Math.round(current?.temperature_2m || 0)}°C
+      {/* Main Meteorological Console */}
+      <div className={`p-6 md:p-8 rounded-[24px] border backdrop-blur-[30px] ${themeStyles} space-y-8 relative overflow-hidden transition-all duration-300`}>
+        
+        {/* TOP SECTION: Location details & Illustration */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+          
+          <div className="space-y-4">
+            <div className="flex items-center gap-1.5 text-text-secondary">
+              <MapPin className="w-4 h-4 text-[#22d3ee]" />
+              <span className="font-bold text-xs tracking-wider uppercase">{locationName}</span>
+            </div>
+            
+            <div className="space-y-1">
+              <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight flex items-baseline gap-1">
+                {Math.round(current?.temperature_2m || 0)}
+                <span className="text-2xl font-black text-[#22d3ee]">°C</span>
               </h2>
-              <p className="text-[10px] uppercase font-mono font-black text-[#22d3ee] tracking-wider mt-0.5">
-                {condition.label} • Feels like {Math.round(current?.apparent_temperature || 0)}°C
-              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-white uppercase tracking-wider">{condition.label}</span>
+                <span className="text-[10px] text-text-secondary/70">• Feels Like {Math.round(current?.apparent_temperature || 0)}°C</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center gap-4 text-[10px] text-text-secondary/60 font-mono">
+              <div className="flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-[#22d3ee]" />
+                <span>{currentDay}, {currentDate}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-[#22d3ee]" />
+                <span className="text-white font-bold">{currentTime}</span>
+              </div>
             </div>
           </div>
 
-          {/* Quick stats grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-left w-full sm:w-auto border-t sm:border-t-0 border-white/5 pt-4 sm:pt-0">
-            <div>
-              <span className="text-[8px] uppercase tracking-wider text-text-secondary/50 font-bold block">Humidity</span>
-              <span className="text-xs font-bold text-white">{current?.relative_humidity_2m}%</span>
-            </div>
-            <div>
-              <span className="text-[8px] uppercase tracking-wider text-text-secondary/50 font-bold block">Wind Speed</span>
-              <span className="text-xs font-bold text-white">{current?.wind_speed_10m} km/h</span>
-            </div>
-            <div>
-              <span className="text-[8px] uppercase tracking-wider text-text-secondary/50 font-bold block">Today's Range</span>
-              <span className="text-xs font-bold text-white">
-                {Math.round(daily?.temperature_2m_min?.[0] || 0)}° / {Math.round(daily?.temperature_2m_max?.[0] || 0)}°
-              </span>
-            </div>
-            <div className="flex items-center justify-end">
-              {expanded ? (
-                <ChevronUp className="w-5 h-5 text-[#22d3ee]" />
-              ) : (
-                <ChevronDown className="w-5 h-5 text-[#22d3ee] animate-bounce" />
-              )}
-            </div>
+          {/* Right: Weather Scene Illustration */}
+          <div className="flex justify-center md:justify-end">
+            {renderIllustration(condition.type, current?.is_day)}
           </div>
         </div>
 
-        {/* EXPANDED SECTION */}
-        <AnimatePresence>
-          {expanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="border-t border-white/5 pt-6 space-y-6 overflow-hidden"
-              onClick={(e) => e.stopPropagation()} // Stop bubble closing click
+        {/* HOURLY FORECAST (scrollable row) */}
+        <div className="space-y-3">
+          <span className="text-[9px] uppercase font-mono tracking-wider font-bold text-white/40 block">Hourly Outlines</span>
+          <div className="flex gap-3 overflow-x-auto pb-2 pt-1 no-scrollbar scroll-smooth">
+            {hourly?.time.slice(0, 12).map((t: string, idx: number) => {
+              const dateObj = new Date(t);
+              const hourLabel = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const hourlyTemp = Math.round(hourly.temperature_2m[idx]);
+              const hourlyCondition = getWeatherCondition(hourly.weather_code[idx]);
+              const rainProb = hourly.precipitation_probability[idx];
+              const isNow = idx === 0;
+
+              return (
+                <div
+                  key={idx}
+                  className={`p-3.5 w-24 shrink-0 rounded-2xl border text-center space-y-2.5 transition-all duration-200 ${
+                    isNow 
+                      ? "bg-[#22d3ee]/10 border-[#22d3ee]/30 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]"
+                      : "bg-black/20 border-white/5 hover:border-white/10"
+                  }`}
+                >
+                  <span className={`text-[10px] font-mono block ${isNow ? "text-[#22d3ee] font-black" : "text-text-secondary"}`}>
+                    {isNow ? "Now" : hourLabel}
+                  </span>
+                  
+                  <div className="flex justify-center">
+                    {renderMiniWeatherIcon(hourlyCondition.type)}
+                  </div>
+                  
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-white block">{hourlyTemp}°</span>
+                    {rainProb > 0 && (
+                      <span className="text-[8px] text-[#22d3ee] font-black font-sans block">🌧 {rainProb}%</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 7-DAY FORECAST (scrollable horizontal cards) */}
+        <div className="space-y-3">
+          <span className="text-[9px] uppercase font-mono tracking-wider font-bold text-white/40 block">7-Day Shoot Outlook</span>
+          <div className="flex gap-3 overflow-x-auto pb-2 pt-1 no-scrollbar">
+            {daily?.time.map((t: string, idx: number) => {
+              const dateObj = new Date(t);
+              const dayName = dateObj.toLocaleDateString([], { weekday: 'short' }).toUpperCase();
+              const dateLabel = dateObj.toLocaleDateString([], { day: 'numeric', month: 'short' });
+              const dayCondition = getWeatherCondition(daily.weather_code[idx]);
+              const maxT = Math.round(daily.temperature_2m_max[idx]);
+              const minT = Math.round(daily.temperature_2m_min[idx]);
+              
+              return (
+                <div key={idx} className="p-3.5 w-28 shrink-0 bg-black/20 border border-white/5 hover:border-white/10 rounded-2xl text-center space-y-2">
+                  <div>
+                    <span className="text-[10px] font-bold text-white block">{idx === 0 ? "TODAY" : dayName}</span>
+                    <span className="text-[8px] font-mono text-text-secondary/70 block mt-0.5">{dateLabel}</span>
+                  </div>
+                  <div className="flex justify-center">
+                    {renderMiniWeatherIcon(dayCondition.type)}
+                  </div>
+                  <div className="text-[10px] font-bold text-white flex justify-center gap-1.5">
+                    <span>{maxT}°</span>
+                    <span className="text-text-secondary/50 font-medium">{minT}°</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* WEATHER DETAILS GRID (11 premium glass cards) */}
+        <div className="space-y-3.5">
+          <span className="text-[9px] uppercase font-mono tracking-wider font-bold text-white/40 block">Atmospheric Specifications</span>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 text-xs">
+            
+            {/* Card 1: Humidity */}
+            <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1.5 flex flex-col justify-between">
+              <span className="text-[8px] uppercase tracking-wider text-text-secondary/60 font-bold block">Humidity</span>
+              <span className="text-sm font-black text-white">{current?.relative_humidity_2m}%</span>
+              <span className="text-[8px] text-text-secondary/40 font-mono">Status: Standard</span>
+            </div>
+
+            {/* Card 2: Wind Speed */}
+            <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1.5 flex flex-col justify-between">
+              <span className="text-[8px] uppercase tracking-wider text-text-secondary/60 font-bold block">Wind Speed</span>
+              <span className="text-sm font-black text-white">{current?.wind_speed_10m} km/h</span>
+              <span className="text-[8px] text-[#22d3ee] font-mono">Direction: {current?.wind_direction_10m}°</span>
+            </div>
+
+            {/* Card 3: Air Pressure */}
+            <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1.5 flex flex-col justify-between">
+              <span className="text-[8px] uppercase tracking-wider text-text-secondary/60 font-bold block">Air Pressure</span>
+              <span className="text-sm font-black text-white">{current?.pressure_msl} hPa</span>
+              <span className="text-[8px] text-text-secondary/40 font-mono">Standard MSL</span>
+            </div>
+
+            {/* Card 4: Visibility */}
+            <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1.5 flex flex-col justify-between">
+              <span className="text-[8px] uppercase tracking-wider text-text-secondary/60 font-bold block">Visibility</span>
+              <span className="text-sm font-black text-white">{(current?.visibility || 0) / 1000} km</span>
+              <span className="text-[8px] text-text-secondary/40 font-mono">Clear sight paths</span>
+            </div>
+
+            {/* Card 5: UV Index */}
+            <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1.5 flex flex-col justify-between">
+              <span className="text-[8px] uppercase tracking-wider text-text-secondary/60 font-bold block">UV Index</span>
+              <span className="text-sm font-black text-white">{current?.uv_index || 0}</span>
+              <span className="text-[8px] text-text-secondary/40 font-mono">Max today: {daily?.uv_index_max?.[0] || 0}</span>
+            </div>
+
+            {/* Card 6: Chance of Rain */}
+            <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1.5 flex flex-col justify-between">
+              <span className="text-[8px] uppercase tracking-wider text-text-secondary/60 font-bold block">Chance of Rain</span>
+              <span className="text-sm font-black text-white">
+                {hourly?.precipitation_probability?.[new Date().getHours()] || 0}%
+              </span>
+              <span className="text-[8px] text-text-secondary/40 font-mono">Current hour index</span>
+            </div>
+
+            {/* Card 7: Air Quality */}
+            <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1.5 flex flex-col justify-between">
+              <span className="text-[8px] uppercase tracking-wider text-text-secondary/60 font-bold block">Air Quality</span>
+              <span className="text-sm font-black text-white">{aqi !== null ? `${aqi} AQI` : "--"}</span>
+              <span className="text-[8px] text-[#22d3ee] font-mono uppercase font-bold">{aqiRating}</span>
+            </div>
+
+            {/* Card 8: Sunrise */}
+            <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1.5 flex flex-col justify-between">
+              <span className="text-[8px] uppercase tracking-wider text-text-secondary/60 font-bold block">Sunrise</span>
+              <span className="text-sm font-black text-white">
+                {daily?.sunrise?.[0] ? new Date(daily.sunrise[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--"}
+              </span>
+              <span className="text-[8px] text-text-secondary/40 font-mono">Dawning hour</span>
+            </div>
+
+            {/* Card 9: Sunset */}
+            <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1.5 flex flex-col justify-between">
+              <span className="text-[8px] uppercase tracking-wider text-text-secondary/60 font-bold block">Sunset</span>
+              <span className="text-sm font-black text-white">
+                {daily?.sunset?.[0] ? new Date(daily.sunset[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--"}
+              </span>
+              <span className="text-[8px] text-text-secondary/40 font-mono">Golden hour timeline</span>
+            </div>
+
+            {/* Card 10: Feels Like */}
+            <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1.5 flex flex-col justify-between">
+              <span className="text-[8px] uppercase tracking-wider text-text-secondary/60 font-bold block">Feels Like</span>
+              <span className="text-sm font-black text-white">{Math.round(current?.apparent_temperature || 0)}°C</span>
+              <span className="text-[8px] text-text-secondary/40 font-mono">Thermal feels index</span>
+            </div>
+
+            {/* Card 11: Dew Point */}
+            <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1.5 flex flex-col justify-between">
+              <span className="text-[8px] uppercase tracking-wider text-text-secondary/60 font-bold block">Dew Point</span>
+              <span className="text-sm font-black text-white">{dewPoint}°C</span>
+              <span className="text-[8px] text-[#22d3ee] font-mono">Condensation point</span>
+            </div>
+
+          </div>
+        </div>
+
+        {/* LIVE STATUS BAR FOOTER */}
+        <div className="flex justify-between items-center text-[9px] text-text-secondary/45 font-mono pt-4 border-t border-white/5">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#22d3ee] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#22d3ee]"></span>
+            </span>
+            <span>API Status: OpenMeteo Sync Active</span>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span>Updated: {lastUpdated || "Just Now"}</span>
+            <button
+              onClick={triggerRefresh}
+              className="p-1 rounded bg-white/5 hover:bg-white/10 text-white cursor-pointer transition-all border border-white/5 hover:border-[#22d3ee] flex items-center justify-center"
+              title="Refresh Feeds"
             >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
-                {/* Column 1: Temp Curve Graph */}
-                <div className="md:col-span-2">
-                  {renderTempGraph()}
-                </div>
+              <RefreshCw className="w-3 h-3 text-[#22d3ee]" />
+            </button>
+          </div>
+        </div>
 
-                {/* Column 2: Advanced parameters grid */}
-                <div className="space-y-4 bg-black/20 p-4 rounded-2xl border border-white/5">
-                  <span className="text-[9px] uppercase font-mono tracking-wider font-bold text-white/30 block">Atmospheric Feeds</span>
-                  <div className="grid grid-cols-2 gap-4 text-xs">
-                    <div>
-                      <span className="text-[8px] text-text-secondary/60 block">Barometer</span>
-                      <span className="text-white font-medium">{Math.round(current?.pressure_msl || 0)} hPa</span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] text-text-secondary/60 block">Visibility</span>
-                      <span className="text-white font-medium">{(current?.visibility || 0) / 1000} km</span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] text-text-secondary/60 block">UV Index</span>
-                      <span className="text-white font-medium">{current?.uv_index || 0}</span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] text-text-secondary/60 block">Chance of Rain</span>
-                      <span className="text-white font-medium">
-                        {hourly?.precipitation_probability?.[new Date().getHours()] || 0}%
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-white/5 pt-3 grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-[8px] text-text-secondary/60 block">Sunrise</span>
-                      <span className="text-white font-medium">
-                        {daily?.sunrise?.[0] ? new Date(daily.sunrise[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] text-text-secondary/60 block">Sunset</span>
-                      <span className="text-white font-medium">
-                        {daily?.sunset?.[0] ? new Date(daily.sunset[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Next 7 Days Forecast */}
-              <div className="space-y-3">
-                <span className="text-[9px] uppercase font-mono tracking-wider font-bold text-white/30 block">7-Day Production Forecast</span>
-                <div className="grid grid-cols-2 sm:grid-cols-7 gap-3">
-                  {daily?.time.map((t: string, idx: number) => {
-                    const dateObj = new Date(t);
-                    const dayName = dateObj.toLocaleDateString([], { weekday: 'short' });
-                    const dayCondition = getWeatherCondition(daily.weather_code[idx]);
-                    const maxT = Math.round(daily.temperature_2m_max[idx]);
-                    const minT = Math.round(daily.temperature_2m_min[idx]);
-                    
-                    return (
-                      <div key={idx} className="p-3 bg-black/20 border border-white/5 rounded-xl text-center space-y-2">
-                        <span className="text-[10px] font-mono text-text-secondary block font-bold">{idx === 0 ? "Today" : dayName}</span>
-                        <div className="flex justify-center text-[#22d3ee]">
-                          {dayCondition.type === "sunny" ? <Sun className="w-5 h-5" /> : <Cloud className="w-5 h-5" />}
-                        </div>
-                        <div className="text-[10px] font-bold text-white">
-                          {maxT}° <span className="text-text-secondary/60 font-medium">{minT}°</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Bottom footer bar of card */}
-              <div className="flex justify-between items-center text-[9px] text-text-secondary/40 font-mono pt-4 border-t border-white/5">
-                <span>Last Updated: {lastUpdated}</span>
-                <span>Coordinates: {weather?.latitude?.toFixed(4)}°N, {weather?.longitude?.toFixed(4)}°E</span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );
@@ -656,8 +823,8 @@ export const DashboardView: React.FC = () => {
         <p className="text-xs text-text-secondary font-medium tracking-wide">Ready to create something amazing today?</p>
       </div>
 
-      {/* LIVE WEATHER CARD */}
-      <LiveWeatherCard />
+      {/* FULL METEOROLOGICAL CONSOLE WEATHER UI */}
+      <GoogleWeatherDashboard />
 
       {/* 3. ONGOING PROJECTS */}
       <div className="space-y-4">
