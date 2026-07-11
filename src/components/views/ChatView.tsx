@@ -515,7 +515,7 @@ export const ChatView: React.FC = () => {
     <div className="h-[80vh] flex border border-white/5 bg-[#09090B] rounded-xl overflow-hidden text-white select-none relative">
       
       {/* 1. CHANNELS SIDEBAR */}
-      <div className="w-80 border-r border-white/5 flex flex-col bg-[#0b0c10] shrink-0">
+      <div className={`w-full md:w-80 border-r border-white/5 flex flex-col bg-[#0b0c10] shrink-0 ${activeChannelId ? "hidden md:flex" : "flex"}`}>
         
         {/* Sidebar Header */}
         <div className="p-4 border-b border-white/5 space-y-3">
@@ -647,12 +647,20 @@ export const ChatView: React.FC = () => {
       </div>
 
       {/* 2. CHAT PANEL VIEW */}
-      <div className="flex-1 flex flex-col bg-[#0e1014] relative">
+      <div className={`flex-1 flex flex-col bg-[#0e1014] relative ${activeChannelId ? "flex" : "hidden md:flex"}`}>
         {activeChannel ? (
           <>
             {/* Chat header console */}
-            <div className="px-6 py-3.5 border-b border-white/5 bg-white/[0.01] flex items-center justify-between z-10">
-              <div className="flex items-center gap-3">
+            <div className="px-4 md:px-6 py-3.5 border-b border-white/5 bg-white/[0.01] flex items-center justify-between z-10">
+              <div className="flex items-center gap-2 md:gap-3">
+                {/* Back button (ArrowLeft) */}
+                <button
+                  onClick={() => setActiveChannelId("")}
+                  className="mr-1 md:mr-2 p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary text-text-secondary hover:text-white transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                  title="Back to conversations list"
+                >
+                  <ArrowLeft className="w-4 h-4 text-[#3ecf8e]" />
+                </button>
                 {activeChannelDetails?.isGroup ? (
                   <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-[#3ecf8e] text-xs">
                     {activeChannelDetails.title.substring(0, 2).toUpperCase()}
@@ -1139,7 +1147,7 @@ export const ChatView: React.FC = () => {
             animate={{ width: 320, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="border-l border-white/5 bg-[#0b0c10] flex flex-col h-full shrink-0 overflow-y-auto w-80 font-sans"
+            className="border-l border-white/5 bg-[#0b0c10] flex flex-col h-full shrink-0 overflow-y-auto w-full md:w-80 font-sans absolute md:relative right-0 top-0 z-20"
           >
             {/* Header */}
             <div className="p-4 border-b border-white/5 flex items-center justify-between">
