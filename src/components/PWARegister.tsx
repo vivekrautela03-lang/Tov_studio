@@ -7,7 +7,7 @@ export const PWARegister: React.FC = () => {
     if (
       typeof window !== "undefined" &&
       "serviceWorker" in navigator &&
-      window.location.protocol === "https:" || window.location.hostname === "localhost"
+      (window.location.protocol === "https:" || window.location.hostname === "localhost")
     ) {
       navigator.serviceWorker
         .register("/sw.js")
@@ -17,6 +17,15 @@ export const PWARegister: React.FC = () => {
         .catch((err) => {
           console.error("Service Worker registration failed:", err);
         });
+    }
+
+    // Request notification permission
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission().then((permission) => {
+          console.log("Notification permission status:", permission);
+        });
+      }
     }
   }, []);
 

@@ -187,9 +187,28 @@ export const ChatView: React.FC = () => {
           table: "chat_messages",
           filter: `channel_id=eq.${activeChannelId}`
         },
-        () => {
+        (payload: any) => {
           fetchChatMessages(activeChannelId);
           markMessagesAsRead(activeChannelId);
+
+          // Dispatch native browser notification
+          if (payload.eventType === "INSERT" && payload.new) {
+            const newMsg = payload.new;
+            if (newMsg.sender_id !== currentUser?.id) {
+              if (
+                typeof window !== "undefined" &&
+                "Notification" in window &&
+                Notification.permission === "granted"
+              ) {
+                const senderProfile = profiles.find((p) => p.id === newMsg.sender_id);
+                const senderName = senderProfile?.full_name || "Someone";
+                new Notification(`New message from ${senderName}`, {
+                  body: newMsg.content || "Sent an image attachment",
+                  icon: "/logo.png"
+                });
+              }
+            }
+          }
         }
       )
       .on("broadcast", { event: "typing" }, ({ payload }) => {
