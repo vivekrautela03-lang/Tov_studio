@@ -299,8 +299,15 @@ export const AuthView: React.FC<AuthViewProps> = ({ initialState = "signin" }) =
         })
       }).catch((err) => console.error("Failed to trigger welcome email:", err));
 
-      setSuccessMsg("Registration successful! A verification link has been sent to your email.");
-      setView("emailsent");
+      // Auto login user
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: signUpEmail.trim(),
+        password: signUpPassword.trim()
+      });
+
+      if (signInError) throw signInError;
+
+      setSuccessMsg("Account created successfully! Redirecting to studio workspace...");
     } catch (err: any) {
       console.error("Sign-up error:", err);
       setErrorMsg(parseError(err));

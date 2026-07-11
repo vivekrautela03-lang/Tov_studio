@@ -15,11 +15,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Create the user in auth.users using Admin SDK (bypasses automatic GoTrue SMTP emails)
+    // 1. Create the user in auth.users using Admin SDK (setting email_confirm: true confirms them instantly)
     const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email: email.trim(),
       password: password.trim(),
-      email_confirm: false, // User is unconfirmed
+      email_confirm: true, // User is automatically confirmed
       user_metadata: {
         full_name: fullName.trim(),
         phone: (phone || "").trim(),
@@ -43,40 +43,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "signup",
-      email: user.email,
-      password: password.trim(),
-      options: {
-        redirectTo: `${origin}/auth-callback`
-      }
-    });
-
-    if (linkError) {
-      console.error("Supabase Admin generateLink signup error:", linkError);
-      // Clean up the user if we failed to generate the link to allow retries
-      await supabaseAdmin.auth.admin.deleteUser(user.id);
-      return NextResponse.json(
-        { success: false, error: "Failed to generate confirmation link: " + linkError.message },
-        { status: 500 }
-      );
-    }
-
-    const verificationLink = linkData.properties.action_link;
-
-    // 3. Send the custom verification email via Resend
-    const emailResult = await sendResendVerificationEmail(user.email, verificationLink);
-    if (!emailResult.success) {
-      console.error("Resend verification email failed to dispatch:", emailResult.error);
-      // Clean up the user to allow retries if email failed to send
-      await supabaseAdmin.auth.admin.deleteUser(user.id);
-      return NextResponse.json(
-        { success: false, error: "Verification email failed to deliver: " + (emailResult.error as any)?.message },
-        { status: 500 }
-      );
-    }
-
-    console.log(`[AUTH SUCCESS] User ${user.email} created. Verification email sent via Resend.`);
+    console.log(`[AUTH SUCCESS] User ${user.email} created and automatically confirmed.`);
     return NextResponse.json({ success: true, userId: user.id });
   } catch (error: any) {
     console.error("Signup API Route Exception:", error);
