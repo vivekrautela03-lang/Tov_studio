@@ -50,7 +50,8 @@ export const ChatView: React.FC = () => {
     toggleArchiveChannel,
     uploadChatAttachment,
     userProfile,
-    projects
+    projects,
+    setActiveView
   } = useProjectStore();
 
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -268,21 +269,45 @@ export const ChatView: React.FC = () => {
   // Initiate Call
   const handleInitiateCall = (type: "voice" | "video") => {
     if (!activeChannelId || !activeChannelDetails || !currentUser) return;
-    const partnerId = activeChannelDetails.userId;
-    if (!partnerId) return;
+    
+    let partnerId = activeChannelDetails.userId;
+    let partnerName = activeChannelDetails.title;
+    let partnerAvatar = activeChannelDetails.avatar || "";
+
+    // Fallback for testing when alone or no valid collaborator profile
+    if (!partnerId || partnerId === currentUser.id) {
+      partnerId = "mock-testing-partner-id";
+      partnerName = partnerName || "AI Director (Simulated)";
+      partnerAvatar = partnerAvatar || "https://api.dicebear.com/7.x/initials/svg?seed=Director";
+    }
 
     prevTypeRef.current = type;
     startRingtone(false);
 
     setActiveCall({
       type,
-      partnerName: activeChannelDetails.title,
-      partnerAvatar: activeChannelDetails.avatar || "",
+      partnerName,
+      partnerAvatar,
       partnerId,
       channelId: activeChannelId,
       status: "ringing-out",
       direction: "outgoing"
     });
+
+    // If it's a simulated call, trigger auto-accept after 2 seconds
+    if (partnerId === "mock-testing-partner-id") {
+      setTimeout(() => {
+        stopRingtone();
+        setActiveCall((prev: any) => {
+          if (prev && prev.partnerId === "mock-testing-partner-id") {
+            return { ...prev, status: "connected" };
+          }
+          return prev;
+        });
+        startWebRTCConnection(false, "mock-testing-partner-id", type);
+      }, 2000);
+      return;
+    }
 
     if (signalChannelRef.current) {
       signalChannelRef.current.send({
@@ -392,33 +417,43 @@ export const ChatView: React.FC = () => {
         }, 500);
       };
 
-      pc.onicecandidate = (event) => {
-        if (event.candidate && signalChannelRef.current && currentUser) {
+      // For simulated calling, copy local stream to remote video immediately
+      if (partnerId === "mock-testing-partner-id") {
+        setTimeout(() => {
+          const remoteVid = document.getElementById("remote-video-feed") as HTMLVideoElement;
+          if (type === "video" && remoteVid) {
+            remoteVid.srcObject = stream;
+          }
+        }, 500);
+      } else {
+        pc.onicecandidate = (event) => {
+          if (event.candidate && signalChannelRef.current && currentUser) {
+            signalChannelRef.current.send({
+              type: "broadcast",
+              event: "webrtc-candidate",
+              payload: {
+                senderId: currentUser.id,
+                receiverId: partnerId,
+                candidate: event.candidate.toJSON()
+              }
+            });
+          }
+        };
+
+        if (isInitiator) {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+
           signalChannelRef.current.send({
             type: "broadcast",
-            event: "webrtc-candidate",
+            event: "webrtc-offer",
             payload: {
               senderId: currentUser.id,
               receiverId: partnerId,
-              candidate: event.candidate.toJSON()
+              sdp: offer.sdp
             }
           });
         }
-      };
-
-      if (isInitiator) {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-
-        signalChannelRef.current.send({
-          type: "broadcast",
-          event: "webrtc-offer",
-          payload: {
-            senderId: currentUser.id,
-            receiverId: partnerId,
-            sdp: offer.sdp
-          }
-        });
       }
 
       // Start call Timer
@@ -724,14 +759,21 @@ export const ChatView: React.FC = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-140px)] flex border border-white/5 bg-[#09090B]/60 backdrop-blur-md rounded-2xl overflow-hidden text-white select-none">
+    <div className="h-screen w-full flex bg-[#09090B] text-white select-none">
       
       {/* 1. CONVERSATION SIDEBAR */}
-      <div className={`w-80 border-r border-white/5 flex flex-col h-full bg-[#121319]/40 ${activeChannelId ? "hidden md:flex" : "flex"}`}>
+      <div className={`w-full md:w-80 border-r border-white/5 flex flex-col h-full bg-[#121319]/40 ${activeChannelId ? "hidden md:flex" : "flex"}`}>
         
         {/* Header toolbar */}
         <div className="p-4 border-b border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveView("dashboard")}
+              className="p-1 hover:bg-white/5 rounded-lg text-text-secondary hover:text-white cursor-pointer mr-1"
+              title="Return to Dashboard"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
             <span className="text-xs font-bold uppercase tracking-widest text-[#22d3ee]">Direct Messages</span>
           </div>
           <button

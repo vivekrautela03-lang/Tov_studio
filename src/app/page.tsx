@@ -174,22 +174,24 @@ export default function Home() {
     return <AuthView initialState={authSubstate} />;
   }
 
+  const isChatView = activeView === "chat";
+
   // 5. Authenticated State: Mount Dashboard Shell with Top/Bottom Navigation
   return (
-    <div className="min-h-screen bg-[#121212] text-white flex flex-col pb-24">
+    <div className={`min-h-screen bg-[#121212] text-white flex flex-col ${isChatView ? "" : "pb-24"}`}>
       {/* Top Header Navigation */}
-      <Header />
+      {!isChatView && <Header />}
 
       {/* Main Panel Content Container */}
       <div className="flex-1 flex flex-col min-w-0 animate-fade-in">
         {/* Dynamic Inner Panel View Viewport */}
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto max-w-[1600px] mx-auto w-full">
+        <main className={`flex-1 overflow-y-auto max-w-[1600px] mx-auto w-full ${isChatView ? "p-0 h-screen" : "p-4 md:p-8"}`}>
           {renderViewContent()}
         </main>
       </div>
 
       {/* Fixed Bottom Navigation (Always Visible) */}
-      <BottomNav />
+      {!isChatView && <BottomNav />}
 
       {/* Cmd+K Global Search Command Palette */}
       <GlobalSearch />
