@@ -36,6 +36,18 @@ interface HamburgerMenuProps {
 export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose }) => {
   const { setActiveView } = useProjectStore();
 
+  // Shield Password States
+  const [isUnlocked, setIsUnlocked] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("hub_unlocked") === "true";
+    }
+    return false;
+  });
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
   // New Timeline Update States
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -44,6 +56,17 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
   const [callTime, setCallTime] = useState("");
   const [location, setLocation] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const handleProtectedAction = (action: () => void) => {
+    if (isUnlocked) {
+      action();
+    } else {
+      setPendingAction(() => action);
+      setIsPasswordModalOpen(true);
+      setPasswordError("");
+      setPasswordInput("");
+    }
+  };
 
   const handleLinkClick = (viewId: string) => {
     setActiveView(viewId);
@@ -125,7 +148,7 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
               
               {/* ADD PRODUCTION UPDATE COMPOSER */}
               <button
-                onClick={() => setIsUpdateModalOpen(true)}
+                onClick={() => handleProtectedAction(() => setIsUpdateModalOpen(true))}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-[#22d3ee] hover:text-white hover:bg-[#22d3ee]/10 border border-[#22d3ee]/20 transition-all text-left cursor-pointer font-bold"
               >
                 <Activity className="w-4 h-4 text-[#22d3ee]" />
@@ -133,59 +156,59 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
               </button>
 
               <button
-                onClick={() => handleLinkClick("team")}
+                onClick={() => handleProtectedAction(() => handleLinkClick("team"))}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-text-secondary hover:text-white hover:bg-white/5 transition-all text-left cursor-pointer"
               >
                 <Users className="w-4 h-4 text-primary" />
                 <span>Team</span>
               </button>
               <button
-                onClick={() => handleLinkClick("cast")}
+                onClick={() => handleProtectedAction(() => handleLinkClick("cast"))}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-text-secondary hover:text-white hover:bg-white/5 transition-all text-left cursor-pointer"
               >
                 <Contact className="w-4 h-4 text-cyan-400" />
                 <span>Cast</span>
               </button>
               <button
-                onClick={() => handleLinkClick("files")}
+                onClick={() => handleProtectedAction(() => handleLinkClick("files"))}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-text-secondary hover:text-white hover:bg-white/5 transition-all text-left cursor-pointer"
               >
                 <FolderOpen className="w-4 h-4 text-yellow-400" />
                 <span>Files</span>
               </button>
               <button
-                onClick={() => handleLinkClick("inbox")}
+                onClick={() => handleProtectedAction(() => handleLinkClick("inbox"))}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-text-secondary hover:text-white hover:bg-white/5 transition-all text-left cursor-pointer"
               >
                 <Mail className="w-4 h-4 text-pink-400" />
                 <span>Inbox</span>
               </button>
               <button
-                onClick={() => handleLinkClick("calendar")}
+                onClick={() => handleProtectedAction(() => handleLinkClick("calendar"))}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-text-secondary hover:text-white hover:bg-white/5 transition-all text-left cursor-pointer"
               >
                 <Calendar className="w-4 h-4 text-success" />
                 <span>Calendar</span>
               </button>
               <button
-                onClick={() => handleLinkClick("shot-planner")}
+                onClick={() => handleProtectedAction(() => handleLinkClick("shot-planner"))}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-text-secondary hover:text-white hover:bg-white/5 transition-all text-left cursor-pointer"
               >
                 <CheckSquare className="w-4 h-4 text-violet-400" />
                 <span>Tasks</span>
               </button>
               <button
-                onClick={() => handleLinkClick("equipment")}
+                onClick={() => handleProtectedAction(() => handleLinkClick("equipment"))}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-text-secondary hover:text-white hover:bg-white/5 transition-all text-left cursor-pointer"
               >
                 <Wrench className="w-4 h-4 text-orange-400" />
                 <span>Equipment</span>
               </button>
               <button
-                onClick={() => {
+                onClick={() => handleProtectedAction(() => {
                   handleLinkClick("projects");
                   alert("Please select a project to view production locations details.");
-                }}
+                })}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-text-secondary hover:text-white hover:bg-white/5 transition-all text-left cursor-pointer"
               >
                 <MapPin className="w-4 h-4 text-red-400" />
@@ -380,6 +403,78 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
                   disabled={submitting}
                 >
                   {submitting ? "Publishing..." : "Publish Update"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2. PASSWORD VALIDATION SHIELD MODAL */}
+      {isPasswordModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="bg-[#121212] border border-white/10 rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-4 animate-scale-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#22d3ee]/10 flex items-center justify-center border border-[#22d3ee]/20 shrink-0">
+                <Shield className="w-5 h-5 text-[#22d3ee]" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Production Shield Key</h3>
+                <p className="text-[10px] text-text-secondary">Password required to access this workspace module.</p>
+              </div>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (passwordInput === "theoldverse2025productions") {
+                  setIsUnlocked(true);
+                  if (typeof window !== "undefined") {
+                    sessionStorage.setItem("hub_unlocked", "true");
+                  }
+                  setIsPasswordModalOpen(false);
+                  setPasswordError("");
+                  if (pendingAction) {
+                    pendingAction();
+                  }
+                } else {
+                  setPasswordError("Access Denied: Invalid Production Shield Key");
+                }
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-1">
+                <input
+                  type="password"
+                  required
+                  autoFocus
+                  placeholder="Enter hub security password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2.5 text-xs text-white focus:outline-none focus:border-[#22d3ee] font-mono tracking-widest text-center"
+                />
+                {passwordError && (
+                  <p className="text-[10px] text-red-400 font-semibold text-center mt-1 animate-pulse">
+                    {passwordError}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-white/5 text-xs">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPasswordModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                >
+                  Verify Key
                 </Button>
               </div>
             </form>
