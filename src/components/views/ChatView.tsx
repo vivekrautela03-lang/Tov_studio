@@ -255,10 +255,8 @@ export const ChatView: React.FC = () => {
   const [isSwiping, setIsSwiping] = useState(false);
   const swipeStartRef = useRef(0);
 
-  // Chat list gesture swipe state
-  const [swipingChannelId, setSwipingChannelId] = useState<string | null>(null);
-  const [channelSwipeOffset, setChannelSwipeOffset] = useState<number>(0);
-  const channelSwipeStartRef = useRef<number>(0);
+  // Last message state to derive status
+  const [lastMessages, setLastMessages] = useState<Record<string, any>>({});
 
   // Long-press Bottom Sheet State
   const longPressTimeoutRef = useRef<any>(null);
@@ -339,7 +337,8 @@ export const ChatView: React.FC = () => {
             typingMap[userId] = {
               name: mainPres.username || "Crew Member",
               timestamp: Date.now(),
-              mode: mainPres.mode || "typing"
+              mode: mainPres.mode || "typing",
+              channelId: mainPres.typing_in
             };
           }
         });
@@ -755,12 +754,16 @@ export const ChatView: React.FC = () => {
   // 4. PostgreSQL messaging database sync
   useEffect(() => {
     fetchChatChannels();
+    if (currentUser) {
+      loadLastMessages();
+    }
     if (!currentUser) return;
 
     const globalChannel = supabase
       .channel("global-chat-listener")
       .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, () => {
         fetchChatChannels();
+        loadLastMessages();
         if (activeChannelId) {
           fetchChatMessages(activeChannelId);
           markMessagesAsRead(activeChannelId);
@@ -780,6 +783,7 @@ export const ChatView: React.FC = () => {
     fetchChatMessages(activeChannelId);
     markMessagesAsRead(activeChannelId);
     markMessagesAsDelivered(activeChannelId);
+    loadLastMessages();
   }, [activeChannelId, currentUser]);
 
   const markMessagesAsDelivered = async (channelId: string) => {
@@ -841,42 +845,29 @@ export const ChatView: React.FC = () => {
     }
   };
 
-  // Chat list swipe deltas
-  const handleChannelSwipeStart = (e: React.TouchEvent | React.MouseEvent, channelId: string) => {
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    setSwipingChannelId(channelId);
-    channelSwipeStartRef.current = clientX;
-  };
-
-  const handleChannelSwipeMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (!swipingChannelId) return;
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const deltaX = clientX - channelSwipeStartRef.current;
+  // Fetch last messages to derive statuses
+  const loadLastMessages = async () => {
+    const { data: channels } = await supabase.from("chat_channels").select("id");
+    if (!channels || channels.length === 0) return;
+    const channelIds = channels.map(c => c.id);
+    const promises = channelIds.map(async (channelId) => {
+      const { data } = await supabase
+        .from("chat_messages")
+        .select("id, channel_id, sender_id, content, created_at, read_by, delivered_to")
+        .eq("channel_id", channelId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      return { channelId, msg: data?.[0] || null };
+    });
     
-    // clamp bounds: -180px for swipe-left reveals; 120px for swipe-right reveals
-    const clamped = Math.max(-180, Math.min(120, deltaX));
-    setChannelSwipeOffset(clamped);
-  };
-
-  const handleChannelSwipeEnd = () => {
-    if (!swipingChannelId) return;
-    
-    if (channelSwipeOffset < -80) {
-      // Lock swipe left to show Archive, Delete, Pin
-      setChannelSwipeOffset(-180);
-    } else if (channelSwipeOffset > 60) {
-      // Lock swipe right to show Mark Unread, Reply
-      setChannelSwipeOffset(120);
-    } else {
-      // Spring back
-      setChannelSwipeOffset(0);
-      setSwipingChannelId(null);
-    }
-  };
-
-  const resetSwipeStates = () => {
-    setChannelSwipeOffset(0);
-    setSwipingChannelId(null);
+    const results = await Promise.all(promises);
+    const newLastMessages: Record<string, any> = {};
+    results.forEach(({ channelId, msg }) => {
+      if (msg) {
+        newLastMessages[channelId] = msg;
+      }
+    });
+    setLastMessages(newLastMessages);
   };
 
   // Long-press Bottom Sheet Trigger
@@ -1683,7 +1674,7 @@ export const ChatView: React.FC = () => {
           </div>
         </div>
 
-        {/* CHAT LIST WITH SWIPE GESTURES & LONG PRESS */}
+        {/* CHAT LIST WITH LONG PRESS ACTION SHEET */}
         <div className="flex-1 overflow-y-auto p-2.5 space-y-2 no-scrollbar">
           {filteredChannels.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center text-white/30">
@@ -1696,159 +1687,121 @@ export const ChatView: React.FC = () => {
               const isActive = channel.id === activeChannelId;
               const hasUnread = channel.unread_count > 0;
               const isLocked = lockedChannels[channel.id];
-              const labels = channelLabels[channel.id] || [];
 
-              const swipeOffset = swipingChannelId === channel.id ? channelSwipeOffset : 0;
+              // Derive status text
+              let statusText = "";
+              const otherMember = channel.chat_channel_members?.find((m: any) => m.user_id !== currentUser?.id);
+              const lastMsg = lastMessages[channel.id];
+              const isTyping = Object.values(typingUsers).some((t: any) => t.channelId === channel.id);
+
+              if (isTyping) {
+                statusText = "Typing...";
+              } else if (lastMsg) {
+                const isSender = lastMsg.sender_id === currentUser?.id;
+                if (isSender) {
+                  const isRead = otherMember && lastMsg.read_by?.includes(otherMember.user_id);
+                  const isDelivered = otherMember && lastMsg.delivered_to?.includes(otherMember.user_id);
+                  if (isRead) {
+                    statusText = "Seen";
+                  } else if (isDelivered) {
+                    statusText = "Delivered";
+                  } else {
+                    statusText = "Sent";
+                  }
+                } else {
+                  const isRead = lastMsg.read_by?.includes(currentUser?.id);
+                  if (isRead) {
+                    statusText = "Seen";
+                  } else {
+                    statusText = "Delivered";
+                  }
+                }
+              }
 
               return (
-                <div 
-                  key={channel.id} 
-                  className="relative overflow-hidden rounded-[20px] bg-white/[0.02] border border-white/5 w-full h-[76px] transition-all duration-300"
-                  onTouchStart={(e) => { startLongPressTimer(e, channel); handleChannelSwipeStart(e, channel.id); }}
-                  onTouchMove={(e) => { cancelLongPressTimer(); handleChannelSwipeMove(e); }}
-                  onTouchEnd={() => { cancelLongPressTimer(); handleChannelSwipeEnd(); }}
-                  onMouseDown={(e) => { startLongPressTimer(e, channel); handleChannelSwipeStart(e, channel.id); }}
-                  onMouseMove={(e) => { cancelLongPressTimer(); handleChannelSwipeMove(e); }}
-                  onMouseUp={() => { cancelLongPressTimer(); handleChannelSwipeEnd(); }}
-                  onMouseLeave={() => { cancelLongPressTimer(); handleChannelSwipeEnd(); }}
+                <div
+                  key={channel.id}
+                  onClick={() => {
+                    if (isSelectionModeActive) {
+                      setSelectedChannelIds(prev => 
+                        prev.includes(channel.id) 
+                          ? prev.filter(id => id !== channel.id)
+                          : [...prev, channel.id]
+                      );
+                      return;
+                    }
+                    if (isLocked) {
+                      setShowFaceIdLock(channel.id);
+                    } else {
+                      setActiveChannelId(channel.id);
+                    }
+                  }}
+                  onMouseDown={(e) => startLongPressTimer(e, channel)}
+                  onMouseUp={cancelLongPressTimer}
+                  onMouseLeave={cancelLongPressTimer}
+                  onTouchStart={(e) => startLongPressTimer(e, channel)}
+                  onTouchMove={cancelLongPressTimer}
+                  onTouchEnd={cancelLongPressTimer}
+                  className={`flex items-center gap-3 px-4 py-3 text-left text-xs transition-all cursor-pointer bg-white/[0.03] hover:bg-white/[0.07] rounded-[20px] border border-white/5 select-none ${
+                    isActive ? "bg-cyan-500/10 border-cyan-400/30" : ""
+                  }`}
                 >
-                  
-                  {/* Underneath Action Panel */}
-                  <div className="absolute inset-0 flex items-center justify-between px-4 z-0">
-                    {/* Left Swiped (swipeOffset > 0): Reply & Mark Unread */}
-                    <div className="flex gap-2 text-xs">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); resetSwipeStates(); setReplyingToMsg({ id: "mock", content: "Replying to chat..." }); }}
-                        className="p-2.5 rounded-full bg-cyan-500/25 border border-cyan-400/40 text-cyan-300 flex items-center justify-center"
-                        title="Reply"
-                      >
-                        <Share2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); resetSwipeStates(); alert("Marked unread"); }}
-                        className="p-2.5 rounded-full bg-blue-500/25 border border-blue-400/40 text-blue-300 flex items-center justify-center"
-                        title="Mark Unread"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {/* Right Swiped (swipeOffset < 0): Archive, Delete, Pin */}
-                    <div className="flex gap-2 text-xs ml-auto">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); resetSwipeStates(); togglePinChannel(channel.id); }}
-                        className="p-2.5 rounded-full bg-amber-500/25 border border-amber-400/40 text-amber-300 flex items-center justify-center"
-                        title="Pin Chat"
-                      >
-                        <Pin className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); resetSwipeStates(); toggleArchiveChannel(channel.id); }}
-                        className="p-2.5 rounded-full bg-purple-500/25 border border-purple-400/40 text-purple-300 flex items-center justify-center"
-                        title="Archive Chat"
-                      >
-                        <Archive className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          resetSwipeStates();
-                          if (confirm(`Delete DM with ${details.title}?`)) {
-                            const { error } = await supabase.from("chat_channels").delete().eq("id", channel.id);
-                            if (!error) {
-                              if (isActive) setActiveChannelId("");
-                              fetchChatChannels();
-                            }
-                          }
-                        }}
-                        className="p-2.5 rounded-full bg-red-500/25 border border-red-400/40 text-red-300 flex items-center justify-center"
-                        title="Delete Chat"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Top sliding row card */}
-                  <div
-                    onClick={() => {
-                      if (isSelectionModeActive) {
+                  {isSelectionModeActive && (
+                    <input
+                      type="checkbox"
+                      checked={selectedChannelIds.includes(channel.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
                         setSelectedChannelIds(prev => 
                           prev.includes(channel.id) 
                             ? prev.filter(id => id !== channel.id)
                             : [...prev, channel.id]
                         );
-                        return;
-                      }
-                      if (swipeOffset !== 0) {
-                        resetSwipeStates();
-                        return;
-                      }
-                      if (isLocked) {
-                        setShowFaceIdLock(channel.id);
-                      } else {
-                        setActiveChannelId(channel.id);
-                      }
-                    }}
-                    style={{ transform: `translateX(${swipeOffset}px)` }}
-                    className={`absolute inset-0 z-10 flex items-center gap-3 px-3 py-2 text-left text-xs transition-all cursor-pointer bg-white/[0.04] rounded-[20px] border border-white/5 select-none ${
-                      isActive ? "bg-cyan-500/10 border-cyan-400/30" : "hover:bg-white/[0.07]"
-                    }`}
-                  >
-                    {isSelectionModeActive && (
-                      <input
-                        type="checkbox"
-                        checked={selectedChannelIds.includes(channel.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          setSelectedChannelIds(prev => 
-                            prev.includes(channel.id) 
-                              ? prev.filter(id => id !== channel.id)
-                              : [...prev, channel.id]
-                          );
-                        }}
-                        className="mr-1 accent-cyan-400 cursor-pointer h-4 w-4 rounded border-white/20 bg-white/5 text-cyan-500 focus:ring-0 focus:ring-offset-0"
-                      />
+                      }}
+                      className="mr-1 accent-cyan-400 cursor-pointer h-4 w-4 rounded border-white/20 bg-white/5 text-cyan-500 focus:ring-0 focus:ring-offset-0"
+                    />
+                  )}
+                  
+                  <div className="relative shrink-0">
+                    {details.isGroup ? (
+                      <div className="w-10 h-10 rounded-[14px] bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center font-bold text-cyan-400">
+                        {details.title.substring(0, 2).toUpperCase()}
+                      </div>
+                    ) : (
+                      <img src={details.avatar || ""} className="w-10 h-10 rounded-full object-cover border border-white/10" alt="" />
                     )}
-                    <div className="relative">
-                      {details.isGroup ? (
-                        <div className="w-10 h-10 rounded-[14px] bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center font-bold text-cyan-400">
-                          {details.title.substring(0, 2).toUpperCase()}
-                        </div>
-                      ) : (
-                        <img src={details.avatar || ""} className="w-10 h-10 rounded-full object-cover border border-white/10" alt="" />
-                      )}
-                      {!details.isGroup && details.userId && onlineUsers.includes(details.userId) && (
-                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-black shadow-[0_0_4px_#22c55e]" />
-                      )}
-                    </div>
+                    {!details.isGroup && details.userId && onlineUsers.includes(details.userId) && (
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-black shadow-[0_0_4px_#22c55e]" />
+                    )}
+                  </div>
 
-                    <div className="flex-1 min-w-0 pr-4">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-white truncate text-xs flex items-center gap-1">
-                          {details.title}
-                          {isLocked && <Lock className="w-2.5 h-2.5 text-white/40" />}
-                          {channel.is_pinned && <Pin className="w-2.5 h-2.5 text-amber-400 fill-amber-400/20 rotate-45" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-white truncate text-xs flex items-center gap-1">
+                        {details.title}
+                        {isLocked && <Lock className="w-2.5 h-2.5 text-white/40" />}
+                        {channel.is_pinned && <Pin className="w-2.5 h-2.5 text-amber-400 fill-amber-400/20 rotate-45" />}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center mt-1">
+                      {statusText && (
+                        <span className={`text-[10px] uppercase font-bold tracking-wider ${
+                          statusText === "Typing..." 
+                            ? "text-green-400 animate-pulse" 
+                            : statusText === "Seen"
+                              ? "text-cyan-400 font-semibold"
+                              : statusText === "Delivered"
+                                ? "text-white/60"
+                                : "text-white/40"
+                        }`}>
+                          {statusText}
                         </span>
-                        {labels.length > 0 && (
-                          <div className="flex gap-1">
-                            {labels.map(l => (
-                              <span key={l} className="text-[7px] font-extrabold uppercase px-1 rounded bg-cyan-400/10 text-cyan-300 border border-cyan-400/20">{l}</span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex justify-between items-center mt-1">
-                        <p className={`text-[10px] truncate max-w-[150px] ${hasUnread ? "text-white font-bold" : "text-white/40"}`}>
-                          {details.description}
-                        </p>
-                        {hasUnread && (
-                          <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
-                        )}
-                      </div>
+                      )}
+                      {hasUnread && (
+                        <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)] ml-auto" />
+                      )}
                     </div>
-
                   </div>
                 </div>
               );
@@ -2121,6 +2074,17 @@ export const ChatView: React.FC = () => {
                           title="AI Actions"
                         >
                           <Sparkles className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm("Are you sure you want to delete this message?")) {
+                              await deleteChatMessage(activeChannelId, msg.id);
+                            }
+                          }}
+                          className="p-1 rounded-full bg-neutral-900 border border-white/10 hover:bg-neutral-800 text-red-400 transition-colors cursor-pointer"
+                          title="Delete message"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
 
@@ -3811,22 +3775,6 @@ export const ChatView: React.FC = () => {
               </button>
 
               <button 
-                onClick={() => { alert("Marked read/unread"); setActiveBottomSheetChannel(null); }}
-                className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-left transition-all"
-              >
-                <CheckCircle2 className="w-4 h-4 text-blue-400" />
-                <span>Mark Unread</span>
-              </button>
-
-              <button 
-                onClick={() => { setActiveFilter(activeFilter === "Projects" ? "Primary" : "Projects"); setActiveBottomSheetChannel(null); }}
-                className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-left transition-all"
-              >
-                <Users className="w-4 h-4 text-teal-400" />
-                <span>Move Category</span>
-              </button>
-
-              <button 
                 onClick={() => { toggleArchiveChannel(activeBottomSheetChannel.id); setActiveBottomSheetChannel(null); }}
                 className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-left transition-all"
               >
@@ -3843,27 +3791,30 @@ export const ChatView: React.FC = () => {
               </button>
 
               <button 
+                onClick={async () => {
+                  if (confirm(`Delete DM with ${getChannelDetails(activeBottomSheetChannel).title}?`)) {
+                    const { error } = await supabase.from("chat_channels").delete().eq("id", activeBottomSheetChannel.id);
+                    if (!error) {
+                      if (activeChannelId === activeBottomSheetChannel.id) {
+                        setActiveChannelId("");
+                      }
+                      fetchChatChannels();
+                    }
+                    setActiveBottomSheetChannel(null);
+                  }
+                }}
+                className="flex items-center gap-2 p-3 bg-red-950/20 border border-red-500/30 rounded-2xl hover:bg-red-950/40 text-left transition-all text-red-300"
+              >
+                <Trash2 className="w-4 h-4 text-red-400" />
+                <span>Delete Chat</span>
+              </button>
+
+              <button 
                 onClick={() => { toggleLockChannel(activeBottomSheetChannel.id); }}
                 className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-left transition-all"
               >
                 <Lock className="w-4 h-4 text-emerald-400" />
-                <span>{lockedChannels[activeBottomSheetChannel.id] ? "Unlock Chat" : "Lock Chat (FaceID)"}</span>
-              </button>
-
-              <button 
-                onClick={() => { handleChannelLabelAdd(activeBottomSheetChannel.id, "Production"); setActiveBottomSheetChannel(null); }}
-                className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-left transition-all"
-              >
-                <Tag className="w-4 h-4 text-rose-400" />
-                <span>Label: Production</span>
-              </button>
-
-              <button 
-                onClick={() => { handleChannelLabelAdd(activeBottomSheetChannel.id, "Review"); setActiveBottomSheetChannel(null); }}
-                className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-left transition-all"
-              >
-                <Tag className="w-4 h-4 text-indigo-400" />
-                <span>Label: Review</span>
+                <span>{lockedChannels[activeBottomSheetChannel.id] ? "Unlock Chat" : "Lock Chat"}</span>
               </button>
 
               <button 
@@ -3875,27 +3826,11 @@ export const ChatView: React.FC = () => {
               </button>
 
               <button 
-                onClick={() => { alert("Reminder Scheduled in 1 Hour"); setActiveBottomSheetChannel(null); }}
+                onClick={() => setActiveBottomSheetChannel(null)}
                 className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-left transition-all col-span-2 justify-center"
               >
-                <Bell className="w-4 h-4 text-yellow-400" />
-                <span>Set Reminder (1 Hour)</span>
-              </button>
-
-              <button 
-                onClick={() => { alert("Reported to Crew Safety"); setActiveBottomSheetChannel(null); }}
-                className="flex items-center gap-2 p-3 bg-red-950/20 border border-red-500/30 rounded-2xl hover:bg-red-950/40 text-left transition-all text-red-300"
-              >
-                <AlertTriangle className="w-4 h-4" />
-                <span>Report Crew</span>
-              </button>
-
-              <button 
-                onClick={() => { alert("Member Blocked"); setActiveBottomSheetChannel(null); }}
-                className="flex items-center gap-2 p-3 bg-red-950/20 border border-red-500/30 rounded-2xl hover:bg-red-950/40 text-left transition-all text-red-300"
-              >
-                <Ban className="w-4 h-4" />
-                <span>Block Member</span>
+                <X className="w-4 h-4 text-white/50" />
+                <span>Cancel</span>
               </button>
 
             </div>
