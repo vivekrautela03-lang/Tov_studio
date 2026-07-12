@@ -237,7 +237,7 @@ export const Header: React.FC = () => {
           {/* Messages (💬) Tab Link with Dropdown Trigger */}
           <div className="relative">
             <button
-              onClick={() => setIsMessagesDropdownOpen(!isMessagesDropdownOpen)}
+              onClick={() => setActiveView("chat")}
               className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white relative transition-all duration-200 cursor-pointer border border-white/5"
               title="Messages & Alerts"
             >
@@ -246,106 +246,6 @@ export const Header: React.FC = () => {
                 <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
               )}
             </button>
-
-            {isMessagesDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-neutral-900 border border-white/10 rounded-2xl p-4 shadow-2xl z-50 text-white space-y-4">
-                
-                {/* 1. Direct Messages Section */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center border-b border-white/5 pb-1">
-                    <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">Messages</span>
-                    <button
-                      onClick={() => {
-                        setActiveView("chat");
-                        setIsMessagesDropdownOpen(false);
-                      }}
-                      className="text-[9px] text-[#22d3ee] hover:underline"
-                    >
-                      Open Messages
-                    </button>
-                  </div>
-
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
-                    {chatChannels.slice(0, 3).map((ch) => {
-                      const details = getChannelDetails(ch);
-                      return (
-                        <div
-                          key={ch.id}
-                          onClick={() => {
-                            setActiveChannelId(ch.id);
-                            setActiveView("chat");
-                            setIsMessagesDropdownOpen(false);
-                          }}
-                          className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-white/5 cursor-pointer text-left transition-colors"
-                        >
-                          <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-white/10 bg-neutral-800 flex items-center justify-center font-bold text-[#22d3ee] text-[10px]">
-                            {details.avatar ? (
-                              <img src={details.avatar} className="w-full h-full object-cover" alt="" />
-                            ) : (
-                              details.title.substring(0, 2).toUpperCase()
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex justify-between items-center">
-                              <span className="text-[11px] font-bold text-white truncate block">{details.title}</span>
-                              {ch.unread_count > 0 && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                              )}
-                            </div>
-                            <p className="text-[10px] text-text-secondary truncate leading-snug">{details.description}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {chatChannels.length === 0 && (
-                      <p className="text-[10px] text-text-secondary italic p-2 text-center">No message threads found</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* 2. Notifications Section */}
-                <div className="space-y-2 border-t border-white/5 pt-3">
-                  <div className="flex justify-between items-center border-b border-white/5 pb-1">
-                    <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">Alerts & Notifications</span>
-                    <button
-                      onClick={() => {
-                        setActiveView("notifications");
-                        setIsMessagesDropdownOpen(false);
-                      }}
-                      className="text-[9px] text-[#22d3ee] hover:underline"
-                    >
-                      View All
-                    </button>
-                  </div>
-
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
-                    {notifications.slice(0, 3).map((notif) => (
-                      <div
-                        key={notif.id}
-                        onClick={() => {
-                          markNotificationRead(notif.id);
-                          setActiveView("notifications");
-                          setIsMessagesDropdownOpen(false);
-                        }}
-                        className="p-2 rounded-xl hover:bg-white/5 cursor-pointer text-left transition-colors space-y-0.5"
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className={`text-[10.5px] font-bold truncate block ${notif.read ? "text-text-secondary" : "text-[#22d3ee]"}`}>
-                            {notif.title}
-                          </span>
-                          <span className="text-[9px] text-text-secondary shrink-0">{notif.time}</span>
-                        </div>
-                        <p className="text-[9.5px] text-text-secondary line-clamp-2 leading-relaxed">{notif.message}</p>
-                      </div>
-                    ))}
-                    {notifications.length === 0 && (
-                      <p className="text-[10px] text-text-secondary italic p-2 text-center">No new notifications</p>
-                    )}
-                  </div>
-                </div>
-
-              </div>
-            )}
           </div>
 
           {/* Hamburger Menu (☰) Trigger */}
