@@ -274,6 +274,10 @@ export const ChatView: React.FC = () => {
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [attachmentPreview, setAttachmentPreview] = useState("");
   const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
+  const [isSelectionModeActive, setIsSelectionModeActive] = useState(false);
+  const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+  const [isStoryUploaderOptionsOpen, setIsStoryUploaderOptionsOpen] = useState(false);
+  const [isAddNoteOptionsOpen, setIsAddNoteOptionsOpen] = useState(false);
 
   const [showGifs, setShowGifs] = useState(false);
   const cinemaGifs = [
@@ -1600,104 +1604,190 @@ export const ChatView: React.FC = () => {
           ))}
         </div>
 
-        {/* REDESIGNED STORIES & NOTES ROWS (INSTAGRAM STYLE) */}
-        <div className="px-3.5 py-3 border-y border-white/10 bg-white/[0.01] flex gap-3 overflow-x-auto no-scrollbar scroll-smooth shrink-0 items-center">
-          
-          {/* Add story circle */}
-          <div className="flex flex-col items-center gap-1 cursor-pointer shrink-0 relative">
-            <div 
-              onClick={() => setIsCreatorChoiceOpen(true)}
-              className="w-12 h-12 rounded-full border border-white/20 bg-white/[0.08] flex items-center justify-center relative font-bold text-xs text-cyan-400 hover:scale-105 transition-transform shadow-md"
-            >
-              {userProfile?.avatar_url ? (
-                <img src={userProfile.avatar_url} className="w-full h-full object-cover rounded-full" alt="" />
-              ) : (
-                userProfile?.full_name?.substring(0, 2).toUpperCase() || "ME"
-              )}
-              <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 bg-cyan-400 text-black font-extrabold rounded-full flex items-center justify-center border-2 border-[#121319] text-[10px] shadow-sm">
-                +
-              </div>
-            </div>
-            <span className="text-[9px] text-white/40 font-semibold mt-1">My Story</span>
+        {/* STORIES ROW */}
+        <div className="px-4 py-2 shrink-0 border-b border-white/10 bg-white/[0.005]">
+          <div className="text-[10px] font-extrabold uppercase tracking-widest text-[#22d3ee] mb-2 flex items-center gap-1.5">
+            <span>Stories</span>
           </div>
+          <div className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth items-center py-1">
+            {/* My Story circle */}
+            <div className="flex flex-col items-center gap-1 cursor-pointer shrink-0 relative">
+              <div 
+                onClick={() => setIsStoryUploaderOptionsOpen(true)}
+                className="w-14 h-14 rounded-full border border-white/20 bg-white/[0.08] flex items-center justify-center relative font-bold text-xs text-cyan-400 hover:scale-105 transition-transform shadow-md"
+              >
+                {userProfile?.avatar_url ? (
+                  <img src={userProfile.avatar_url} className="w-full h-full object-cover rounded-full" alt="" />
+                ) : (
+                  userProfile?.full_name?.substring(0, 2).toUpperCase() || "ME"
+                )}
+                <div className="absolute bottom-0 right-0 w-5 h-5 bg-cyan-400 text-black font-extrabold rounded-full flex items-center justify-center border-2 border-[#121319] text-xs shadow-sm backdrop-blur-md bg-opacity-70">
+                  +
+                </div>
+              </div>
+              <span className="text-[9px] text-white/50 font-semibold mt-1">My Story</span>
+            </div>
 
-          {/* User bubbles with stories & notes */}
-          {profiles.filter(p => p.id !== currentUser?.id).map(p => {
-            const userNote = notes.find((n: any) => n.user_id === p.id);
-            const userStories = stories.filter((s: any) => s.user_id === p.id);
-            const hasActiveStories = userStories.length > 0;
-            const hasUnseen = hasActiveStories && userStories.some((s: any) => !s.views?.includes(currentUser?.id));
-            const noteSnippet = userNote ? (userNote.content.substring(0, 10) + (userNote.content.length > 10 ? "..." : "")) : "";
-            
-            // Mock verify status for specific users
-            const isVerified = p.full_name?.toLowerCase().includes("director") || p.full_name?.toLowerCase().includes("vfx") || p.full_name?.length % 2 === 0;
+            {/* Other stories circles */}
+            {profiles.filter(p => p.id !== currentUser?.id && stories.some((s: any) => s.user_id === p.id)).map(p => {
+              const userStories = stories.filter((s: any) => s.user_id === p.id);
+              const hasActiveStories = userStories.length > 0;
+              const hasUnseen = hasActiveStories && userStories.some((s: any) => !s.views?.includes(currentUser?.id));
+              const isVerified = p.full_name?.toLowerCase().includes("director") || p.full_name?.toLowerCase().includes("vfx") || p.full_name?.length % 2 === 0;
 
-            return (
-              <div key={p.id} className="flex flex-col items-center gap-1 shrink-0 relative group">
-                
-                {/* Note Bubble above profiles */}
-                {userNote && (
+              return (
+                <div key={p.id} className="flex flex-col items-center gap-1 shrink-0 relative group">
+                  {/* Large avatar with colorful ring for unseen, gray for seen */}
                   <div 
                     onClick={() => {
-                      setActiveNote(userNote);
-                      setIsNoteViewerOpen(true);
+                      if (hasActiveStories) {
+                        setActiveStoryUser(p.id);
+                        setActiveStoryIndex(0);
+                        setIsStoryViewerOpen(true);
+                        viewStory(userStories[0].id);
+                      }
                     }}
-                    className="absolute -top-4.5 z-20 bg-black/90 backdrop-blur-md border border-white/20 rounded-xl px-1.5 py-0.5 text-[8px] text-white shadow-lg whitespace-nowrap cursor-pointer hover:scale-105 transition-transform max-w-[64px] truncate"
-                    title={userNote.content}
-                  >
-                    {userNote.song_name ? `🎵 ${noteSnippet}` : noteSnippet}
-                    <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1 h-1 bg-black/90 border-r border-b border-white/20 rotate-45" />
-                  </div>
-                )}
-
-                {/* Avatar with colorful ring for unseen, gray for seen */}
-                <div 
-                  onClick={() => {
-                    if (hasActiveStories) {
-                      setActiveStoryUser(p.id);
-                      setActiveStoryIndex(0);
-                      setIsStoryViewerOpen(true);
-                      viewStory(userStories[0].id);
-                    } else if (userNote) {
-                      setActiveNote(userNote);
-                      setIsNoteViewerOpen(true);
-                    }
-                  }}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all relative ${
-                    hasActiveStories 
-                      ? hasUnseen
+                    className={`w-14 h-14 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all relative ${
+                      hasUnseen
                         ? "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 p-[2.5px] animate-[pulse_1.5s_infinite]" 
                         : "bg-white/20 p-[1.5px]" 
-                      : "border border-white/10 p-[1.5px]"
-                  }`}
-                >
-                  <div className="w-full h-full rounded-full bg-neutral-900 overflow-hidden flex items-center justify-center font-bold text-xs text-cyan-400">
-                    {p.avatar_url ? (
-                      <img src={p.avatar_url} className="w-full h-full object-cover" alt="" />
-                    ) : (
-                      p.full_name?.substring(0, 2).toUpperCase() || "U"
+                    }`}
+                  >
+                    <div className="w-full h-full rounded-full bg-neutral-900 overflow-hidden flex items-center justify-center font-bold text-xs text-cyan-400">
+                      {p.avatar_url ? (
+                        <img src={p.avatar_url} className="w-full h-full object-cover" alt="" />
+                      ) : (
+                        p.full_name?.substring(0, 2).toUpperCase() || "U"
+                      )}
+                    </div>
+
+                    {/* Verified badges */}
+                    {isVerified && (
+                      <span className="absolute -top-1.5 -right-1 bg-blue-500 text-white rounded-full p-0.5 border border-black shadow-sm">
+                        <CheckCircle2 className="w-2.5 h-2.5 fill-white text-blue-500" />
+                      </span>
+                    )}
+
+                    {/* Green presence indicators */}
+                    {onlineUsers.includes(p.id) && (
+                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#121319] shadow-[0_0_6px_#22c55e]" />
                     )}
                   </div>
-
-                  {/* Verified badges */}
-                  {isVerified && (
-                    <span className="absolute -top-1.5 -right-1 bg-blue-500 text-white rounded-full p-0.5 border border-black shadow-sm">
-                      <CheckCircle2 className="w-2.5 h-2.5 fill-white text-blue-500" />
-                    </span>
-                  )}
-
-                  {/* Green presence indicators */}
-                  {onlineUsers.includes(p.id) && (
-                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#121319] shadow-[0_0_6px_#22c55e]" />
-                  )}
+                  
+                  <span className="text-[9px] text-white/50 truncate max-w-[56px]">
+                    {p.full_name || "User"}
+                  </span>
                 </div>
-                
-                <span className="text-[9px] text-white/50 truncate max-w-[50px]">
-                  {p.full_name || "User"}
-                </span>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ACTIVE CREW ROW */}
+        <div className="px-4 py-2 border-b border-white/10 shrink-0 bg-white/[0.005]">
+          <div className="text-[10px] font-extrabold uppercase tracking-widest text-[#22d3ee] mb-2 flex items-center gap-1.5">
+            <span>Active Crew</span>
+          </div>
+          <div className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth items-center py-2">
+            {/* Current user Note popup */}
+            <div className="flex flex-col items-center gap-1 cursor-pointer shrink-0 relative mt-4">
+              {/* Floating Note popup */}
+              <div 
+                onClick={() => setIsAddNoteOptionsOpen(true)}
+                className="absolute -top-5.5 z-20 bg-black/90 backdrop-blur-md border border-white/20 rounded-xl px-2 py-0.5 text-[8px] text-white shadow-lg whitespace-nowrap cursor-pointer hover:scale-105 transition-transform max-w-[70px] truncate"
+              >
+                Share note...
+                <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1 h-1 bg-black/90 border-r border-b border-white/20 rotate-45" />
               </div>
-            );
-          })}
+
+              <div 
+                onClick={() => setIsAddNoteOptionsOpen(true)}
+                className="w-12 h-12 rounded-full border border-white/10 bg-white/[0.05] flex items-center justify-center relative font-bold text-xs text-cyan-400 hover:scale-105 transition-transform shadow-md"
+              >
+                {userProfile?.avatar_url ? (
+                  <img src={userProfile.avatar_url} className="w-full h-full object-cover rounded-full" alt="" />
+                ) : (
+                  userProfile?.full_name?.substring(0, 2).toUpperCase() || "ME"
+                )}
+                {/* Green status indicator */}
+                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#121319] shadow-[0_0_6px_#22c55e]" />
+              </div>
+              <span className="text-[9px] text-white/50 font-semibold mt-1">My Note</span>
+            </div>
+
+            {/* Other Crew members */}
+            {profiles.filter(p => p.id !== currentUser?.id).map(p => {
+              const userNote = notes.find((n: any) => n.user_id === p.id);
+              const noteSnippet = userNote ? (userNote.content.substring(0, 12) + (userNote.content.length > 12 ? "..." : "")) : "";
+              const isVerified = p.full_name?.toLowerCase().includes("director") || p.full_name?.toLowerCase().includes("vfx") || p.full_name?.length % 2 === 0;
+
+              return (
+                <div key={p.id} className="flex flex-col items-center gap-1 shrink-0 relative group mt-4">
+                  {/* Floating Note Bubble */}
+                  {userNote && (
+                    <div 
+                      onClick={() => {
+                        setActiveNote(userNote);
+                        setIsNoteViewerOpen(true);
+                        if (userNote.song_name) {
+                          handlePlayPreview({
+                            id: userNote.song_id,
+                            preview_url: userNote.song_preview_url
+                          });
+                        }
+                      }}
+                      className="absolute -top-5.5 z-20 bg-black/80 backdrop-blur-md border border-white/20 rounded-xl px-2 py-0.5 text-[8px] text-white shadow-lg whitespace-nowrap cursor-pointer hover:scale-105 transition-transform max-w-[80px] truncate"
+                      title={userNote.content}
+                    >
+                      {userNote.song_name ? `🎵 ${userNote.song_name}` : `💬 ${noteSnippet}`}
+                      <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1 h-1 bg-black/80 border-r border-b border-white/20 rotate-45" />
+                    </div>
+                  )}
+
+                  {/* Avatar - NO story rings */}
+                  <div 
+                    onClick={() => {
+                      if (userNote) {
+                        setActiveNote(userNote);
+                        setIsNoteViewerOpen(true);
+                        if (userNote.song_name) {
+                          handlePlayPreview({
+                            id: userNote.song_id,
+                            preview_url: userNote.song_preview_url
+                          });
+                        }
+                      }
+                    }}
+                    className="w-12 h-12 rounded-full border border-white/10 p-[1.5px] flex items-center justify-center cursor-pointer hover:scale-105 transition-all relative"
+                  >
+                    <div className="w-full h-full rounded-full bg-neutral-900 overflow-hidden flex items-center justify-center font-bold text-xs text-cyan-400">
+                      {p.avatar_url ? (
+                        <img src={p.avatar_url} className="w-full h-full object-cover" alt="" />
+                      ) : (
+                        p.full_name?.substring(0, 2).toUpperCase() || "U"
+                      )}
+                    </div>
+
+                    {/* Verified badges */}
+                    {isVerified && (
+                      <span className="absolute -top-1.5 -right-1 bg-blue-500 text-white rounded-full p-0.5 border border-black shadow-sm">
+                        <CheckCircle2 className="w-2.5 h-2.5 fill-white text-blue-500" />
+                      </span>
+                    )}
+
+                    {/* Green presence indicators */}
+                    {onlineUsers.includes(p.id) && (
+                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#121319] shadow-[0_0_6px_#22c55e]" />
+                    )}
+                  </div>
+                  
+                  <span className="text-[9px] text-white/50 truncate max-w-[50px]">
+                    {p.full_name || "User"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* CHAT LIST WITH SWIPE GESTURES & LONG PRESS */}
@@ -1789,6 +1879,14 @@ export const ChatView: React.FC = () => {
                   {/* Top sliding row card */}
                   <div
                     onClick={() => {
+                      if (isSelectionModeActive) {
+                        setSelectedChannelIds(prev => 
+                          prev.includes(channel.id) 
+                            ? prev.filter(id => id !== channel.id)
+                            : [...prev, channel.id]
+                        );
+                        return;
+                      }
                       if (swipeOffset !== 0) {
                         resetSwipeStates();
                         return;
@@ -1804,6 +1902,21 @@ export const ChatView: React.FC = () => {
                       isActive ? "bg-cyan-500/10 border-cyan-400/30" : "hover:bg-white/[0.07]"
                     }`}
                   >
+                    {isSelectionModeActive && (
+                      <input
+                        type="checkbox"
+                        checked={selectedChannelIds.includes(channel.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setSelectedChannelIds(prev => 
+                            prev.includes(channel.id) 
+                              ? prev.filter(id => id !== channel.id)
+                              : [...prev, channel.id]
+                          );
+                        }}
+                        className="mr-1 accent-cyan-400 cursor-pointer h-4 w-4 rounded border-white/20 bg-white/5 text-cyan-500 focus:ring-0 focus:ring-offset-0"
+                      />
+                    )}
                     <div className="relative">
                       {details.isGroup ? (
                         <div className="w-10 h-10 rounded-[14px] bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center font-bold text-cyan-400">
@@ -1849,6 +1962,104 @@ export const ChatView: React.FC = () => {
             })
           )}
         </div>
+
+        {/* LIQUID GLASS SELECTION MODE BANNER */}
+        {isSelectionModeActive && (
+          <div className="p-3 bg-white/[0.04] backdrop-blur-[24px] border-t border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_-8px_32px_0_rgba(0,0,0,0.35)] flex flex-col gap-2 shrink-0">
+            <div className="flex justify-between items-center px-1">
+              <span className="text-[10px] uppercase tracking-wider text-cyan-400 font-bold">
+                {selectedChannelIds.length} Selected
+              </span>
+              <button 
+                onClick={() => {
+                  setIsSelectionModeActive(false);
+                  setSelectedChannelIds([]);
+                }}
+                className="text-[9px] uppercase tracking-wider text-white/50 hover:text-white font-bold"
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                onClick={() => {
+                  if (selectedChannelIds.length < 2) {
+                    alert("Please select at least 2 conversations to create a group.");
+                    return;
+                  }
+                  alert(`Group created with selected channels: ${selectedChannelIds.join(", ")}`);
+                  setIsSelectionModeActive(false);
+                  setSelectedChannelIds([]);
+                }}
+                className="py-1 px-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/30 text-[9px] text-cyan-300 font-bold uppercase tracking-wider transition-all text-center"
+              >
+                Create Group
+              </button>
+              <button
+                onClick={() => {
+                  alert(`Broadcast created for channels: ${selectedChannelIds.join(", ")}`);
+                  setIsSelectionModeActive(false);
+                  setSelectedChannelIds([]);
+                }}
+                className="py-1 px-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/30 text-[9px] text-cyan-300 font-bold uppercase tracking-wider transition-all text-center"
+              >
+                Create Broadcast
+              </button>
+              <button
+                onClick={() => {
+                  selectedChannelIds.forEach(id => toggleMuteChannel(id));
+                  alert(`Muted selected channels.`);
+                  setIsSelectionModeActive(false);
+                  setSelectedChannelIds([]);
+                }}
+                className="py-1 px-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/30 text-[9px] text-cyan-300 font-bold uppercase tracking-wider transition-all text-center"
+              >
+                Mute Selected
+              </button>
+              <button
+                onClick={async () => {
+                  if (confirm(`Delete ${selectedChannelIds.length} conversations?`)) {
+                    for (const id of selectedChannelIds) {
+                      await supabase.from("chat_channels").delete().eq("id", id);
+                    }
+                    alert("Deleted selected conversations.");
+                    fetchChatChannels();
+                    setIsSelectionModeActive(false);
+                    setSelectedChannelIds([]);
+                  }
+                }}
+                className="py-1 px-2 rounded-xl bg-red-500/10 hover:bg-red-500/25 border border-red-400/30 text-[9px] text-red-300 font-bold uppercase tracking-wider transition-all text-center"
+              >
+                Delete Selected
+              </button>
+              <button
+                onClick={() => {
+                  selectedChannelIds.forEach(id => toggleArchiveChannel(id));
+                  alert(`Archived selected channels.`);
+                  setIsSelectionModeActive(false);
+                  setSelectedChannelIds([]);
+                }}
+                className="py-1 px-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/30 text-[9px] text-cyan-300 font-bold uppercase tracking-wider transition-all text-center"
+              >
+                Archive Selected
+              </button>
+              <button
+                onClick={() => {
+                  const label = prompt("Enter label name (e.g. Production, Review):");
+                  if (label) {
+                    selectedChannelIds.forEach(id => handleChannelLabelAdd(id, label));
+                    alert(`Added label "${label}" to selected channels.`);
+                  }
+                  setIsSelectionModeActive(false);
+                  setSelectedChannelIds([]);
+                }}
+                className="py-1 px-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/30 text-[9px] text-cyan-300 font-bold uppercase tracking-wider transition-all text-center"
+              >
+                Add Label
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 2. CHAT PANEL VIEW */}
@@ -2234,7 +2445,7 @@ export const ChatView: React.FC = () => {
                   onChange={handleSelectFile}
                 />
 
-                {/* Plus button expanding grid of 14 attachments */}
+                {/* Plus button expanding grid of 13 attachments */}
                 <div className="relative">
                   <button
                     onClick={() => setIsPlusMenuOpen(!isPlusMenuOpen)}
@@ -2244,24 +2455,23 @@ export const ChatView: React.FC = () => {
                   >
                     <Plus className="w-4 h-4" />
                   </button>
-
+ 
                   {isPlusMenuOpen && (
                     <div className="absolute bottom-12 left-0 bg-[#0d0d11]/95 backdrop-blur-[32px] border border-white/15 rounded-[28px] p-4.5 shadow-2xl grid grid-cols-4 gap-4.5 z-50 animate-slideup w-[310px]">
                       {[
                         { icon: Camera, label: "Camera", color: "bg-red-500", click: () => { setIsPlusMenuOpen(false); document.getElementById("media-attach-file")?.click(); } },
                         { icon: ImageIcon, label: "Gallery", color: "bg-green-500", click: () => { setIsPlusMenuOpen(false); document.getElementById("media-attach-file")?.click(); } },
-                        { icon: Mic, label: "Voice", color: "bg-purple-500", click: () => { setIsPlusMenuOpen(false); handleToggleVoiceRecord(); } },
+                        { icon: FileIcon, label: "Files", color: "bg-blue-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[File] Document.pdf"); } },
                         { icon: Sticker, label: "GIF", color: "bg-yellow-500", click: () => { setIsPlusMenuOpen(false); setShowGifs(!showGifs); } },
-                        { icon: Plus, label: "Sticker", color: "bg-orange-500", click: () => { setIsPlusMenuOpen(false); setShowEmojiPicker(!showEmojiPicker); } },
-                        { icon: Smile, label: "Emoji", color: "bg-pink-500", click: () => { setIsPlusMenuOpen(false); setShowEmojiPicker(!showEmojiPicker); } },
-                        { icon: FileText, label: "Files", color: "bg-blue-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[PDF] ProductionScript_v3.pdf"); } },
+                        { icon: Smile, label: "Sticker", color: "bg-orange-500", click: () => { setIsPlusMenuOpen(false); setShowEmojiPicker(!showEmojiPicker); } },
+                        { icon: Mic, label: "Voice", color: "bg-purple-500", click: () => { setIsPlusMenuOpen(false); handleToggleVoiceRecord(); } },
                         { icon: MapPin, label: "Location", color: "bg-teal-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Location] Stage 4, Burbank Studio (34.1578, -118.3392)"); } },
                         { icon: MusicIcon, label: "Music", color: "bg-indigo-500", click: () => { setIsPlusMenuOpen(false); setIsNoteComposerOpen(true); } },
-                        { icon: BarChart2, label: "Poll", color: "bg-lime-500", click: () => { setIsPlusMenuOpen(false); setIsStoryCreatorOpen(true); } },
-                        { icon: FolderIcon, label: "Projects", color: "bg-rose-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Task] Finalize VFX Scene 14 - High Priority - Due Jul 18"); } },
-                        { icon: Calendar, label: "Calendar", color: "bg-cyan-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Invite] Table Read: Episode 2 - Jul 15, 2026, 2:00 PM"); } },
-                        { icon: Sparkles, label: "AI Assist", color: "bg-violet-500", click: () => { setIsPlusMenuOpen(false); setIsAiMenuOpen(true); } },
-                        { icon: MicOff, label: "Microphone", color: "bg-emerald-500", click: () => { setIsPlusMenuOpen(false); handleToggleVoiceRecord(); } }
+                        { icon: FolderIcon, label: "Projects", color: "bg-rose-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Task] Finalize VFX Scene 14"); } },
+                        { icon: Calendar, label: "Calendar", color: "bg-cyan-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Invite] Table Read: Episode 2 - Jul 15, 2:00 PM"); } },
+                        { icon: BarChart2, label: "Poll", color: "bg-lime-500", click: () => { setIsPlusMenuOpen(false); setStoryStampType("poll"); setIsStoryCreatorOpen(true); } },
+                        { icon: User, label: "Contact", color: "bg-amber-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Contact] Vivek Rautela (+1 555-0199)"); } },
+                        { icon: FileText, label: "Documents", color: "bg-emerald-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Document] Script_v3.pdf"); } }
                       ].map((item, index) => {
                         const IconComponent = item.icon;
                         return (
@@ -2280,7 +2490,7 @@ export const ChatView: React.FC = () => {
                     </div>
                   )}
                 </div>
-
+ 
                 <input
                   type="text"
                   placeholder="Search or Ask AI..."
@@ -2294,15 +2504,7 @@ export const ChatView: React.FC = () => {
                   }}
                   className="flex-1 bg-transparent border-none outline-none text-xs text-white placeholder-white/35 focus:ring-0"
                 />
-
-                {/* Emoji indicator */}
-                <button
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="p-1.5 text-white/50 hover:text-white transition-colors"
-                >
-                  <Smile className="w-4.5 h-4.5" />
-                </button>
-
+ 
                 <button
                   onClick={() => handleSendMessage()}
                   disabled={isUploading}
@@ -3535,6 +3737,77 @@ export const ChatView: React.FC = () => {
         </div>
       )}
 
+      {/* --- UPLOAD STORY CHOICES MODAL --- */}
+      {isStoryUploaderOptionsOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadein">
+          <div className="w-[320px] bg-[#121319]/90 border border-white/20 rounded-[28px] p-5 shadow-2xl text-white text-center space-y-4">
+            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#22d3ee]">Upload Story</span>
+              <button 
+                onClick={() => setIsStoryUploaderOptionsOpen(false)} 
+                className="p-1 rounded hover:bg-white/5 text-white/60 hover:text-white font-bold cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[10px] text-white/50">Select how you want to share your story:</p>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              {[
+                { label: "Camera", icon: "📸", action: () => { setIsStoryUploaderOptionsOpen(false); setIsStoryCreatorOpen(true); setTimeout(() => document.getElementById("story-media-upload")?.click(), 300); } },
+                { label: "Gallery", icon: "🖼️", action: () => { setIsStoryUploaderOptionsOpen(false); setIsStoryCreatorOpen(true); setTimeout(() => document.getElementById("story-media-upload")?.click(), 300); } },
+                { label: "Video", icon: "🎥", action: () => { setIsStoryUploaderOptionsOpen(false); setIsStoryCreatorOpen(true); setStoryMediaType("video"); setTimeout(() => document.getElementById("story-media-upload")?.click(), 300); } },
+                { label: "Photo", icon: "📷", action: () => { setIsStoryUploaderOptionsOpen(false); setIsStoryCreatorOpen(true); setStoryMediaType("image"); setTimeout(() => document.getElementById("story-media-upload")?.click(), 300); } },
+                { label: "Music Story", icon: "🎵", action: () => { setIsStoryUploaderOptionsOpen(false); setIsStoryCreatorOpen(true); setStoryStampType("slider"); } },
+                { label: "Text Story", icon: "✍️", action: () => { setIsStoryUploaderOptionsOpen(false); setIsStoryCreatorOpen(true); setStoryStampType("none"); } },
+              ].map(opt => (
+                <button
+                  key={opt.label}
+                  onClick={opt.action}
+                  className="flex flex-col items-center justify-center p-3.5 rounded-[20px] bg-white/5 border border-white/5 hover:border-cyan-500/40 hover:bg-cyan-950/20 text-center gap-1.5 transition-all animate-fadein"
+                >
+                  <span className="text-xl">{opt.icon}</span>
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wider">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- ADD NOTE CHOICES MODAL --- */}
+      {isAddNoteOptionsOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadein">
+          <div className="w-[320px] bg-[#121319]/90 border border-white/20 rounded-[28px] p-5 shadow-2xl text-white text-center space-y-4">
+            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#22d3ee]">Add Note</span>
+              <button 
+                onClick={() => setIsAddNoteOptionsOpen(false)} 
+                className="p-1 rounded hover:bg-white/5 text-white/60 hover:text-white font-bold cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[10px] text-white/50">Choose a note type to share with your crew:</p>
+            <div className="grid grid-cols-3 gap-2 pt-2">
+              {[
+                { label: "Text Note", icon: "💬", action: () => { setIsAddNoteOptionsOpen(false); setIsNoteComposerOpen(true); } },
+                { label: "Music", icon: "🎵", action: () => { setIsAddNoteOptionsOpen(false); setIsNoteComposerOpen(true); } },
+                { label: "Voice Note", icon: "🎙️", action: () => { setIsAddNoteOptionsOpen(false); setIsNoteComposerOpen(true); setNoteContentInput("🎙️ Voice Note"); } },
+              ].map(opt => (
+                <button
+                  key={opt.label}
+                  onClick={opt.action}
+                  className="flex flex-col items-center justify-center p-3 rounded-[20px] bg-white/5 border border-white/5 hover:border-cyan-500/40 hover:bg-cyan-950/20 text-center gap-1 transition-all animate-fadein"
+                >
+                  <span className="text-xl">{opt.icon}</span>
+                  <span className="text-[9px] font-bold text-white uppercase tracking-wider">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- LIQUID GLASS LONG PRESS BOTTOM SHEET --- */}
       {activeBottomSheetChannel && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[115] flex items-end justify-center transition-opacity duration-300" onClick={() => setActiveBottomSheetChannel(null)}>
@@ -3619,6 +3892,14 @@ export const ChatView: React.FC = () => {
               >
                 <Tag className="w-4 h-4 text-indigo-400" />
                 <span>Label: Review</span>
+              </button>
+
+              <button 
+                onClick={() => { setIsSelectionModeActive(true); setSelectedChannelIds([activeBottomSheetChannel.id]); setActiveBottomSheetChannel(null); }}
+                className="flex items-center gap-2 p-3 bg-cyan-500/15 border border-cyan-400/30 rounded-2xl hover:bg-cyan-500/25 text-left transition-all"
+              >
+                <Check className="w-4 h-4 text-cyan-400" />
+                <span>Select</span>
               </button>
 
               <button 
