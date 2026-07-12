@@ -1605,27 +1605,27 @@ export const ChatView: React.FC = () => {
         </div>
 
         {/* STORIES ROW */}
-        <div className="px-4 py-2 shrink-0 border-b border-white/10 bg-white/[0.005]">
+        <div className="px-4 py-3 shrink-0 border-b border-white/10 bg-white/[0.005]">
           <div className="text-[10px] font-extrabold uppercase tracking-widest text-[#22d3ee] mb-2 flex items-center gap-1.5">
             <span>Stories</span>
           </div>
-          <div className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth items-center py-1">
+          <div className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth items-center py-2">
             {/* My Story circle */}
             <div className="flex flex-col items-center gap-1 cursor-pointer shrink-0 relative">
               <div 
                 onClick={() => setIsStoryUploaderOptionsOpen(true)}
-                className="w-14 h-14 rounded-full border border-white/20 bg-white/[0.08] flex items-center justify-center relative font-bold text-xs text-cyan-400 hover:scale-105 transition-transform shadow-md"
+                className="w-20 h-20 rounded-full border border-white/20 bg-white/[0.08] flex items-center justify-center relative font-bold text-sm text-cyan-400 hover:scale-105 transition-transform shadow-md"
               >
                 {userProfile?.avatar_url ? (
                   <img src={userProfile.avatar_url} className="w-full h-full object-cover rounded-full" alt="" />
                 ) : (
                   userProfile?.full_name?.substring(0, 2).toUpperCase() || "ME"
                 )}
-                <div className="absolute bottom-0 right-0 w-5 h-5 bg-cyan-400 text-black font-extrabold rounded-full flex items-center justify-center border-2 border-[#121319] text-xs shadow-sm backdrop-blur-md bg-opacity-70">
+                <div className="absolute bottom-0 right-0 w-6 h-6 bg-cyan-400 text-black font-extrabold rounded-full flex items-center justify-center border-2 border-[#121319] text-sm shadow-sm backdrop-blur-md bg-opacity-70">
                   +
                 </div>
               </div>
-              <span className="text-[9px] text-white/50 font-semibold mt-1">My Story</span>
+              <span className="text-[10px] text-white/50 font-semibold mt-1">My Story</span>
             </div>
 
             {/* Other stories circles */}
@@ -1647,13 +1647,13 @@ export const ChatView: React.FC = () => {
                         viewStory(userStories[0].id);
                       }
                     }}
-                    className={`w-14 h-14 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all relative ${
+                    className={`w-20 h-20 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all relative ${
                       hasUnseen
-                        ? "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 p-[2.5px] animate-[pulse_1.5s_infinite]" 
-                        : "bg-white/20 p-[1.5px]" 
+                        ? "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 p-[3px] animate-[pulse_1.5s_infinite]" 
+                        : "bg-white/20 p-[2px]" 
                     }`}
                   >
-                    <div className="w-full h-full rounded-full bg-neutral-900 overflow-hidden flex items-center justify-center font-bold text-xs text-cyan-400">
+                    <div className="w-full h-full rounded-full bg-neutral-900 overflow-hidden flex items-center justify-center font-bold text-sm text-cyan-400">
                       {p.avatar_url ? (
                         <img src={p.avatar_url} className="w-full h-full object-cover" alt="" />
                       ) : (
@@ -1670,118 +1670,11 @@ export const ChatView: React.FC = () => {
 
                     {/* Green presence indicators */}
                     {onlineUsers.includes(p.id) && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#121319] shadow-[0_0_6px_#22c55e]" />
+                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#121319] shadow-[0_0_6px_#22c55e]" />
                     )}
                   </div>
                   
-                  <span className="text-[9px] text-white/50 truncate max-w-[56px]">
-                    {p.full_name || "User"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ACTIVE CREW ROW */}
-        <div className="px-4 py-2 border-b border-white/10 shrink-0 bg-white/[0.005]">
-          <div className="text-[10px] font-extrabold uppercase tracking-widest text-[#22d3ee] mb-2 flex items-center gap-1.5">
-            <span>Active Crew</span>
-          </div>
-          <div className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth items-center py-2">
-            {/* Current user Note popup */}
-            <div className="flex flex-col items-center gap-1 cursor-pointer shrink-0 relative mt-4">
-              {/* Floating Note popup */}
-              <div 
-                onClick={() => setIsAddNoteOptionsOpen(true)}
-                className="absolute -top-5.5 z-20 bg-black/90 backdrop-blur-md border border-white/20 rounded-xl px-2 py-0.5 text-[8px] text-white shadow-lg whitespace-nowrap cursor-pointer hover:scale-105 transition-transform max-w-[70px] truncate"
-              >
-                Share note...
-                <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1 h-1 bg-black/90 border-r border-b border-white/20 rotate-45" />
-              </div>
-
-              <div 
-                onClick={() => setIsAddNoteOptionsOpen(true)}
-                className="w-12 h-12 rounded-full border border-white/10 bg-white/[0.05] flex items-center justify-center relative font-bold text-xs text-cyan-400 hover:scale-105 transition-transform shadow-md"
-              >
-                {userProfile?.avatar_url ? (
-                  <img src={userProfile.avatar_url} className="w-full h-full object-cover rounded-full" alt="" />
-                ) : (
-                  userProfile?.full_name?.substring(0, 2).toUpperCase() || "ME"
-                )}
-                {/* Green status indicator */}
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#121319] shadow-[0_0_6px_#22c55e]" />
-              </div>
-              <span className="text-[9px] text-white/50 font-semibold mt-1">My Note</span>
-            </div>
-
-            {/* Other Crew members */}
-            {profiles.filter(p => p.id !== currentUser?.id).map(p => {
-              const userNote = notes.find((n: any) => n.user_id === p.id);
-              const noteSnippet = userNote ? (userNote.content.substring(0, 12) + (userNote.content.length > 12 ? "..." : "")) : "";
-              const isVerified = p.full_name?.toLowerCase().includes("director") || p.full_name?.toLowerCase().includes("vfx") || p.full_name?.length % 2 === 0;
-
-              return (
-                <div key={p.id} className="flex flex-col items-center gap-1 shrink-0 relative group mt-4">
-                  {/* Floating Note Bubble */}
-                  {userNote && (
-                    <div 
-                      onClick={() => {
-                        setActiveNote(userNote);
-                        setIsNoteViewerOpen(true);
-                        if (userNote.song_name) {
-                          handlePlayPreview({
-                            id: userNote.song_id,
-                            preview_url: userNote.song_preview_url
-                          });
-                        }
-                      }}
-                      className="absolute -top-5.5 z-20 bg-black/80 backdrop-blur-md border border-white/20 rounded-xl px-2 py-0.5 text-[8px] text-white shadow-lg whitespace-nowrap cursor-pointer hover:scale-105 transition-transform max-w-[80px] truncate"
-                      title={userNote.content}
-                    >
-                      {userNote.song_name ? `🎵 ${userNote.song_name}` : `💬 ${noteSnippet}`}
-                      <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1 h-1 bg-black/80 border-r border-b border-white/20 rotate-45" />
-                    </div>
-                  )}
-
-                  {/* Avatar - NO story rings */}
-                  <div 
-                    onClick={() => {
-                      if (userNote) {
-                        setActiveNote(userNote);
-                        setIsNoteViewerOpen(true);
-                        if (userNote.song_name) {
-                          handlePlayPreview({
-                            id: userNote.song_id,
-                            preview_url: userNote.song_preview_url
-                          });
-                        }
-                      }
-                    }}
-                    className="w-12 h-12 rounded-full border border-white/10 p-[1.5px] flex items-center justify-center cursor-pointer hover:scale-105 transition-all relative"
-                  >
-                    <div className="w-full h-full rounded-full bg-neutral-900 overflow-hidden flex items-center justify-center font-bold text-xs text-cyan-400">
-                      {p.avatar_url ? (
-                        <img src={p.avatar_url} className="w-full h-full object-cover" alt="" />
-                      ) : (
-                        p.full_name?.substring(0, 2).toUpperCase() || "U"
-                      )}
-                    </div>
-
-                    {/* Verified badges */}
-                    {isVerified && (
-                      <span className="absolute -top-1.5 -right-1 bg-blue-500 text-white rounded-full p-0.5 border border-black shadow-sm">
-                        <CheckCircle2 className="w-2.5 h-2.5 fill-white text-blue-500" />
-                      </span>
-                    )}
-
-                    {/* Green presence indicators */}
-                    {onlineUsers.includes(p.id) && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#121319] shadow-[0_0_6px_#22c55e]" />
-                    )}
-                  </div>
-                  
-                  <span className="text-[9px] text-white/50 truncate max-w-[50px]">
+                  <span className="text-[10px] text-white/50 truncate max-w-[80px]">
                     {p.full_name || "User"}
                   </span>
                 </div>
