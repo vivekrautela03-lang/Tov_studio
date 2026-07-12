@@ -130,6 +130,41 @@ export interface CalendarEvent {
   date: string; // YYYY-MM-DD
   type: "shoot" | "meeting" | "deadline" | "marketing" | "release";
   time: string;
+  end_date?: string; // YYYY-MM-DD
+  end_time?: string;
+  color?: string;
+  is_recurring?: boolean;
+  recurrence_pattern?: string; // 'daily' | 'weekly' | 'monthly' | 'none'
+  description?: string;
+  location?: string;
+  reminders?: any; // JSONB
+  assigned_members?: string[];
+}
+
+export interface Subtask {
+  id: string;
+  task_id: string;
+  title: string;
+  completed: boolean;
+  created_at?: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  assignee_id?: string;
+  due_date?: string; // YYYY-MM-DD
+  priority?: "Low" | "Medium" | "High";
+  status?: "Todo" | "In Progress" | "Completed" | "Delayed";
+  production_id?: string;
+  progress?: number;
+  attachments?: string[];
+  comments?: any[];
+  assigned_members?: string[];
+  created_at?: string;
+  updated_at?: string;
+  subtasks?: Subtask[];
 }
 
 export interface CrewMember {
@@ -242,6 +277,7 @@ interface ProjectStoreState {
   storyboards: Record<string, StoryboardShot[]>;
   shotPlans: Record<string, ShotPlan[]>;
   calendarEvents: Record<string, CalendarEvent[]>;
+  tasks: Record<string, Task[]>;
   crew: Record<string, CrewMember[]>;
   cast: Record<string, CastMember[]>;
   equipment: Record<string, Equipment[]>;
@@ -290,8 +326,15 @@ interface ProjectStoreState {
   updateStoryboardShotStatus: (projectId: string, shotId: string, status: StoryboardShot["status"]) => void;
   addShotPlan: (projectId: string, plan: Omit<ShotPlan, "id">) => void;
   updateShotPlanStatus: (projectId: string, planId: string, status: ShotPlan["status"]) => void;
-  addCalendarEvent: (projectId: string, event: Omit<CalendarEvent, "id">) => void;
-  deleteCalendarEvent: (projectId: string, id: string) => void;
+  addCalendarEvent: (projectId: string, event: Omit<CalendarEvent, "id">) => Promise<void>;
+  updateCalendarEvent: (projectId: string, eventId: string, updates: Partial<CalendarEvent>) => Promise<void>;
+  deleteCalendarEvent: (projectId: string, id: string) => Promise<void>;
+  fetchTasks: (projectId: string) => Promise<void>;
+  addTask: (projectId: string, task: Omit<Task, "id" | "created_at" | "updated_at">) => Promise<void>;
+  updateTaskStatus: (projectId: string, taskId: string, updates: Partial<Task>) => Promise<void>;
+  deleteTask: (projectId: string, taskId: string) => Promise<void>;
+  addSubtask: (projectId: string, taskId: string, title: string) => Promise<void>;
+  toggleSubtask: (projectId: string, taskId: string, subtaskId: string, completed: boolean) => Promise<void>;
   toggleCrewAttendance: (projectId: string, crewId: string) => void;
   toggleCastAvailability: (projectId: string, castId: string) => void;
   setCrewAttendance: (projectId: string, crewId: string, attendance: CrewMember["attendance"]) => Promise<void>;
@@ -357,6 +400,7 @@ const initialScripts: Record<string, ScriptScene[]> = {};
 const initialStoryboards: Record<string, StoryboardShot[]> = {};
 const initialShotPlans: Record<string, ShotPlan[]> = {};
 const initialCalendarEvents: Record<string, CalendarEvent[]> = {};
+const initialTasks: Record<string, Task[]> = {};
 const initialCrew: Record<string, CrewMember[]> = {};
 const initialCast: Record<string, CastMember[]> = {};
 const initialEquipment: Record<string, Equipment[]> = {};
@@ -391,6 +435,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   storyboards: initialStoryboards,
   shotPlans: initialShotPlans,
   calendarEvents: initialCalendarEvents,
+  tasks: initialTasks,
   crew: initialCrew,
   cast: initialCast,
   equipment: initialEquipment,
@@ -678,6 +723,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     const newStoryboards: Record<string, StoryboardShot[]> = {};
     const newShotPlans: Record<string, ShotPlan[]> = {};
     const newCalendarEvents: Record<string, CalendarEvent[]> = {};
+    const newTasks: Record<string, Task[]> = {};
     const newCrew: Record<string, CrewMember[]> = {};
     const newCast: Record<string, CastMember[]> = {};
     const newEquipment: Record<string, Equipment[]> = {};
@@ -757,7 +803,50 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         title: e.title,
         date: e.date ? e.date.substring(0, 10) : "2026-07-05",
         type: (e.type as CalendarEvent["type"]) || "shoot",
-        time: e.time || "10:00 - 18:00"
+        time: e.time || "10:00 - 18:00",
+        end_date: e.end_date ? e.end_date.substring(0, 10) : undefined,
+        end_time: e.end_time || undefined,
+        color: e.color || "#22d3ee",
+        is_recurring: e.is_recurring ?? false,
+        recurrence_pattern: e.recurrence_pattern || "none",
+        description: e.description || "",
+        location: e.location || "",
+        reminders: e.reminders || [],
+        assigned_members: e.assigned_members || []
+      }));
+
+      // 4.5 Fetch tasks and subtasks
+      const { data: tasksData } = await supabase
+        .from("tasks")
+        .select(`
+          *,
+          subtasks (*)
+        `)
+        .eq("production_id", prodId)
+        .order("created_at", { ascending: true });
+
+      newTasks[prodId] = (tasksData || []).map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description || "",
+        assignee_id: t.assignee_id,
+        due_date: t.due_date,
+        priority: t.priority || "Medium",
+        status: t.status || "Todo",
+        production_id: t.production_id,
+        progress: t.progress || 0,
+        attachments: t.attachments || [],
+        comments: t.comments || [],
+        assigned_members: t.assigned_members || [],
+        created_at: t.created_at,
+        updated_at: t.updated_at,
+        subtasks: (t.subtasks || []).map((s: any) => ({
+          id: s.id,
+          task_id: s.task_id,
+          title: s.title,
+          completed: s.completed,
+          created_at: s.created_at
+        }))
       }));
 
       // 5. Fetch crew members joined with profiles
@@ -875,6 +964,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       storyboards: newStoryboards,
       shotPlans: newShotPlans,
       calendarEvents: newCalendarEvents,
+      tasks: newTasks,
       crew: newCrew,
       cast: newCast,
       equipment: newEquipment,
@@ -936,6 +1026,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       storyboards: { ...state.storyboards, [data.id]: [] },
       shotPlans: { ...state.shotPlans, [data.id]: [] },
       calendarEvents: { ...state.calendarEvents, [data.id]: [] },
+      tasks: { ...state.tasks, [data.id]: [] },
       crew: { ...state.crew, [data.id]: [
         { id: "owner-member", name: "You", photo: "", role: "Owner", phone: "", experience: "", skills: [], attendance: "Present", availability: "On Set", rate: "", paymentStatus: "Paid", performance: 100 }
       ] },
@@ -1201,6 +1292,15 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         date: event.date,
         type: event.type,
         time: event.time,
+        end_date: event.end_date,
+        end_time: event.end_time,
+        color: event.color,
+        is_recurring: event.is_recurring,
+        recurrence_pattern: event.recurrence_pattern,
+        description: event.description,
+        location: event.location,
+        reminders: event.reminders,
+        assigned_members: event.assigned_members,
         user_id: user?.id
       })
       .select()
@@ -1213,8 +1313,20 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     }
 
     const newEvent: CalendarEvent = {
-      ...event,
-      id: data.id
+      id: data.id,
+      title: data.title,
+      date: data.date ? data.date.substring(0, 10) : "",
+      type: data.type || "shoot",
+      time: data.time || "",
+      end_date: data.end_date ? data.end_date.substring(0, 10) : undefined,
+      end_time: data.end_time || undefined,
+      color: data.color || "#22d3ee",
+      is_recurring: data.is_recurring ?? false,
+      recurrence_pattern: data.recurrence_pattern || "none",
+      description: data.description || "",
+      location: data.location || "",
+      reminders: data.reminders || [],
+      assigned_members: data.assigned_members || []
     };
 
     set((state) => {
@@ -1223,6 +1335,43 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         calendarEvents: {
           ...state.calendarEvents,
           [projectId]: [...events, newEvent]
+        }
+      };
+    });
+  },
+
+  updateCalendarEvent: async (projectId, eventId, updates) => {
+    const { error } = await supabase
+      .from("calendar_events")
+      .update({
+        title: updates.title,
+        date: updates.date,
+        type: updates.type,
+        time: updates.time,
+        end_date: updates.end_date,
+        end_time: updates.end_time,
+        color: updates.color,
+        is_recurring: updates.is_recurring,
+        recurrence_pattern: updates.recurrence_pattern,
+        description: updates.description,
+        location: updates.location,
+        reminders: updates.reminders,
+        assigned_members: updates.assigned_members
+      })
+      .eq("id", eventId);
+
+    if (error) {
+      console.error("Error updating calendar event:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => {
+      const events = state.calendarEvents[projectId] || [];
+      return {
+        calendarEvents: {
+          ...state.calendarEvents,
+          [projectId]: events.map((e) => e.id === eventId ? { ...e, ...updates } : e)
         }
       };
     });
@@ -1242,6 +1391,232 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         calendarEvents: {
           ...state.calendarEvents,
           [projectId]: events.filter((e) => e.id !== id)
+        }
+      };
+    });
+  },
+
+  fetchTasks: async (projectId) => {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select(`
+        *,
+        subtasks (*)
+      `)
+      .eq("production_id", projectId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching tasks:", error);
+      return;
+    }
+
+    set((state) => ({
+      tasks: {
+        ...state.tasks,
+        [projectId]: (data || []).map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description || "",
+          assignee_id: t.assignee_id,
+          due_date: t.due_date,
+          priority: t.priority || "Medium",
+          status: t.status || "Todo",
+          production_id: t.production_id,
+          progress: t.progress || 0,
+          attachments: t.attachments || [],
+          comments: t.comments || [],
+          assigned_members: t.assigned_members || [],
+          created_at: t.created_at,
+          updated_at: t.updated_at,
+          subtasks: (t.subtasks || []).map((s: any) => ({
+            id: s.id,
+            task_id: s.task_id,
+            title: s.title,
+            completed: s.completed,
+            created_at: s.created_at
+          }))
+        }))
+      }
+    }));
+  },
+
+  addTask: async (projectId, task) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert({
+        production_id: projectId,
+        title: task.title,
+        description: task.description,
+        assignee_id: task.assignee_id || user?.id,
+        due_date: task.due_date,
+        priority: task.priority || "Medium",
+        status: task.status || "Todo",
+        progress: task.progress || 0,
+        attachments: task.attachments || [],
+        comments: task.comments || [],
+        assigned_members: task.assigned_members || []
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error adding task:", error);
+      alert(error.message);
+      return;
+    }
+
+    const newTask: Task = {
+      ...data,
+      subtasks: []
+    };
+
+    set((state) => {
+      const currentTasks = state.tasks[projectId] || [];
+      return {
+        tasks: {
+          ...state.tasks,
+          [projectId]: [...currentTasks, newTask]
+        }
+      };
+    });
+  },
+
+  updateTaskStatus: async (projectId, taskId, updates) => {
+    const { error } = await supabase
+      .from("tasks")
+      .update({
+        title: updates.title,
+        description: updates.description,
+        assignee_id: updates.assignee_id,
+        due_date: updates.due_date,
+        priority: updates.priority,
+        status: updates.status,
+        progress: updates.progress,
+        attachments: updates.attachments,
+        comments: updates.comments,
+        assigned_members: updates.assigned_members
+      })
+      .eq("id", taskId);
+
+    if (error) {
+      console.error("Error updating task:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => {
+      const currentTasks = state.tasks[projectId] || [];
+      return {
+        tasks: {
+          ...state.tasks,
+          [projectId]: currentTasks.map((t) => {
+            if (t.id === taskId) {
+               return { ...t, ...updates };
+            }
+            return t;
+          })
+        }
+      };
+    });
+  },
+
+  deleteTask: async (projectId, taskId) => {
+    const { error } = await supabase
+      .from("tasks")
+      .delete()
+      .eq("id", taskId);
+
+    if (error) {
+      console.error("Error deleting task:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => {
+      const currentTasks = state.tasks[projectId] || [];
+      return {
+        tasks: {
+          ...state.tasks,
+          [projectId]: currentTasks.filter((t) => t.id !== taskId)
+        }
+      };
+    });
+  },
+
+  addSubtask: async (projectId, taskId, title) => {
+    const { data, error } = await supabase
+      .from("subtasks")
+      .insert({
+        task_id: taskId,
+        title,
+        completed: false
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error adding subtask:", error);
+      alert(error.message);
+      return;
+    }
+
+    const newSubtask: Subtask = {
+      id: data.id,
+      task_id: data.task_id,
+      title: data.title,
+      completed: data.completed,
+      created_at: data.created_at
+    };
+
+    set((state) => {
+      const currentTasks = state.tasks[projectId] || [];
+      return {
+        tasks: {
+          ...state.tasks,
+          [projectId]: currentTasks.map((t) => {
+            if (t.id === taskId) {
+              const subtasks = t.subtasks || [];
+              return {
+                ...t,
+                subtasks: [...subtasks, newSubtask]
+              };
+            }
+            return t;
+          })
+        }
+      };
+    });
+  },
+
+  toggleSubtask: async (projectId, taskId, subtaskId, completed) => {
+    const { error } = await supabase
+      .from("subtasks")
+      .update({ completed })
+      .eq("id", subtaskId);
+
+    if (error) {
+      console.error("Error toggling subtask:", error);
+      alert(error.message);
+      return;
+    }
+
+    set((state) => {
+      const currentTasks = state.tasks[projectId] || [];
+      return {
+        tasks: {
+          ...state.tasks,
+          [projectId]: currentTasks.map((t) => {
+            if (t.id === taskId) {
+              const subtasks = t.subtasks || [];
+              return {
+                ...t,
+                subtasks: subtasks.map((s) => s.id === subtaskId ? { ...s, completed } : s)
+              };
+            }
+            return t;
+          })
         }
       };
     });
