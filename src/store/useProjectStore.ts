@@ -259,6 +259,47 @@ export interface CallSheet {
   created_at?: string;
 }
 
+export interface Note {
+  id: string;
+  user_id: string;
+  content: string;
+  song_id?: string;
+  song_name?: string;
+  song_artist?: string;
+  song_artwork?: string;
+  song_preview_url?: string;
+  audience?: "everyone" | "followers" | "close_friends" | "team";
+  created_at: string;
+  profiles?: {
+    id: string;
+    full_name: string;
+    avatar_url: string;
+  };
+}
+
+export interface Story {
+  id: string;
+  user_id: string;
+  media_url: string;
+  media_type: "image" | "video";
+  song_id?: string;
+  song_name?: string;
+  song_artist?: string;
+  song_artwork?: string;
+  song_preview_url?: string;
+  caption?: string;
+  audience?: "everyone" | "close_friends";
+  views: any; // JSONB array
+  likes: string[]; // array of user IDs
+  created_at: string;
+  profiles?: {
+    id: string;
+    full_name: string;
+    avatar_url: string;
+  };
+}
+
+
 // --- STATE DEFINITION ---
 interface ProjectStoreState {
   // Navigation
@@ -306,6 +347,8 @@ interface ProjectStoreState {
   chatChannels: any[];
   chatMessages: Record<string, any[]>;
   activeChannelId: string;
+  notes: Note[];
+  stories: Story[];
 
   // Actions
   setActiveView: (view: string) => void;
@@ -379,6 +422,16 @@ interface ProjectStoreState {
   leaveGroup: (channelId: string) => Promise<void>;
   uploadChatAttachment: (file: File) => Promise<string>;
   updateProfilePrivacySettings: (settings: { message_privacy?: string; online_privacy?: string; pfp_privacy?: string; add_to_groups_privacy?: string }) => Promise<void>;
+  fetchNotes: () => Promise<void>;
+  addNote: (content: string, song?: any, audience?: string) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
+  fetchStories: () => Promise<void>;
+  addStory: (mediaUrl: string, mediaType: "image" | "video", caption?: string, song?: any, audience?: string) => Promise<void>;
+  likeStory: (storyId: string) => Promise<void>;
+  viewStory: (storyId: string) => Promise<void>;
+  updateChatChannelTheme: (channelId: string, themeName: string, wallpaperUrl?: string) => Promise<void>;
+  pinChatMessage: (channelId: string, messageId: string) => Promise<void>;
+  unpinChatMessage: (channelId: string, messageId: string) => Promise<void>;
 
   // Profile Mutations
   updateUserProfile: (profile: Partial<UserProfile>) => Promise<void>;
@@ -416,6 +469,8 @@ const initialChatLogs: ChatMessage[] = [
   }
 ];
 const initialNotifications: NotificationItem[] = [];
+const initialNotes: Note[] = [];
+const initialStories: Story[] = [];
 
 // --- ZUSTAND STORE ---
 export const useProjectStore = create<ProjectStoreState>((set) => ({
@@ -463,6 +518,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   chatChannels: [],
   chatMessages: {},
   activeChannelId: "",
+  notes: initialNotes,
+  stories: initialStories,
 
   // Actions
   setActiveView: (view) => set({ activeView: view }),
@@ -670,6 +727,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
         departmentsList: depts || []
       });
       useProjectStore.getState().fetchChatChannels();
+      useProjectStore.getState().fetchNotes();
+      useProjectStore.getState().fetchStories();
     }
 
     // 1. Fetch productions from Supabase
@@ -2123,7 +2182,9 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       skillsList: [],
       userTagsList: [],
       userPreferences: null,
-      activities: []
+      activities: [],
+      notes: [],
+      stories: []
     });
 
     await supabase.auth.signOut();
@@ -2310,6 +2371,10 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
           id,
           emoji,
           user_id
+        ),
+        pinned_by:pinned_by (
+          id,
+          full_name
         )
       `)
       .eq("channel_id", channelId)
@@ -2349,6 +2414,10 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
           id,
           full_name,
           avatar_url
+        ),
+        pinned_by:pinned_by (
+          id,
+          full_name
         )
       `)
       .single();
@@ -2691,5 +2760,260 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     } else {
       await useProjectStore.getState().fetchWorkspaceData();
     }
+  },
+
+  fetchNotes: async () => {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("notes")
+      .select(`
+        *,
+        profiles:user_id (
+          id,
+          full_name,
+          avatar_url
+        )
+      `)
+      .gt("created_at", twentyFourHoursAgo)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching notes:", error);
+      return;
+    }
+
+    set({ notes: data || [] });
+  },
+
+  addNote: async (content, song, audience) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("notes")
+      .insert({
+        user_id: user.id,
+        content,
+        audience: audience || "everyone",
+        song_id: song?.id || null,
+        song_name: song?.name || null,
+        song_artist: song?.artist || null,
+        song_artwork: song?.artwork || null,
+        song_preview_url: song?.preview_url || null
+      });
+
+    if (error) {
+      console.error("Error adding note:", error);
+      alert(error.message);
+      return;
+    }
+
+    await useProjectStore.getState().fetchNotes();
+  },
+
+  deleteNote: async (id) => {
+    const { error } = await supabase
+      .from("notes")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deleting note:", error);
+      alert(error.message);
+      return;
+    }
+
+    await useProjectStore.getState().fetchNotes();
+  },
+
+  fetchStories: async () => {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("stories")
+      .select(`
+        *,
+        profiles:user_id (
+          id,
+          full_name,
+          avatar_url
+        )
+      `)
+      .gt("created_at", twentyFourHoursAgo)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching stories:", error);
+      return;
+    }
+
+    set({ stories: data || [] });
+  },
+
+  addStory: async (mediaUrl, mediaType, caption, song, audience) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("stories")
+      .insert({
+        user_id: user.id,
+        media_url: mediaUrl,
+        media_type: mediaType,
+        caption: caption || null,
+        audience: audience || "everyone",
+        song_id: song?.id || null,
+        song_name: song?.name || null,
+        song_artist: song?.artist || null,
+        song_artwork: song?.artwork || null,
+        song_preview_url: song?.preview_url || null
+      });
+
+    if (error) {
+      console.error("Error adding story:", error);
+      alert(error.message);
+      return;
+    }
+
+    await useProjectStore.getState().fetchStories();
+  },
+
+  likeStory: async (storyId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: story, error: fetchErr } = await supabase
+      .from("stories")
+      .select("likes")
+      .eq("id", storyId)
+      .single();
+
+    if (fetchErr || !story) {
+      console.error("Error fetching story for like:", fetchErr);
+      return;
+    }
+
+    const likesList = story.likes || [];
+    const newLikes = likesList.includes(user.id)
+      ? likesList.filter((id: string) => id !== user.id)
+      : [...likesList, user.id];
+
+    const { error: updateErr } = await supabase
+      .from("stories")
+      .update({ likes: newLikes })
+      .eq("id", storyId);
+
+    if (updateErr) {
+      console.error("Error updating story likes:", updateErr);
+      return;
+    }
+
+    await useProjectStore.getState().fetchStories();
+  },
+
+  viewStory: async (storyId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: story, error: fetchErr } = await supabase
+      .from("stories")
+      .select("views")
+      .eq("id", storyId)
+      .single();
+
+    if (fetchErr || !story) {
+      console.error("Error fetching story for view:", fetchErr);
+      return;
+    }
+
+    const viewsList = Array.isArray(story.views) ? story.views : [];
+    
+    const alreadyViewed = viewsList.some((v: any) => {
+      if (typeof v === "string") return v === user.id;
+      if (v && typeof v === "object") return v.id === user.id;
+      return false;
+    });
+
+    if (alreadyViewed) return;
+
+    const profile = useProjectStore.getState().userProfile;
+    const viewEntry = {
+      id: user.id,
+      full_name: profile?.full_name || "User",
+      avatar_url: profile?.avatar_url || "",
+      viewed_at: new Date().toISOString()
+    };
+
+    const newViews = [...viewsList, viewEntry];
+
+    const { error: updateErr } = await supabase
+      .from("stories")
+      .update({ views: newViews })
+      .eq("id", storyId);
+
+    if (updateErr) {
+      console.error("Error updating story views:", updateErr);
+      return;
+    }
+
+    await useProjectStore.getState().fetchStories();
+  },
+
+  updateChatChannelTheme: async (channelId, themeName, wallpaperUrl) => {
+    const { error } = await supabase
+      .from("chat_channels")
+      .update({
+        theme_name: themeName,
+        wallpaper_url: wallpaperUrl || null
+      })
+      .eq("id", channelId);
+
+    if (error) {
+      console.error("Error updating chat channel theme:", error);
+      alert(error.message);
+      return;
+    }
+
+    await useProjectStore.getState().fetchChatChannels();
+  },
+
+  pinChatMessage: async (channelId, messageId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("chat_messages")
+      .update({
+        is_pinned: true,
+        pinned_at: new Date().toISOString(),
+        pinned_by: user.id
+      })
+      .eq("id", messageId);
+
+    if (error) {
+      console.error("Error pinning chat message:", error);
+      alert(error.message);
+      return;
+    }
+
+    await useProjectStore.getState().fetchChatMessages(channelId);
+  },
+
+  unpinChatMessage: async (channelId, messageId) => {
+    const { error } = await supabase
+      .from("chat_messages")
+      .update({
+        is_pinned: false,
+        pinned_at: null,
+        pinned_by: null
+      })
+      .eq("id", messageId);
+
+    if (error) {
+      console.error("Error unpinning chat message:", error);
+      alert(error.message);
+      return;
+    }
+
+    await useProjectStore.getState().fetchChatMessages(channelId);
   }
 }));
