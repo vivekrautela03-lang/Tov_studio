@@ -2125,25 +2125,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from("chat_messages")
-      .select("id, read_by")
-      .eq("channel_id", channelId)
-      .not("sender_id", "eq", user.id);
-
-    if (error || !data) return;
-
-    for (const msg of data) {
-      const readList = msg.read_by || [];
-      if (!readList.includes(user.id)) {
-        const newReadBy = [...readList, user.id];
-        await supabase
-          .from("chat_messages")
-          .update({ read_by: newReadBy })
-          .eq("id", msg.id);
-      }
-    }
-
+    await supabase.rpc("mark_messages_read", { p_channel_id: channelId, p_user_id: user.id });
     await useProjectStore.getState().fetchChatMessages(channelId);
   },
 

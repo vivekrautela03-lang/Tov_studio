@@ -12,6 +12,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { NotificationsView } from "@/components/views/NotificationsView";
 import { ProfileView } from "@/components/views/ProfileView";
 import { EquipmentView } from "@/components/views/EquipmentView";
+import { initializePushNotifications } from "@/utils/pushNotifications";
 
 // Views
 import { DashboardView } from "@/components/views/DashboardView";
@@ -87,6 +88,8 @@ export default function Home() {
   // Global Realtime Database Synchronization Channel
   useEffect(() => {
     if (!session?.user) return;
+
+    initializePushNotifications(session.user.id);
 
     const channel = supabase
       .channel("global-tov-realtime")

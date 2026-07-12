@@ -48,6 +48,12 @@ export const SettingsView: React.FC = () => {
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [profileRole, setProfileRole] = useState("Crew");
+  const [privacySettings, setPrivacySettings] = useState({
+    lastSeen: "Everyone",
+    onlineStatus: "Everyone",
+    typingIndicator: "Everyone",
+    readReceipts: "Everyone"
+  });
 
   const isSuperAdmin = profile && (
     profile.email?.toLowerCase() === "theoldverse@gmail.com" || 
@@ -118,6 +124,9 @@ export const SettingsView: React.FC = () => {
           setBio(data.bio || "");
           setAvatarUrl(data.avatar_url || "");
           setProfileRole(data.role || "Crew");
+          if (data.privacy_settings) {
+            setPrivacySettings(data.privacy_settings);
+          }
         }
       }
     } catch (err) {
@@ -201,7 +210,8 @@ export const SettingsView: React.FC = () => {
           phone: phone,
           bio: bio,
           avatar_url: avatarUrl,
-          role: profileRole
+          role: profileRole,
+          privacy_settings: privacySettings
         })
         .eq("id", user.id);
 
@@ -568,6 +578,70 @@ export const SettingsView: React.FC = () => {
                     {profileLoading ? "Saving..." : "Save Settings"}
                   </Button>
                 </form>
+              </CardContent>
+            </Card>
+
+            <Card className="border-white/5 bg-neutral-900/50 backdrop-blur-md">
+              <CardHeader>
+                <CardTitle>Privacy Controls</CardTitle>
+                <CardDescription>Configure who can view your active statuses and delivery actions</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-text-secondary mb-1.5 font-medium">Last Seen</label>
+                    <select
+                      value={privacySettings.lastSeen}
+                      onChange={(e) => setPrivacySettings({ ...privacySettings, lastSeen: e.target.value })}
+                      className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white"
+                    >
+                      <option value="Everyone">Everyone</option>
+                      <option value="Contacts">Contacts</option>
+                      <option value="Nobody">Nobody</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-text-secondary mb-1.5 font-medium">Online Status</label>
+                    <select
+                      value={privacySettings.onlineStatus}
+                      onChange={(e) => setPrivacySettings({ ...privacySettings, onlineStatus: e.target.value })}
+                      className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white"
+                    >
+                      <option value="Everyone">Everyone</option>
+                      <option value="Contacts">Contacts</option>
+                      <option value="Nobody">Nobody</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-text-secondary mb-1.5 font-medium">Typing Indicator</label>
+                    <select
+                      value={privacySettings.typingIndicator}
+                      onChange={(e) => setPrivacySettings({ ...privacySettings, typingIndicator: e.target.value })}
+                      className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white"
+                    >
+                      <option value="Everyone">Everyone</option>
+                      <option value="Contacts">Contacts</option>
+                      <option value="Nobody">Nobody</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-text-secondary mb-1.5 font-medium">Read Receipts (Blue Ticks)</label>
+                    <select
+                      value={privacySettings.readReceipts}
+                      onChange={(e) => setPrivacySettings({ ...privacySettings, readReceipts: e.target.value })}
+                      className="w-full bg-[#09090B] border border-white/10 rounded-lg px-3 py-2 text-white"
+                    >
+                      <option value="Everyone">Everyone</option>
+                      <option value="Contacts">Contacts</option>
+                      <option value="Nobody">Nobody</option>
+                    </select>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
