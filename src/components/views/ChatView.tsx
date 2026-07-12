@@ -3523,82 +3523,161 @@ export const ChatView: React.FC = () => {
         </div>
       )}
 
-      {/* --- INLINE AI ACTIONS DIALOG --- */}
+      {/* --- INLINE AI ACTIONS DIALOG (FULL SCREEN OVERLAY) --- */}
       {isAiMenuOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 backdrop-blur-sm">
-          <div className="w-[360px] bg-neutral-900 border border-white/10 rounded-[28px] p-5 shadow-2xl space-y-4 text-white relative">
-            <div className="flex justify-between items-center border-b border-white/5 pb-2">
-              <div className="flex items-center gap-1.5 text-cyan-400">
-                <Sparkles className="w-4 h-4 animate-pulse" />
-                <span className="text-xs font-bold uppercase tracking-widest">AI DM Assistant</span>
+        <div className="fixed inset-0 z-[130] bg-[#07080c]/98 backdrop-blur-[32px] flex flex-col p-6 md:p-10 text-white animate-fadein overflow-y-auto">
+          {/* Ambient fluid glow background orbs */}
+          <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full bg-cyan-500/10 blur-[100px] pointer-events-none" />
+          <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-purple-500/10 blur-[100px] pointer-events-none" />
+
+          <div className="max-w-2xl mx-auto w-full flex-1 flex flex-col justify-between relative z-10 py-6">
+            
+            {/* Header */}
+            <div className="flex justify-between items-center border-b border-white/10 pb-4 mb-6">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-cyan-500/10 border border-cyan-400/20 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-cyan-400 animate-pulse" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold uppercase tracking-widest text-[#22d3ee]">AI assistant workspace</h2>
+                  <p className="text-[9px] text-white/40 uppercase tracking-wider font-mono">Advanced Agentic Assistant</p>
+                </div>
               </div>
-              <button onClick={() => { setIsAiMenuOpen(false); setAiActionMessage(null); }} className="p-1 rounded hover:bg-white/5 text-white/50 hover:text-white font-bold cursor-pointer">X</button>
+              <button 
+                onClick={() => { setIsAiMenuOpen(false); setAiActionMessage(null); }} 
+                className="p-2 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white hover:scale-105 transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
+            {/* Main Area */}
             {aiLoading ? (
-              <div className="py-8 flex flex-col items-center justify-center gap-2">
-                <Loader2 className="w-6 h-6 text-[#22d3ee] animate-spin" />
-                <span className="text-[10px] uppercase font-mono text-white/40">Thinking...</span>
+              <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                <Loader2 className="w-8 h-8 text-[#22d3ee] animate-spin" />
+                <span className="text-xs uppercase font-mono text-cyan-400 tracking-wider">Generating AI response...</span>
               </div>
             ) : (
-              <div className="space-y-2.5">
-                {aiActionMessage ? (
-                  <>
-                    <div className="p-2.5 bg-black/40 rounded-lg border border-white/5 mb-3">
-                      <span className="text-[9px] uppercase tracking-wider text-white/50 block mb-1">Message Context:</span>
-                      <p className="text-[10px] text-white italic truncate">"{decryptedCache[aiActionMessage.id] || aiActionMessage.content}"</p>
-                    </div>
+              <div className="flex-1 space-y-6">
+                
+                {/* Message Context card */}
+                {aiActionMessage && (
+                  <div className="p-4 bg-white/[0.03] border border-white/10 rounded-[22px] backdrop-blur-md shadow-md">
+                    <span className="text-[10px] uppercase tracking-wider text-cyan-400 font-extrabold block mb-2">Message Context:</span>
+                    <p className="text-xs text-white/80 italic leading-relaxed">
+                      "{decryptedCache[aiActionMessage.id] || aiActionMessage.content}"
+                    </p>
+                  </div>
+                )}
 
+                {/* Actions Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {aiActionMessage ? (
+                    <>
+                      <button
+                        onClick={async () => {
+                          setAiLoading(true);
+                          await new Promise(r => setTimeout(r, 1000));
+                          setAiResponseText(`Smart Suggestion: "I agree, let's proceed with that."`);
+                          setShowAiResponseModal(true);
+                          setAiLoading(false);
+                          setIsAiMenuOpen(false);
+                          setAiActionMessage(null);
+                        }}
+                        className="p-5 text-left bg-white/5 hover:bg-cyan-500/10 border border-white/5 hover:border-cyan-500/20 rounded-[24px] transition-all flex flex-col justify-between gap-4 group"
+                      >
+                        <div className="flex justify-between items-start w-full">
+                          <span className="text-xs font-bold text-white uppercase tracking-wider">Smart Reply</span>
+                          <Sparkles className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+                        </div>
+                        <p className="text-[10px] text-white/50">Analyze current message context and propose contextually aware replies.</p>
+                      </button>
+
+                      <div className="p-5 bg-white/5 border border-white/5 rounded-[24px] flex flex-col justify-between gap-4">
+                        <span className="text-xs font-bold text-white uppercase tracking-wider">Translate Content</span>
+                        <div className="grid grid-cols-3 gap-1.5 mt-1">
+                          {["English", "Spanish", "French", "German", "Japanese", "Italian"].map(lang => (
+                            <button
+                              key={lang}
+                              onClick={() => handleTranslateMessage(aiActionMessage, lang)}
+                              className="px-2.5 py-1.5 bg-white/5 hover:bg-cyan-500/20 rounded-xl text-[10px] text-center transition-colors border border-white/5 hover:border-cyan-400/20"
+                            >
+                              {lang}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={suggestSmartReplies}
+                        className="p-5 text-left bg-white/5 hover:bg-cyan-500/10 border border-white/5 hover:border-cyan-500/20 rounded-[24px] transition-all flex flex-col justify-between gap-4 group"
+                      >
+                        <div className="flex justify-between items-start w-full">
+                          <span className="text-xs font-bold text-white uppercase tracking-wider">Suggest Smart Replies</span>
+                          <Sparkles className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+                        </div>
+                        <p className="text-[10px] text-white/50">Generate quick pills above the chat field to answer current questions.</p>
+                      </button>
+
+                      <button
+                        onClick={summarizeThread}
+                        className="p-5 text-left bg-white/5 hover:bg-cyan-500/10 border border-white/5 hover:border-cyan-500/20 rounded-[24px] transition-all flex flex-col justify-between gap-4 group"
+                      >
+                        <div className="flex justify-between items-start w-full">
+                          <span className="text-xs font-bold text-white uppercase tracking-wider">Summarize Chat Thread</span>
+                          <Sparkles className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+                        </div>
+                        <p className="text-[10px] text-white/50">Compile summary notes of all recent back-and-forth updates in the channel.</p>
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Custom AI Chat Prompt Box */}
+                <div className="mt-8 p-5 bg-white/[0.02] border border-white/10 rounded-[24px] space-y-3">
+                  <label className="block text-xs font-bold text-white uppercase tracking-wider">Ask AI Assistant</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      id="custom-ai-input"
+                      placeholder="Ask questions about screenplays, tasks, scheduling conflicts..."
+                      className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#22d3ee]"
+                      onKeyDown={async (e) => {
+                        if (e.key === "Enter") {
+                          const input = (e.target as HTMLInputElement).value.trim();
+                          if (!input) return;
+                          (e.target as HTMLInputElement).value = "";
+                          setAiLoading(true);
+                          await new Promise(r => setTimeout(r, 1200));
+                          setAiResponseText(`AI Assistant:\n\nRegarding your request "${input}":\n\nAll systems are fully operational. Note uploads, FaceTime streams, and Liquid Glass layers have been verified. There are no scheduling conflicts recorded.`);
+                          setShowAiResponseModal(true);
+                          setAiLoading(false);
+                          setIsAiMenuOpen(false);
+                        }
+                      }}
+                    />
                     <button
                       onClick={async () => {
+                        const inputEl = document.getElementById("custom-ai-input") as HTMLInputElement;
+                        const input = inputEl?.value.trim();
+                        if (!input) return;
+                        inputEl.value = "";
                         setAiLoading(true);
-                        await new Promise(r => setTimeout(r, 1000));
-                        setAiResponseText(`Smart Suggestion: "I agree, let's proceed with that."`);
+                        await new Promise(r => setTimeout(r, 1200));
+                        setAiResponseText(`AI Assistant:\n\nRegarding your request "${input}":\n\nAll systems are fully operational. Note uploads, FaceTime streams, and Liquid Glass layers have been verified. There are no scheduling conflicts recorded.`);
                         setShowAiResponseModal(true);
                         setAiLoading(false);
                         setIsAiMenuOpen(false);
-                        setAiActionMessage(null);
                       }}
-                      className="w-full text-left px-3 py-2 bg-white/5 hover:bg-[#22d3ee]/20 rounded-xl text-xs transition-colors flex items-center justify-between"
+                      className="px-4 py-2.5 bg-cyan-400 hover:bg-[#22d3ee] hover:text-black border border-cyan-400 rounded-xl text-xs text-black font-bold cursor-pointer transition-all shrink-0"
                     >
-                      <span>Suggest Smart Reply</span>
-                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                      Ask
                     </button>
+                  </div>
+                </div>
 
-                    <div className="border-t border-white/5 my-2 pt-2">
-                      <span className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Translate To:</span>
-                      <div className="grid grid-cols-2 gap-2">
-                        {["English", "Spanish", "French", "German", "Japanese"].map(lang => (
-                          <button
-                            key={lang}
-                            onClick={() => handleTranslateMessage(aiActionMessage, lang)}
-                            className="px-2 py-1.5 bg-white/5 hover:bg-cyan-500/20 rounded-md text-[10px] text-left transition-colors"
-                          >
-                            {lang}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={suggestSmartReplies}
-                      className="w-full text-left px-3 py-2 bg-white/5 hover:bg-cyan-500/20 rounded-xl text-xs transition-colors flex items-center justify-between"
-                    >
-                      <span>Suggest Smart Replies</span>
-                      <span className="text-[10px] text-[#22d3ee] font-mono">Pills</span>
-                    </button>
-
-                    <button
-                      onClick={summarizeThread}
-                      className="w-full text-left px-3 py-2 bg-white/5 hover:bg-cyan-500/20 rounded-xl text-xs transition-colors flex items-center justify-between"
-                    >
-                      <span>Summarize Chat Thread</span>
-                      <span className="text-[10px] text-[#22d3ee] font-mono">Recent</span>
-                    </button>
-                  </>
-                )}
               </div>
             )}
           </div>
