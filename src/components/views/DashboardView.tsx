@@ -1279,6 +1279,13 @@ export const DashboardView: React.FC = () => {
       {/* INSTAGRAM STYLED STORIES ROW */}
       <div className="overflow-x-auto no-scrollbar scroll-smooth py-4 px-1">
         <div className="flex gap-5 items-center py-1">
+          <input 
+            type="file" 
+            ref={storyFileInputRef}
+            accept="image/*,video/*" 
+            onChange={handleStoryFileChange} 
+            className="hidden" 
+          />
           {/* Creator's own story circle */}
           {(() => {
             const myStories = stories.filter(s => s.user_id === userProfile?.id);
@@ -1295,7 +1302,7 @@ export const DashboardView: React.FC = () => {
                         setActiveStoryIndex(0);
                         setIsStoryViewerOpen(true);
                       } else {
-                        setIsStoryUploaderOpen(true);
+                        storyFileInputRef.current?.click();
                       }
                     }}
                     className={`w-[84px] h-[84px] rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all ${
@@ -1987,10 +1994,9 @@ export const DashboardView: React.FC = () => {
         </div>
       )}
       {/* --- STORY CREATOR / UPLOADER MODAL --- */}
-      {isStoryUploaderOpen && (
+      {isStoryUploaderOpen && !storyPreview && (
         <div className="fixed inset-0 z-[150] flex flex-col bg-black text-white select-none animate-fadein">
-          {!storyPreview ? (
-            /* --- STEP 1: ADD TO STORY GRID SELECTION SCREEN --- */
+            {/* --- STEP 1: ADD TO STORY GRID SELECTION SCREEN --- */}
             <div className="flex-1 flex flex-col h-full overflow-y-auto no-scrollbar pb-6">
               {/* Sticky Header */}
               <div className="sticky top-0 z-30 bg-black px-4 py-4 flex items-center justify-between border-b border-white/5">
@@ -2122,183 +2128,188 @@ export const DashboardView: React.FC = () => {
                 ))}
               </div>
             </div>
-          ) : (
-            /* --- STEP 2: CANVAS EDIT / CUSTOMIZATION PREVIEW (IMAGE 2) --- */
-            <div className="flex-1 flex flex-col h-full relative justify-between overflow-hidden">
-              {/* Full screen vertical preview media */}
-              <div className="absolute inset-0 z-0">
-                {storyMediaType === "video" ? (
-                  <video src={storyPreview} className="w-full h-full object-cover" autoPlay loop muted />
-                ) : (
-                  <img src={storyPreview} className="w-full h-full object-cover" alt="" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/50" />
+        </div>
+      )}
 
-                {/* Floating custom text overlay */}
-                {storyTextOverlay && (
-                  <div 
-                    onClick={() => {
-                      const text = prompt("Edit text overlay:", storyTextOverlay);
-                      if (text !== null) setStoryTextOverlay(text);
-                    }}
-                    className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 px-4 py-2.5 bg-black/60 border border-white/20 rounded-2xl text-center max-w-[85%] font-extrabold text-[22px] tracking-wide text-white drop-shadow-md cursor-pointer select-none hover:scale-105 active:scale-95 transition-transform"
-                  >
-                    {storyTextOverlay}
+      {/* --- STORY CREATOR / UPLOADER MODAL --- */}
+      {isStoryUploaderOpen && storyPreview && (
+        <div className="fixed inset-0 z-[150] flex flex-col bg-black text-white select-none animate-fadein">
+          {/* --- STEP 2: CANVAS EDIT / CUSTOMIZATION PREVIEW (IMAGE 2) --- */}
+          <div className="flex-1 flex flex-col h-full relative justify-between overflow-hidden">
+            {/* Full screen vertical preview media */}
+            <div className="absolute inset-0 z-0">
+              {storyMediaType === "video" ? (
+                <video src={storyPreview} className="w-full h-full object-cover" autoPlay loop muted />
+              ) : (
+                <img src={storyPreview} className="w-full h-full object-cover" alt="" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/50" />
+
+              {/* Floating custom text overlay */}
+              {storyTextOverlay && (
+                <div 
+                  onClick={() => {
+                    const text = prompt("Edit text overlay:", storyTextOverlay);
+                    if (text !== null) setStoryTextOverlay(text);
+                  }}
+                  className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 px-4 py-2.5 bg-black/60 border border-white/20 rounded-2xl text-center max-w-[85%] font-extrabold text-[22px] tracking-wide text-white drop-shadow-md cursor-pointer select-none hover:scale-105 active:scale-95 transition-transform"
+                >
+                  {storyTextOverlay}
+                </div>
+              )}
+
+              {/* Floating music sticker */}
+              {selectedStorySong && (
+                <div 
+                  onClick={() => {
+                    if (confirm("Remove music from story?")) {
+                      setSelectedStorySong(null);
+                    }
+                  }}
+                  className="absolute top-[50%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 p-3.5 bg-neutral-900/90 border border-white/10 backdrop-blur-md rounded-2xl flex items-center gap-3 shadow-xl max-w-[80%] cursor-pointer select-none hover:scale-105 active:scale-95 transition-transform"
+                >
+                  <img src={selectedStorySong.artwork} className="w-12 h-12 rounded-xl object-cover shrink-0" alt="" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-bold text-white block truncate">{selectedStorySong.name}</span>
+                    <span className="text-[10px] text-[#0095f6] font-semibold block truncate">{selectedStorySong.artist}</span>
+                    <span className="text-[9px] text-white/40 block mt-0.5">🎵 Story Soundtrack</span>
                   </div>
-                )}
+                </div>
+              )}
+            </div>
 
-                {/* Floating music sticker */}
-                {selectedStorySong && (
-                  <div 
+            {/* Top bar on top of background preview */}
+            <div className="relative z-10 p-4 flex items-center justify-between">
+              <button 
+                onClick={() => {
+                  setIsStoryUploaderOpen(false);
+                  setStoryPreview("");
+                  setStoryFile(null);
+                }}
+                className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition-colors cursor-pointer"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 mr-0.5">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+
+              {/* Floating actions list */}
+              <div className="flex items-center gap-2">
+                {[
+                  { id: "text", el: <span className="font-extrabold text-[15px]">Aa</span> },
+                  { id: "sticker", el: (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-5 h-5">
+                      <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14.5a3.5 3.5 0 0 1-7 0" />
+                      <circle cx="9" cy="9" r="1" />
+                      <circle cx="15" cy="9" r="1" />
+                    </svg>
+                  )},
+                  { id: "music", el: <span className="text-[15px]">🎵</span> },
+                  { id: "brush", el: (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4.5 h-4.5">
+                      <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                      <path d="M7.5 10.5c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5z" />
+                    </svg>
+                  )},
+                  { id: "download", el: (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4.5 h-4.5">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  )}
+                ].map(act => (
+                  <button 
+                    key={act.id} 
                     onClick={() => {
-                      if (confirm("Remove music from story?")) {
-                        setSelectedStorySong(null);
+                      if (act.id === "text") {
+                        const text = prompt("Enter text overlay for your story:", storyTextOverlay);
+                        if (text !== null) setStoryTextOverlay(text);
+                      } else if (act.id === "music") {
+                        setIsStoryMusicPickerOpen(true);
+                      } else {
+                        alert(`Simulated story decoration tool: ${act.id.toUpperCase()}`);
                       }
                     }}
-                    className="absolute top-[50%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 p-3.5 bg-neutral-900/90 border border-white/10 backdrop-blur-md rounded-2xl flex items-center gap-3 shadow-xl max-w-[80%] cursor-pointer select-none hover:scale-105 active:scale-95 transition-transform"
+                    className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 hover:scale-105 active:scale-95 transition-all cursor-pointer"
                   >
-                    <img src={selectedStorySong.artwork} className="w-12 h-12 rounded-xl object-cover shrink-0" alt="" />
-                    <div className="min-w-0 flex-1">
-                      <span className="text-xs font-bold text-white block truncate">{selectedStorySong.name}</span>
-                      <span className="text-[10px] text-[#0095f6] font-semibold block truncate">{selectedStorySong.artist}</span>
-                      <span className="text-[9px] text-white/40 block mt-0.5">🎵 Story Soundtrack</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Top bar on top of background preview */}
-              <div className="relative z-10 p-4 flex items-center justify-between">
-                <button 
-                  onClick={() => {
-                    setStoryPreview("");
-                    setStoryFile(null);
-                  }}
-                  className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition-colors cursor-pointer"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 mr-0.5">
-                    <polyline points="15 18 9 12 15 6" />
-                  </svg>
-                </button>
-
-                {/* Floating actions list */}
-                <div className="flex items-center gap-2">
-                  {[
-                    { id: "text", el: <span className="font-extrabold text-[15px]">Aa</span> },
-                    { id: "sticker", el: (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-5 h-5">
-                        <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14.5a3.5 3.5 0 0 1-7 0" />
-                        <circle cx="9" cy="9" r="1" />
-                        <circle cx="15" cy="9" r="1" />
-                      </svg>
-                    )},
-                    { id: "music", el: <span className="text-[15px]">🎵</span> },
-                    { id: "brush", el: (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4.5 h-4.5">
-                        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-                        <path d="M7.5 10.5c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5z" />
-                      </svg>
-                    )},
-                    { id: "download", el: (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4.5 h-4.5">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="7 10 12 15 17 10" />
-                        <line x1="12" y1="15" x2="12" y2="3" />
-                      </svg>
-                    )}
-                  ].map(act => (
-                    <button 
-                      key={act.id} 
-                      onClick={() => {
-                        if (act.id === "text") {
-                          const text = prompt("Enter text overlay for your story:", storyTextOverlay);
-                          if (text !== null) setStoryTextOverlay(text);
-                        } else if (act.id === "music") {
-                          setIsStoryMusicPickerOpen(true);
-                        } else {
-                          alert(`Simulated story decoration tool: ${act.id.toUpperCase()}`);
-                        }
-                      }}
-                      className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 hover:scale-105 active:scale-95 transition-all cursor-pointer"
-                    >
-                      {act.el}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Bottom controls panel */}
-              <div className="relative z-10 p-4 space-y-4">
-                
-                {/* Transparent Caption input */}
-                <div className="px-1">
-                  <input 
-                    type="text" 
-                    value={storyCaptionInput}
-                    onChange={(e) => setStoryCaptionInput(e.target.value)}
-                    placeholder="Add a caption..."
-                    className="w-full bg-black/30 border border-white/10 backdrop-blur-sm rounded-full px-5 py-3 text-sm text-white placeholder-white/60 focus:outline-none focus:bg-black/60 focus:border-[#0095f6] transition-all"
-                  />
-                </div>
-
-                {/* Bottom Actions Row */}
-                <div className="flex items-center justify-between gap-3">
-                  {/* Share to your story */}
-                  <button
-                    onClick={() => {
-                      setStoryAudience("everyone");
-                      handleUploadStory();
-                    }}
-                    disabled={isUploadingStory}
-                    className="flex-1 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center gap-2 border border-white/10 text-white font-bold text-[14px] cursor-pointer transition-all hover:scale-102 active:scale-98"
-                  >
-                    {userProfile?.avatar_url ? (
-                      <img src={userProfile.avatar_url} className="w-5.5 h-5.5 rounded-full object-cover" alt="" />
-                    ) : (
-                      <div className="w-5.5 h-5.5 rounded-full bg-cyan-400 text-black text-[9px] flex items-center justify-center font-bold">ME</div>
-                    )}
-                    <span>Your story</span>
+                    {act.el}
                   </button>
-
-                  {/* Share to Close friends */}
-                  <button
-                    onClick={() => {
-                      setStoryAudience("close_friends");
-                      handleUploadStory();
-                    }}
-                    disabled={isUploadingStory}
-                    className="flex-1 h-12 bg-[#121212]/80 hover:bg-black backdrop-blur-md rounded-full flex items-center justify-center gap-2 border border-[#1db954]/20 hover:border-[#1db954]/50 text-white font-bold text-[14px] cursor-pointer transition-all hover:scale-102 active:scale-98"
-                  >
-                    <div className="w-5.5 h-5.5 rounded-full bg-[#1db954] flex items-center justify-center text-white">
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
-                        <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                      </svg>
-                    </div>
-                    <span className="text-[#1db954]">Close Friends</span>
-                  </button>
-
-                  {/* Share Arrow Button */}
-                  <button
-                    onClick={() => {
-                      setStoryAudience("everyone");
-                      handleUploadStory();
-                    }}
-                    disabled={isUploadingStory}
-                    className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:scale-105 active:scale-95 transition-all text-black hover:bg-neutral-200 cursor-pointer shrink-0"
-                    title="Share Story"
-                  >
-                    {isUploadingStory ? (
-                      <Loader2 className="w-5 h-5 animate-spin text-black" />
-                    ) : (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 translate-x-[1px]">
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
-          )}
+
+            {/* Bottom controls panel */}
+            <div className="relative z-10 p-4 space-y-4">
+              
+              {/* Transparent Caption input */}
+              <div className="px-1">
+                <input 
+                  type="text" 
+                  value={storyCaptionInput}
+                  onChange={(e) => setStoryCaptionInput(e.target.value)}
+                  placeholder="Add a caption..."
+                  className="w-full bg-black/30 border border-white/10 backdrop-blur-sm rounded-full px-5 py-3 text-sm text-white placeholder-white/60 focus:outline-none focus:bg-black/60 focus:border-[#0095f6] transition-all"
+                />
+              </div>
+
+              {/* Bottom Actions Row */}
+              <div className="flex items-center justify-between gap-3">
+                {/* Share to your story */}
+                <button
+                  onClick={() => {
+                    setStoryAudience("everyone");
+                    handleUploadStory();
+                  }}
+                  disabled={isUploadingStory}
+                  className="flex-1 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center gap-2 border border-white/10 text-white font-bold text-[14px] cursor-pointer transition-all hover:scale-102 active:scale-98"
+                >
+                  {userProfile?.avatar_url ? (
+                    <img src={userProfile.avatar_url} className="w-5.5 h-5.5 rounded-full object-cover" alt="" />
+                  ) : (
+                    <div className="w-5.5 h-5.5 rounded-full bg-cyan-400 text-black text-[9px] flex items-center justify-center font-bold">ME</div>
+                  )}
+                  <span>Your story</span>
+                </button>
+
+                {/* Share to Close friends */}
+                <button
+                  onClick={() => {
+                    setStoryAudience("close_friends");
+                    handleUploadStory();
+                  }}
+                  disabled={isUploadingStory}
+                  className="flex-1 h-12 bg-[#121212]/80 hover:bg-black backdrop-blur-md rounded-full flex items-center justify-center gap-2 border border-[#1db954]/20 hover:border-[#1db954]/50 text-white font-bold text-[14px] cursor-pointer transition-all hover:scale-102 active:scale-98"
+                >
+                  <div className="w-5.5 h-5.5 rounded-full bg-[#1db954] flex items-center justify-center text-white">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                    </svg>
+                  </div>
+                  <span className="text-[#1db954]">Close Friends</span>
+                </button>
+
+                {/* Share Arrow Button */}
+                <button
+                  onClick={() => {
+                    setStoryAudience("everyone");
+                    handleUploadStory();
+                  }}
+                  disabled={isUploadingStory}
+                  className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:scale-105 active:scale-95 transition-all text-black hover:bg-neutral-200 cursor-pointer shrink-0"
+                  title="Share Story"
+                >
+                  {isUploadingStory ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-black" />
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 translate-x-[1px]">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
