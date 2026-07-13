@@ -41,7 +41,8 @@ import {
   Pause,
   Mic,
   X,
-  MessageSquare
+  MessageSquare,
+  Heart
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -666,7 +667,9 @@ export const DashboardView: React.FC = () => {
   const {
     projects,
     setActiveProjectId,
-    setActiveView
+    setActiveView,
+    createChatChannel,
+    sendChatMessage
   } = useProjectStore();
 
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -686,6 +689,12 @@ export const DashboardView: React.FC = () => {
   const [playingSongId, setPlayingSongId] = useState<string | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [voiceRecordDuration, setVoiceRecordDuration] = useState(0);
+
+  // New state variables
+  const [activeNoteDetail, setActiveNoteDetail] = useState<any | null>(null);
+  const [noteDetailReplyText, setNoteDetailReplyText] = useState("");
+  const [yourNoteOptionsOpen, setYourNoteOptionsOpen] = useState(false);
+  const [songStartOffset, setSongStartOffset] = useState<number>(0);
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const audioPreviewRef = React.useRef<HTMLAudioElement | null>(null);
@@ -823,6 +832,60 @@ export const DashboardView: React.FC = () => {
     };
   }, []);
 
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      const { error } = await supabase
+        .from("notes")
+        .delete()
+        .eq("id", noteId);
+      if (error) throw error;
+      setYourNoteOptionsOpen(false);
+      fetchNotes();
+    } catch (err: any) {
+      alert("Error deleting note: " + err.message);
+    }
+  };
+
+  const handleLikeNote = async (note: any) => {
+    if (!userProfile) return;
+    try {
+      const likesList = note.likes || [];
+      const hasLiked = likesList.includes(userProfile.id);
+      const newLikes = hasLiked
+        ? likesList.filter((id: string) => id !== userProfile.id)
+        : [...likesList, userProfile.id];
+
+      const { error } = await supabase
+        .from("notes")
+        .update({ likes: newLikes })
+        .eq("id", note.id);
+
+      if (error) throw error;
+      
+      setActiveNoteDetail((prev: any) => prev ? { ...prev, likes: newLikes } : null);
+      fetchNotes();
+    } catch (err: any) {
+      alert("Error updating likes: " + err.message);
+    }
+  };
+
+  const handleSendNoteReaction = async (recipientId: string, text: string) => {
+    try {
+      const channelId = await createChatChannel("Direct Message", false, [recipientId]);
+      if (!channelId) {
+        alert("Could not resolve DM channel.");
+        return;
+      }
+      
+      await sendChatMessage(channelId, text);
+      
+      setActiveNoteDetail(null);
+      setNoteDetailReplyText("");
+    } catch (err: any) {
+      alert("Error sending reaction: " + err.message);
+    }
+  };
+
   const handlePlayNote = (note: any) => {
     const previewUrl = note.song_preview_url || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
     if (!previewUrl) return;
@@ -840,6 +903,10 @@ export const DashboardView: React.FC = () => {
     audio.volume = 0.5;
     audioRef.current = audio;
     setPlayingNoteId(note.id);
+    
+    // Set offset when played
+    audio.currentTime = note.song_start_offset || 0;
+
     audio.play();
 
     audio.onended = () => {
@@ -887,6 +954,10 @@ export const DashboardView: React.FC = () => {
     audio.volume = 0.5;
     audioPreviewRef.current = audio;
     setPlayingSongId(song.id);
+
+    // Set offset when played
+    audio.currentTime = songStartOffset || 0;
+
     audio.play();
 
     audio.onended = () => {
@@ -939,7 +1010,8 @@ export const DashboardView: React.FC = () => {
           song_artist: selectedSong?.artist || null,
           song_artwork: selectedSong?.artwork || null,
           song_preview_url: selectedSong?.preview_url || null,
-          location: noteLocationInput.trim() || null
+          location: noteLocationInput.trim() || null,
+          song_start_offset: selectedSong ? songStartOffset : 0
         });
 
       if (error) throw error;
@@ -947,6 +1019,7 @@ export const DashboardView: React.FC = () => {
       setNoteContentInput("");
       setNoteLocationInput("");
       setSelectedSong(null);
+      setSongStartOffset(0);
       setItunesSearchQuery("");
       setItunesSongs([]);
       setIsNoteComposerOpen(false);
@@ -957,19 +1030,19 @@ export const DashboardView: React.FC = () => {
     }
   };
 
+  const currentUserNote = notes.find((n) => n.user_id === userProfile?.id);
+  const currentUserAvatar = userProfile?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(userProfile?.full_name || "You")}&backgroundColor=030712&textColor=ffffff`;
+
   return (
     <div className="space-y-8 animate-fade-in pb-16 text-xs">
       
       {/* 1. ACTIVE MEMBERS */}
       <div className="space-y-3">
         <h3 className="text-[10px] uppercase font-mono tracking-wider font-bold text-white/40">Active Crew</h3>
-        <div className="flex items-center gap-8 overflow-x-auto pt-24 pb-4 px-4 no-scrollbar scroll-smooth">
+        <div className="flex items-center gap-5 overflow-x-auto pt-24 pb-4 px-4 no-scrollbar scroll-smooth">
           
           {/* First circle: Logged-in user's profile */}
           {(() => {
-            const currentUserNote = notes.find((n) => n.user_id === userProfile?.id);
-            const currentUserAvatar = userProfile?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(userProfile?.full_name || "You")}&backgroundColor=030712&textColor=ffffff`;
-
             return (
               <div className="relative flex flex-col items-center w-20 flex-shrink-0 select-none">
                 {/* Speech Bubble */}
@@ -978,25 +1051,25 @@ export const DashboardView: React.FC = () => {
                     <div 
                       onClick={(e) => {
                         e.stopPropagation();
-                        handlePlayNote(currentUserNote);
+                        setYourNoteOptionsOpen(true);
                       }}
-                      className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-20 bg-[#3b82f6]/25 border border-[#3b82f6]/40 shadow-[0_8px_24px_rgba(59,130,246,0.2)] backdrop-blur-md text-white rounded-2xl p-2.5 text-center text-[10px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-28 whitespace-normal flex flex-col items-center gap-1 animate-fade-in"
+                      className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 z-20 bg-[#3b82f6]/25 border border-[#3b82f6]/40 shadow-[0_8px_24px_rgba(59,130,246,0.2)] backdrop-blur-md text-white rounded-2xl p-2 text-center text-[9.5px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-24 whitespace-normal flex flex-col items-center gap-0.5 animate-fade-in"
                     >
-                      <div className="flex items-center gap-1 text-[9px] font-bold text-blue-300">
+                      <div className="flex items-center gap-1 text-[8.5px] font-bold text-blue-300">
                         {playingNoteId === currentUserNote.id ? (
-                          <span className="flex items-end gap-[1.5px] h-2.5 w-3 shrink-0">
-                            <span className="w-[1.5px] bg-blue-400 animate-eq-bounce-1 h-1" />
-                            <span className="w-[1.5px] bg-blue-400 animate-eq-bounce-2 h-3" />
-                            <span className="w-[1.5px] bg-blue-400 animate-eq-bounce-3 h-2" />
+                          <span className="flex items-end gap-[1.5px] h-2 w-2.5 shrink-0">
+                            <span className="w-[1px] bg-blue-400 animate-eq-bounce-1 h-0.5" />
+                            <span className="w-[1px] bg-blue-400 animate-eq-bounce-2 h-2" />
+                            <span className="w-[1px] bg-blue-400 animate-eq-bounce-3 h-1" />
                           </span>
                         ) : (
                           <span className="font-extrabold tracking-wider">lıı</span>
                         )}
-                        <span className="truncate max-w-[80px] text-[10px] text-white font-semibold">{currentUserNote.song_name}</span>
+                        <span className="truncate max-w-[70px] text-[9px] text-white font-semibold">{currentUserNote.song_name}</span>
                       </div>
-                      <div className="text-[8px] text-blue-200/70 truncate max-w-[90px]">{currentUserNote.song_artist}</div>
+                      <div className="text-[7.5px] text-blue-200/70 truncate max-w-[75px]">{currentUserNote.song_artist}</div>
                       {currentUserNote.content && (
-                        <div className="text-[8px] text-white/80 border-t border-white/10 pt-1 mt-1 truncate max-w-[95px]">
+                        <div className="text-[7.5px] text-white/80 border-t border-white/10 pt-0.5 mt-0.5 truncate max-w-[80px]">
                           {currentUserNote.content}
                         </div>
                       )}
@@ -1006,11 +1079,11 @@ export const DashboardView: React.FC = () => {
                     <div 
                       onClick={(e) => {
                         e.stopPropagation();
-                        setIsNoteComposerOpen(true);
+                        setYourNoteOptionsOpen(true);
                       }}
-                      className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-20 bg-[#202124] text-white rounded-2xl px-3 py-2 text-center text-[10px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-28 whitespace-normal flex flex-col items-center gap-1 shadow-lg animate-fade-in"
+                      className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 z-20 bg-[#202124] text-white rounded-2xl px-2.5 py-1.5 text-center text-[9.5px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-24 whitespace-normal flex flex-col items-center gap-0.5 shadow-lg animate-fade-in"
                     >
-                      <span className="font-medium text-center">{currentUserNote.content}</span>
+                      <span className="font-medium text-center truncate max-w-[80px]">{currentUserNote.content}</span>
                       <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#202124] rotate-45" />
                     </div>
                   )
@@ -1020,7 +1093,7 @@ export const DashboardView: React.FC = () => {
                       e.stopPropagation();
                       setIsNoteComposerOpen(true);
                     }}
-                    className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-20 bg-[#202124] text-white/60 text-[10px] px-3 py-1.5 rounded-full shadow-lg cursor-pointer hover:scale-105 active:scale-95 hover:text-white transition-all whitespace-nowrap"
+                    className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 z-20 bg-[#202124] text-white/60 text-[9px] px-2.5 py-1 rounded-full shadow-lg cursor-pointer hover:scale-105 active:scale-95 hover:text-white transition-all whitespace-nowrap"
                   >
                     Today's vibe...
                     <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#202124] rotate-45" />
@@ -1029,7 +1102,13 @@ export const DashboardView: React.FC = () => {
 
                 {/* Avatar Container */}
                 <div 
-                  onClick={() => setIsNoteComposerOpen(true)}
+                  onClick={() => {
+                    if (currentUserNote) {
+                      setYourNoteOptionsOpen(true);
+                    } else {
+                      setIsNoteComposerOpen(true);
+                    }
+                  }}
                   className="relative w-14 h-14 cursor-pointer"
                 >
                   {userProfile?.avatar_url ? (
@@ -1051,12 +1130,30 @@ export const DashboardView: React.FC = () => {
                 </div>
 
                 {/* Label */}
-                <span className="text-[10px] text-white/80 font-medium mt-2 truncate w-full text-center">
+                <span 
+                  onClick={() => {
+                    if (currentUserNote) {
+                      setYourNoteOptionsOpen(true);
+                    } else {
+                      setIsNoteComposerOpen(true);
+                    }
+                  }}
+                  className="text-[10px] text-white/80 font-medium mt-2 truncate w-full text-center cursor-pointer hover:text-white"
+                >
                   Your note
                 </span>
                 {/* Location tag below "Your note" if set */}
                 {currentUserNote?.location && (
-                  <span className="text-[9px] text-[#22d3ee] flex items-center gap-0.5 mt-0.5 truncate max-w-[80px]">
+                  <span 
+                    onClick={() => {
+                      if (currentUserNote) {
+                        setYourNoteOptionsOpen(true);
+                      } else {
+                        setIsNoteComposerOpen(true);
+                      }
+                    }}
+                    className="text-[9px] text-[#22d3ee] flex items-center gap-0.5 mt-0.5 truncate max-w-[80px] cursor-pointer"
+                  >
                     📍 {currentUserNote.location}
                   </span>
                 )}
@@ -1078,24 +1175,27 @@ export const DashboardView: React.FC = () => {
                 {note && (
                   note.song_name ? (
                     <div 
-                      onClick={() => handlePlayNote(note)}
-                      className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-20 bg-[#3b82f6]/25 border border-[#3b82f6]/40 shadow-[0_8px_24px_rgba(59,130,246,0.2)] backdrop-blur-md text-white rounded-2xl p-2.5 text-center text-[10px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-28 whitespace-normal flex flex-col items-center gap-1 animate-fade-in"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveNoteDetail(note);
+                      }}
+                      className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 z-20 bg-[#3b82f6]/25 border border-[#3b82f6]/40 shadow-[0_8px_24px_rgba(59,130,246,0.2)] backdrop-blur-md text-white rounded-2xl p-2 text-center text-[9.5px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-24 whitespace-normal flex flex-col items-center gap-0.5 animate-fade-in"
                     >
-                      <div className="flex items-center gap-1 text-[9px] font-bold text-blue-300">
+                      <div className="flex items-center gap-1 text-[8.5px] font-bold text-blue-300">
                         {playingNoteId === note.id ? (
-                          <span className="flex items-end gap-[1.5px] h-2.5 w-3 shrink-0">
-                            <span className="w-[1.5px] bg-blue-400 animate-eq-bounce-1 h-1" />
-                            <span className="w-[1.5px] bg-blue-400 animate-eq-bounce-2 h-3" />
-                            <span className="w-[1.5px] bg-blue-400 animate-eq-bounce-3 h-2" />
+                          <span className="flex items-end gap-[1.5px] h-2 w-2.5 shrink-0">
+                            <span className="w-[1px] bg-blue-400 animate-eq-bounce-1 h-0.5" />
+                            <span className="w-[1px] bg-blue-400 animate-eq-bounce-2 h-2" />
+                            <span className="w-[1px] bg-blue-400 animate-eq-bounce-3 h-1" />
                           </span>
                         ) : (
                           <span className="font-extrabold tracking-wider">lıı</span>
                         )}
-                        <span className="truncate max-w-[80px] text-[10px] text-white font-semibold">{note.song_name}</span>
+                        <span className="truncate max-w-[70px] text-[9px] text-white font-semibold">{note.song_name}</span>
                       </div>
-                      <div className="text-[8px] text-blue-200/70 truncate max-w-[90px]">{note.song_artist}</div>
+                      <div className="text-[7.5px] text-blue-200/70 truncate max-w-[75px]">{note.song_artist}</div>
                       {note.content && (
-                        <div className="text-[8px] text-white/80 border-t border-white/10 pt-1 mt-1 truncate max-w-[95px]">
+                        <div className="text-[7.5px] text-white/80 border-t border-white/10 pt-0.5 mt-0.5 truncate max-w-[80px]">
                           {note.content}
                         </div>
                       )}
@@ -1103,15 +1203,18 @@ export const DashboardView: React.FC = () => {
                     </div>
                   ) : (
                     <div 
-                      onClick={() => handlePlayNote(note)}
-                      className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-20 bg-[#202124] text-white rounded-2xl px-3 py-2 text-center text-[10px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-28 whitespace-normal flex flex-col items-center gap-1 shadow-lg animate-fade-in"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveNoteDetail(note);
+                      }}
+                      className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 z-20 bg-[#202124] text-white rounded-2xl px-2.5 py-1.5 text-center text-[9.5px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-24 whitespace-normal flex flex-col items-center gap-0.5 shadow-lg animate-fade-in"
                     >
-                      <span className="font-medium text-center">{note.content}</span>
+                      <span className="font-medium text-center truncate max-w-[80px]">{note.content}</span>
                       {playingNoteId === note.id && (
-                        <span className="flex items-end gap-[1.5px] h-2.5 w-3 shrink-0 mt-1">
-                          <span className="w-[1.5px] bg-[#22d3ee] animate-eq-bounce-1 h-1" />
-                          <span className="w-[1.5px] bg-[#22d3ee] animate-eq-bounce-2 h-3" />
-                          <span className="w-[1.5px] bg-[#22d3ee] animate-eq-bounce-3 h-2" />
+                        <span className="flex items-end gap-[1.5px] h-2 w-2.5 shrink-0 mt-0.5">
+                          <span className="w-[1px] bg-[#22d3ee] animate-eq-bounce-1 h-0.5" />
+                          <span className="w-[1px] bg-[#22d3ee] animate-eq-bounce-2 h-2" />
+                          <span className="w-[1px] bg-[#22d3ee] animate-eq-bounce-3 h-1" />
                         </span>
                       )}
                       <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#202124] rotate-45" />
@@ -1120,7 +1223,14 @@ export const DashboardView: React.FC = () => {
                 )}
 
                 {/* Avatar Container */}
-                <div className="relative w-14 h-14">
+                <div 
+                  onClick={() => {
+                    if (note) {
+                      setActiveNoteDetail(note);
+                    }
+                  }}
+                  className={`relative w-14 h-14 ${note ? "cursor-pointer hover:opacity-85 transition-opacity" : ""}`}
+                >
                   {p.avatar_url ? (
                     <img
                       src={p.avatar_url}
@@ -1138,12 +1248,26 @@ export const DashboardView: React.FC = () => {
                 </div>
 
                 {/* Label */}
-                <span className="text-[10px] text-white/80 font-medium mt-2 truncate w-full text-center">
+                <span 
+                  onClick={() => {
+                    if (note) {
+                      setActiveNoteDetail(note);
+                    }
+                  }}
+                  className={`text-[10px] text-white/80 font-medium mt-2 truncate w-full text-center ${note ? "cursor-pointer hover:text-white" : ""}`}
+                >
                   {firstName}
                 </span>
                 {/* Location tag below name if set */}
                 {note?.location && (
-                  <span className="text-[9px] text-[#22d3ee] flex items-center gap-0.5 mt-0.5 truncate max-w-[80px]">
+                  <span 
+                    onClick={() => {
+                      if (note) {
+                        setActiveNoteDetail(note);
+                      }
+                    }}
+                    className="text-[9px] text-[#22d3ee] flex items-center gap-0.5 mt-0.5 truncate max-w-[80px] cursor-pointer hover:text-cyan-400"
+                  >
                     📍 {note.location}
                   </span>
                 )}
@@ -1394,29 +1518,64 @@ export const DashboardView: React.FC = () => {
               <div className="border border-white/10 rounded-2xl p-3 bg-black/30 space-y-3">
                 <label className="block text-[10px] uppercase text-white/50 font-bold">Attach Music (Optional)</label>
                 {selectedSong ? (
-                  <div className="flex items-center justify-between p-2 bg-neutral-900 border border-white/10 rounded-xl">
-                    <div className="flex items-center gap-2">
-                      <img src={selectedSong.artwork} className="w-8 h-8 rounded object-cover" alt="" />
-                      <div className="min-w-0">
-                        <span className="text-[11px] font-bold text-white block truncate">{selectedSong.name}</span>
-                        <span className="text-[9px] text-white/40 block truncate">{selectedSong.artist}</span>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-2 bg-neutral-900 border border-white/10 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <img src={selectedSong.artwork} className="w-8 h-8 rounded object-cover" alt="" />
+                        <div className="min-w-0">
+                          <span className="text-[11px] font-bold text-white block truncate">{selectedSong.name}</span>
+                          <span className="text-[9px] text-white/40 block truncate">{selectedSong.artist}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handlePlayPreview(selectedSong)}
+                          className="p-1 rounded bg-white/5 hover:bg-white/10 text-white"
+                        >
+                          {playingSongId === selectedSong.id ? <Pause className="w-3.5 h-3.5 text-[#22d3ee]" /> : <Play className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedSong(null);
+                          }}
+                          className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-white hover:bg-white/10 text-[9px] font-bold"
+                        >
+                          Change
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedSong(null);
+                            setSongStartOffset(0);
+                          }}
+                          className="px-2 py-0.5 rounded bg-red-500 hover:bg-red-600 text-white text-[9px] font-bold"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handlePlayPreview(selectedSong)}
-                        className="p-1 rounded bg-white/5 hover:bg-white/10 text-white"
-                      >
-                        {playingSongId === selectedSong.id ? <Pause className="w-3.5 h-3.5 text-[#22d3ee]" /> : <Play className="w-3.5 h-3.5" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSong(null)}
-                        className="px-2 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold"
-                      >
-                        Remove
-                      </button>
+
+                    <div className="space-y-1.5 bg-neutral-900/50 p-2.5 border border-white/5 rounded-xl">
+                      <div className="flex justify-between text-[10px] text-white/50 font-medium">
+                        <span>Song Start Time: <span className="text-[#22d3ee] font-bold">{songStartOffset}s</span></span>
+                        <span>0 - 90s</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={90}
+                        value={songStartOffset}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setSongStartOffset(val);
+                          if (audioPreviewRef.current && playingSongId === selectedSong.id) {
+                            audioPreviewRef.current.currentTime = val;
+                          }
+                        }}
+                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#22d3ee]"
+                      />
                     </div>
                   </div>
                 ) : (
@@ -1463,7 +1622,10 @@ export const DashboardView: React.FC = () => {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setSelectedSong(song)}
+                                onClick={() => {
+                                  setSelectedSong(song);
+                                  setSongStartOffset(0);
+                                }}
                                 className="px-2 py-0.5 rounded bg-[#22d3ee] text-black font-bold text-[9px] hover:bg-cyan-400 shrink-0"
                               >
                                 Add
@@ -1484,6 +1646,217 @@ export const DashboardView: React.FC = () => {
                 Share Note
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- YOUR NOTE OPTIONS MODAL --- */}
+      {yourNoteOptionsOpen && currentUserNote && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 backdrop-blur-sm">
+          <div className="w-[360px] bg-neutral-900 border border-white/10 rounded-[28px] p-6 shadow-2xl space-y-6 text-white text-center">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#22d3ee]">Your Note</h3>
+            
+            {/* Active note preview */}
+            <div className="flex flex-col items-center gap-3 p-4 bg-black/40 rounded-2xl border border-white/5">
+              <div className="relative w-14 h-14">
+                <img
+                  src={currentUserAvatar}
+                  alt="Your avatar"
+                  className="w-14 h-14 object-cover rounded-full border border-white/10 ring-2 ring-primary/10"
+                />
+              </div>
+              <div className="space-y-1.5 w-full">
+                {currentUserNote.song_name ? (
+                  <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-xl text-center text-[10px] w-full">
+                    <div className="font-bold text-blue-300">🎵 {currentUserNote.song_name}</div>
+                    <div className="text-[8px] text-blue-200/70">{currentUserNote.song_artist}</div>
+                    {currentUserNote.song_start_offset !== undefined && (
+                      <div className="text-[8px] text-blue-200/50 mt-0.5">Starts at {currentUserNote.song_start_offset}s</div>
+                    )}
+                    {currentUserNote.content && (
+                      <div className="text-[9px] text-white/80 border-t border-white/5 pt-1 mt-1 font-medium">
+                        "{currentUserNote.content}"
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-2 bg-white/5 rounded-xl text-center text-[10.5px] font-medium w-full">
+                    "{currentUserNote.content}"
+                  </div>
+                )}
+                {currentUserNote.location && (
+                  <span className="text-[9px] text-[#22d3ee] block">
+                    📍 {currentUserNote.location}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              <button
+                onClick={() => {
+                  setYourNoteOptionsOpen(false);
+                  setIsNoteComposerOpen(true);
+                }}
+                className="w-full py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs cursor-pointer transition-all"
+              >
+                Leave a new note
+              </button>
+              
+              <button
+                onClick={() => handleDeleteNote(currentUserNote.id)}
+                className="w-full py-2.5 rounded-2xl bg-red-500/15 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-bold text-xs cursor-pointer transition-all"
+              >
+                Delete note
+              </button>
+
+              <button
+                onClick={() => setYourNoteOptionsOpen(false)}
+                className="w-full py-2.5 rounded-2xl bg-transparent hover:bg-white/5 text-white/60 hover:text-white text-xs cursor-pointer transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- INTERACTIVE NOTES DETAIL POPUP OVERLAY --- */}
+      {activeNoteDetail && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 backdrop-blur-sm">
+          <div className="w-[380px] bg-neutral-900 border border-white/10 rounded-[28px] p-6 shadow-2xl space-y-6 text-white relative">
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                setActiveNoteDetail(null);
+                setNoteDetailReplyText("");
+              }}
+              className="absolute top-4 right-4 p-1 rounded hover:bg-white/10 text-white/50 hover:text-white cursor-pointer transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Profile Info & Enlarged Bubble */}
+            {(() => {
+              const matchedProfile = allProfiles.find((p) => p.id === activeNoteDetail.user_id);
+              const avatar = matchedProfile?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(matchedProfile?.full_name || "User")}&backgroundColor=030712&textColor=ffffff`;
+              const name = matchedProfile?.full_name || "Crew Member";
+              
+              const likesList = activeNoteDetail.likes || [];
+              const hasLiked = userProfile ? likesList.includes(userProfile.id) : false;
+
+              return (
+                <div className="flex flex-col items-center gap-4 text-center mt-2">
+                  <div className="relative w-16 h-16">
+                    <img
+                      src={avatar}
+                      alt={name}
+                      className="w-16 h-16 object-cover rounded-full border border-white/10 ring-2 ring-primary/20"
+                    />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white leading-none">{name}</h4>
+                    {activeNoteDetail.location && (
+                      <span className="text-[9px] text-[#22d3ee] block mt-1">📍 {activeNoteDetail.location}</span>
+                    )}
+                  </div>
+
+                  {/* Enlarged Note Bubble */}
+                  <div className="relative w-full max-w-[300px] bg-[#202124] border border-white/5 rounded-2xl p-4 text-xs font-medium text-white shadow-lg flex flex-col items-center gap-2">
+                    {activeNoteDetail.song_name ? (
+                      <div className="flex flex-col items-center gap-1 w-full">
+                        <div 
+                          onClick={() => handlePlayNote(activeNoteDetail)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3b82f6]/20 border border-[#3b82f6]/30 rounded-full cursor-pointer hover:scale-105 transition-all text-blue-300 font-bold"
+                        >
+                          {playingNoteId === activeNoteDetail.id ? (
+                            <Pause className="w-3.5 h-3.5" />
+                          ) : (
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                          )}
+                          <span className="truncate max-w-[150px]">{activeNoteDetail.song_name}</span>
+                        </div>
+                        <span className="text-[9px] text-white/50">{activeNoteDetail.song_artist}</span>
+                        {activeNoteDetail.song_start_offset !== undefined && (
+                          <span className="text-[8px] text-white/40">Starts at {activeNoteDetail.song_start_offset}s</span>
+                        )}
+                        {activeNoteDetail.content && (
+                          <p className="text-[11px] text-white/80 border-t border-white/10 pt-2 mt-1 w-full text-center">
+                            "{activeNoteDetail.content}"
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-center text-[11px] leading-relaxed">"{activeNoteDetail.content}"</p>
+                    )}
+                  </div>
+
+                  {/* Actions Section */}
+                  <div className="w-full flex items-center justify-between border-t border-white/10 pt-4 mt-2">
+                    <span className="text-[10px] text-white/40 font-mono">
+                      {likesList.length} {likesList.length === 1 ? "like" : "likes"}
+                    </span>
+                    <button
+                      onClick={() => handleLikeNote(activeNoteDetail)}
+                      className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full border transition-all ${
+                        hasLiked 
+                          ? "bg-red-500/10 border-red-500/30 text-red-500" 
+                          : "bg-white/5 border-white/10 text-white/60 hover:text-white"
+                      }`}
+                    >
+                      <Heart className={`w-3.5 h-3.5 ${hasLiked ? "fill-current" : ""}`} />
+                      <span>{hasLiked ? "Liked" : "Like"}</span>
+                    </button>
+                  </div>
+
+                  {/* Quick Emojis Grid */}
+                  <div className="w-full space-y-2">
+                    <span className="text-[9px] text-white/40 uppercase tracking-wider block text-left">Quick React</span>
+                    <div className="grid grid-cols-8 gap-1 bg-black/20 p-2 rounded-2xl border border-white/5">
+                      {["😂", "😮", "😢", "😍", "👏", "🔥", "🎉", "💯"].map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => handleSendNoteReaction(activeNoteDetail.user_id, emoji)}
+                          className="text-lg hover:scale-125 transition-transform p-1 cursor-pointer flex items-center justify-center"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Reply Composer Field */}
+                  <div className="w-full space-y-2">
+                    <span className="text-[9px] text-white/40 uppercase tracking-wider block text-left">Reply with message</span>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={noteDetailReplyText}
+                        onChange={(e) => setNoteDetailReplyText(e.target.value)}
+                        placeholder="Send a direct message..."
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && noteDetailReplyText.trim()) {
+                            handleSendNoteReaction(activeNoteDetail.user_id, `💬 Replied to your note: ${noteDetailReplyText}`);
+                          }
+                        }}
+                        className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                      />
+                      <button
+                        onClick={() => {
+                          if (noteDetailReplyText.trim()) {
+                            handleSendNoteReaction(activeNoteDetail.user_id, `💬 Replied to your note: ${noteDetailReplyText}`);
+                          }
+                        }}
+                        disabled={!noteDetailReplyText.trim()}
+                        className="px-3 py-2 bg-[#22d3ee] hover:bg-cyan-400 disabled:opacity-40 disabled:hover:bg-[#22d3ee] text-black font-bold rounded-2xl text-xs transition-colors cursor-pointer"
+                      >
+                        Send
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
