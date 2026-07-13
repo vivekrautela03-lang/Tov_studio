@@ -94,6 +94,89 @@ const MOCK_LYRICS: Record<string, string[]> = {
   ]
 };
 
+const VoiceNotePlayer: React.FC<{ url: string; durationText?: string }> = ({ url, durationText = "0:12" }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.onloadedmetadata = () => {
+        setDuration(audioRef.current?.duration || 0);
+      };
+      audioRef.current.ontimeupdate = () => {
+        setCurrentTime(audioRef.current?.currentTime || 0);
+      };
+      audioRef.current.onended = () => {
+        setIsPlaying(false);
+        setCurrentTime(0);
+      };
+    }
+  }, [url]);
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().catch(e => console.error("Error playing audio:", e));
+      setIsPlaying(true);
+    }
+  };
+
+  const formatTime = (time: number) => {
+    if (isNaN(time)) return "0:00";
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
+
+  const isSimulated = !url || !url.startsWith("http");
+
+  return (
+    <div className="flex items-center gap-3 min-w-[220px] p-1.5 bg-black/40 rounded-xl select-none">
+      {!isSimulated && <audio ref={audioRef} src={url} className="hidden" />}
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          togglePlay();
+        }} 
+        className="p-2 bg-cyan-400 hover:bg-cyan-300 active:scale-95 text-black rounded-full shadow-md transition-all cursor-pointer"
+      >
+        {isPlaying ? (
+          <Pause className="w-3.5 h-3.5 fill-black text-black" />
+        ) : (
+          <Play className="w-3.5 h-3.5 fill-black text-black" />
+        )}
+      </button>
+      
+      {/* Waveform animated display */}
+      <div className="flex-1 flex items-center gap-[2.5px] h-6 relative">
+        {Array.from({ length: 18 }).map((_, i) => {
+          const isPlayed = !isSimulated && duration > 0 && (i / 18) <= (currentTime / duration);
+          return (
+            <span 
+              key={i} 
+              className={`w-[2.5px] rounded-full transition-colors duration-150 ${
+                isPlayed ? "bg-cyan-400" : isPlaying ? "bg-cyan-400/60 animate-pulse" : "bg-cyan-400/30"
+              }`} 
+              style={{ 
+                height: `${4 + Math.sin(i * 0.8) * 14}px`,
+                animationDelay: `${i * 50}ms`
+              }} 
+            />
+          );
+        })}
+      </div>
+      <span className="text-[9px] text-white/40 pr-2 font-mono">
+        {isPlaying ? formatTime(currentTime) : isSimulated ? durationText : formatTime(duration || 12)}
+      </span>
+    </div>
+  );
+};
+
 export const ChatView: React.FC = () => {
   const {
     chatChannels,
@@ -154,6 +237,8 @@ export const ChatView: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recordingIntervalRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // E2EE Decrypted message caches
   const [decryptedCache, setDecryptedCache] = useState<Record<string, string>>({});
@@ -1922,18 +2007,62 @@ export const ChatView: React.FC = () => {
   };
 
   // Toggle voice recording simulations
-  const handleToggleVoiceRecord = () => {
+  const handleToggleVoiceRecord = async () => {
     if (isRecording) {
       setIsRecording(false);
       clearInterval(recordingIntervalRef.current);
+      const finalSecs = recordingSeconds;
       setRecordingSeconds(0);
-      handleSendMessage("[Voice Note] duration: 32s");
+      handleTypingStatus(false);
+
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      } else {
+        handleSendMessage(`[Voice Note] simulation?duration=${finalSecs}s`);
+      }
     } else {
       setIsRecording(true);
       handleTypingStatus(true, "recording");
-      recordingIntervalRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => prev + 1);
-      }, 1000);
+      audioChunksRef.current = [];
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach((track) => track.stop());
+
+          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          const audioFile = new File([audioBlob], `voice-note-${Date.now()}.webm`, {
+            type: "audio/webm"
+          });
+
+          const audioUrl = await uploadChatAttachment(audioFile);
+          if (audioUrl) {
+            handleSendMessage(`[Voice Note] ${audioUrl}`);
+          } else {
+            console.error("Failed to upload voice note audio.");
+          }
+        };
+
+        mediaRecorder.start();
+        recordingIntervalRef.current = setInterval(() => {
+          setRecordingSeconds((prev) => prev + 1);
+        }, 1000);
+
+      } catch (err) {
+        console.error("Microphone access denied or error:", err);
+        recordingIntervalRef.current = setInterval(() => {
+          setRecordingSeconds((prev) => prev + 1);
+        }, 1000);
+      }
     }
   };
 
@@ -2972,23 +3101,10 @@ export const ChatView: React.FC = () => {
                             </div>
                           </div>
                         ) : isVoiceNote ? (
-                          <div className="flex items-center gap-3 min-w-[220px] p-1.5 bg-black/40 rounded-xl">
-                            <button onClick={() => alert("Play voice note")} className="p-2 bg-cyan-400 text-black rounded-full shadow-md">
-                              <Play className="w-3.5 h-3.5 fill-black" />
-                            </button>
-                            
-                            {/* Waveform animated display */}
-                            <div className="flex-1 flex items-center gap-[2.5px] h-6">
-                              {Array.from({ length: 18 }).map((_, i) => (
-                                <span 
-                                  key={i} 
-                                  className="w-[2.5px] bg-cyan-400/40 rounded-full" 
-                                  style={{ height: `${4 + Math.sin(i * 0.8) * 14}px` }} 
-                                />
-                              ))}
-                            </div>
-                            <span className="text-[9px] text-white/40 pr-2 font-mono">0:32</span>
-                          </div>
+                          <VoiceNotePlayer 
+                            url={decrypted.replace("[Voice Note]", "").trim()} 
+                            durationText={decrypted.includes("duration:") ? decrypted.split("duration:")[1].trim() : "0:12"} 
+                          />
                         ) : isRepliedStory ? (
                           <div className="flex flex-col gap-2 min-w-[200px]">
                             {/* Replied story preview block */}
