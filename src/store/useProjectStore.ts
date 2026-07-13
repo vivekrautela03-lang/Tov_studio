@@ -448,6 +448,13 @@ interface ProjectStoreState {
   addUserTag: (tag: string) => Promise<void>;
   removeUserTag: (tag: string) => Promise<void>;
   deleteUserProfile: () => Promise<void>;
+
+  // Follow actions
+  followersCount: number;
+  followingCount: number;
+  isFollowingUser: (targetUserId: string) => Promise<boolean>;
+  toggleFollowUser: (targetUserId: string) => Promise<void>;
+  fetchFollowsCount: () => Promise<void>;
 }
 
 // --- INITIAL CLEAN SLATE ---
@@ -509,6 +516,8 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   searchQuery: "",
   isSearchOpen: false,
 
+  followersCount: 0,
+  followingCount: 0,
   userProfile: null,
   socialLinks: null,
   portfolio: [],
@@ -735,6 +744,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       useProjectStore.getState().fetchNotes();
       useProjectStore.getState().fetchStories();
       useProjectStore.getState().fetchNotifications();
+      useProjectStore.getState().fetchFollowsCount();
     }
 
     // 1. Fetch productions from Supabase
@@ -1871,7 +1881,60 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     if (error) {
       console.error("Error clearing notifications:", error);
     }
-    set({ notifications: [] });
+  },
+
+  isFollowingUser: async (targetUserId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+    const { data } = await supabase
+      .from("user_follows")
+      .select("*")
+      .eq("follower_id", user.id)
+      .eq("following_id", targetUserId);
+    return (data || []).length > 0;
+  },
+
+  toggleFollowUser: async (targetUserId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const isFollowing = await useProjectStore.getState().isFollowingUser(targetUserId);
+    if (isFollowing) {
+      await supabase
+        .from("user_follows")
+        .delete()
+        .eq("follower_id", user.id)
+        .eq("following_id", targetUserId);
+    } else {
+      await supabase
+        .from("user_follows")
+        .insert({
+          follower_id: user.id,
+          following_id: targetUserId
+        });
+
+      // Insert follow notification
+      await useProjectStore.getState().addNotification({
+        recipient_id: targetUserId,
+        title: "New Follower",
+        message: `${useProjectStore.getState().userProfile?.full_name || "Someone"} started following you!`,
+        type: "account"
+      } as any);
+    }
+    await useProjectStore.getState().fetchFollowsCount();
+  },
+
+  fetchFollowsCount: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { count: followers } = await supabase
+      .from("user_follows")
+      .select("*", { count: "exact", head: true })
+      .eq("following_id", user.id);
+    const { count: following } = await supabase
+      .from("user_follows")
+      .select("*", { count: "exact", head: true })
+      .eq("follower_id", user.id);
+    set({ followersCount: followers || 0, followingCount: following || 0 });
   },
   setSearchQuery: (query) => set({ searchQuery: query }),
   setSearchOpen: (open) => set({ isSearchOpen: open }),

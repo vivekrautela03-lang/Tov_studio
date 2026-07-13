@@ -27,7 +27,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export const ProfileView: React.FC = () => {
-  const { setActiveView } = useProjectStore();
+  const { setActiveView, followersCount, followingCount } = useProjectStore();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [socials, setSocials] = useState<any>({
@@ -463,6 +463,12 @@ export const ProfileView: React.FC = () => {
           <div className="flex items-center justify-center md:justify-start gap-6 text-xs text-text-secondary">
             <div>
               <span className="text-white font-bold">{portfolio.length}</span> posts
+            </div>
+            <div>
+              <span className="text-white font-bold">{followersCount}</span> followers
+            </div>
+            <div>
+              <span className="text-white font-bold">{followingCount}</span> following
             </div>
           </div>
 
