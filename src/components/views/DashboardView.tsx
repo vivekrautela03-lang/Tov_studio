@@ -958,6 +958,21 @@ export const DashboardView: React.FC = () => {
   };
 
   // Stories UI/UX Handlers
+  const handleSelectMockMedia = async (url: string, type: "image" | "video") => {
+    setStoryMediaType(type);
+    setStoryPreview(url);
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const mockFile = new File([blob], `story_mock.${type === "video" ? "mp4" : "jpg"}`, { type: blob.type });
+      setStoryFile(mockFile);
+    } catch (err) {
+      const blankBlob = new Blob([""], { type: type === "video" ? "video/mp4" : "image/jpeg" });
+      const mockFile = new File([blankBlob], `story_mock.${type === "video" ? "mp4" : "jpg"}`, { type: blankBlob.type });
+      setStoryFile(mockFile);
+    }
+  };
+
   const handleStoryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -1920,94 +1935,272 @@ export const DashboardView: React.FC = () => {
       )}
       {/* --- STORY CREATOR / UPLOADER MODAL --- */}
       {isStoryUploaderOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadein">
-          <div className="w-[380px] bg-neutral-900 border border-white/10 rounded-[28px] p-6 shadow-2xl space-y-5 text-white relative">
-            <button 
-              onClick={() => {
-                setIsStoryUploaderOpen(false);
-                setStoryFile(null);
-                setStoryPreview("");
-                setStoryCaptionInput("");
-              }}
-              className="absolute top-4 right-4 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
+        <div className="fixed inset-0 z-[150] flex flex-col bg-black text-white select-none animate-fadein">
+          {!storyPreview ? (
+            /* --- STEP 1: ADD TO STORY GRID SELECTION SCREEN --- */
+            <div className="flex-1 flex flex-col h-full overflow-y-auto no-scrollbar pb-6">
+              {/* Sticky Header */}
+              <div className="sticky top-0 z-30 bg-black px-4 py-4 flex items-center justify-between border-b border-white/5">
+                <button 
+                  onClick={() => {
+                    setIsStoryUploaderOpen(false);
+                    setStoryFile(null);
+                    setStoryPreview("");
+                    setStoryCaptionInput("");
+                  }} 
+                  className="p-1 rounded-full hover:bg-white/10 text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+                
+                <span className="text-[17px] font-bold">Add to story</span>
+                
+                <button className="p-1 rounded-full hover:bg-white/10 text-white transition-colors">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5.5 h-5.5">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                </button>
+              </div>
 
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#22d3ee] text-center">Create Story</h3>
+              {/* Horizontal tools scroll */}
+              <div className="flex gap-4 overflow-x-auto no-scrollbar py-4 px-4 items-center shrink-0">
+                {[
+                  { label: "Templates", icon: (
+                    <div className="w-12 h-12 rounded-2xl bg-[#1c1c1e] flex items-center justify-center relative shadow-md">
+                      <div className="w-6 h-6 border-2 border-pink-500 rounded-lg absolute rotate-[-6deg] bg-black/40 flex items-center justify-center text-[10px] font-black text-pink-400">
+                        Aa
+                      </div>
+                      <div className="w-6 h-6 border-2 border-[#22d3ee] rounded-lg absolute rotate-[6deg] bg-neutral-900/60 translate-x-1 translate-y-1" />
+                    </div>
+                  )},
+                  { label: "Music", icon: (
+                    <div className="w-12 h-12 rounded-2xl bg-[#1c1c1e] flex items-center justify-center shadow-md">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5.5 h-5.5 text-orange-400">
+                        <path d="M9 18V5l12-2v13" />
+                        <circle cx="6" cy="18" r="3" />
+                        <circle cx="18" cy="16" r="3" />
+                      </svg>
+                    </div>
+                  )},
+                  { label: "Collage", icon: (
+                    <div className="w-12 h-12 rounded-2xl bg-[#1c1c1e] flex items-center justify-center shadow-md">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-green-400">
+                        <rect x="3" y="3" width="7" height="9" />
+                        <rect x="14" y="3" width="7" height="5" />
+                        <rect x="14" y="12" width="7" height="9" />
+                        <rect x="3" y="16" width="7" height="5" />
+                      </svg>
+                    </div>
+                  )},
+                  { label: "AI Images", icon: (
+                    <div className="w-12 h-12 rounded-2xl bg-[#1c1c1e] flex items-center justify-center shadow-md">
+                      <Sparkles className="w-5.5 h-5.5 text-purple-400" />
+                    </div>
+                  )}
+                ].map(tool => (
+                  <button key={tool.label} className="flex flex-col items-center gap-1.5 shrink-0 hover:scale-105 active:scale-95 transition-transform cursor-pointer">
+                    {tool.icon}
+                    <span className="text-[11px] text-[#a5a5a5] font-semibold">{tool.label}</span>
+                  </button>
+                ))}
+              </div>
 
-            <div className="space-y-4">
-              {/* Media preview area */}
-              <div className="w-full h-48 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-center overflow-hidden relative">
-                {storyPreview ? (
-                  storyMediaType === "video" ? (
-                    <video src={storyPreview} className="w-full h-full object-cover" controls />
-                  ) : (
-                    <img src={storyPreview} className="w-full h-full object-cover" alt="" />
-                  )
-                ) : (
-                  <label className="flex flex-col items-center gap-2 cursor-pointer text-[#8e8e8e] hover:text-white transition-colors">
-                    <Plus className="w-8 h-8 text-[#22d3ee]" />
-                    <span className="text-[10px] uppercase font-bold tracking-wider">Select Photo/Video</span>
-                    <input 
-                      type="file" 
-                      accept="image/*,video/*" 
-                      onChange={handleStoryFileChange} 
-                      className="hidden" 
+              {/* Gallery selection bar */}
+              <div className="px-4 py-3 flex items-center justify-between shrink-0">
+                <button className="flex items-center gap-1 font-bold text-[16px] hover:text-[#22d3ee] transition-colors">
+                  <span>Recents</span>
+                  <ChevronDown className="w-4 h-4 text-white/60" />
+                </button>
+                
+                <button className="bg-[#262626] hover:bg-[#363636] text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-all">
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z" />
+                  </svg>
+                  <span>Select</span>
+                </button>
+              </div>
+
+              {/* Media Grid */}
+              <div className="grid grid-cols-3 gap-0.5 px-0.5 flex-1">
+                {/* Live Camera / Custom Upload input card */}
+                <label className="aspect-[3/4] bg-[#1c1c1e] hover:bg-[#262626] flex flex-col items-center justify-center gap-2 cursor-pointer border border-white/5 transition-colors group relative">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-white group-hover:scale-110 transition-transform">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                  <span className="text-[10px] text-white/60 font-bold uppercase tracking-wider">Camera</span>
+                  <input 
+                    type="file" 
+                    accept="image/*,video/*" 
+                    onChange={handleStoryFileChange} 
+                    className="hidden" 
+                  />
+                </label>
+
+                {/* Premium Mock Items */}
+                {[
+                  "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=600&q=80",
+                  "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&q=80",
+                  "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=600&q=80",
+                  "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=600&q=80",
+                  "https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=600&q=80",
+                  "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600&q=80",
+                  "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&q=80",
+                  "https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=600&q=80"
+                ].map((url, idx) => (
+                  <div 
+                    key={idx} 
+                    onClick={() => handleSelectMockMedia(url, "image")}
+                    className="aspect-[3/4] bg-neutral-900 overflow-hidden relative cursor-pointer border border-white/5 group"
+                  >
+                    <img 
+                      src={url} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                      alt="" 
+                      loading="lazy"
                     />
-                  </label>
+                    <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            /* --- STEP 2: CANVAS EDIT / CUSTOMIZATION PREVIEW (IMAGE 2) --- */
+            <div className="flex-1 flex flex-col h-full relative justify-between overflow-hidden">
+              {/* Full screen vertical preview media */}
+              <div className="absolute inset-0 z-0">
+                {storyMediaType === "video" ? (
+                  <video src={storyPreview} className="w-full h-full object-cover" autoPlay loop muted />
+                ) : (
+                  <img src={storyPreview} className="w-full h-full object-cover" alt="" />
                 )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/50" />
               </div>
 
-              {/* Caption input */}
-              <div className="space-y-1.5">
-                <label className="text-[9px] uppercase tracking-wider text-white/40 font-bold block">Caption</label>
-                <input 
-                  type="text" 
-                  placeholder="Enter caption..." 
-                  value={storyCaptionInput} 
-                  onChange={(e) => setStoryCaptionInput(e.target.value)} 
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]" 
-                />
-              </div>
+              {/* Top bar on top of background preview */}
+              <div className="relative z-10 p-4 flex items-center justify-between">
+                <button 
+                  onClick={() => {
+                    setStoryPreview("");
+                    setStoryFile(null);
+                  }}
+                  className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition-colors cursor-pointer"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 mr-0.5">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
 
-              {/* Audience selector */}
-              <div className="space-y-1.5">
-                <label className="text-[9px] uppercase tracking-wider text-white/40 font-bold block">Audience</label>
-                <div className="flex gap-2">
-                  {["everyone", "close_friends"].map((aud) => (
-                    <button
-                      key={aud}
-                      onClick={() => setStoryAudience(aud)}
-                      className={`flex-1 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all ${
-                        storyAudience === aud 
-                          ? "bg-[#22d3ee]/15 border-[#22d3ee]/40 text-[#22d3ee]" 
-                          : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
-                      }`}
+                {/* Floating actions list */}
+                <div className="flex items-center gap-2">
+                  {[
+                    { id: "text", el: <span className="font-extrabold text-[15px]">Aa</span> },
+                    { id: "sticker", el: (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-5 h-5">
+                        <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14.5a3.5 3.5 0 0 1-7 0" />
+                        <circle cx="9" cy="9" r="1" />
+                        <circle cx="15" cy="9" r="1" />
+                      </svg>
+                    )},
+                    { id: "music", el: <span className="text-[15px]">🎵</span> },
+                    { id: "brush", el: (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4.5 h-4.5">
+                        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                        <path d="M7.5 10.5c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5z" />
+                      </svg>
+                    )},
+                    { id: "download", el: (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4.5 h-4.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                    )}
+                  ].map(act => (
+                    <button 
+                      key={act.id} 
+                      onClick={() => alert(`Simulated Instagram story decoration tool: ${act.id.toUpperCase()}`)}
+                      className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 hover:scale-105 active:scale-95 transition-all cursor-pointer"
                     >
-                      {aud === "everyone" ? "Everyone" : "Close Friends"}
+                      {act.el}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Upload action button */}
-              <button
-                onClick={handleUploadStory}
-                disabled={isUploadingStory || !storyFile}
-                className="w-full py-2.5 rounded-2xl bg-gradient-to-br from-[#22d3ee] to-cyan-500 hover:from-cyan-400 hover:to-cyan-600 disabled:opacity-40 disabled:hover:from-[#22d3ee] text-black font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md shadow-cyan-400/10"
-              >
-                {isUploadingStory ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-black" />
-                    <span>Posting Story...</span>
-                  </>
-                ) : (
-                  <span>Post Story</span>
-                )}
-              </button>
+              {/* Bottom controls panel */}
+              <div className="relative z-10 p-4 space-y-4">
+                
+                {/* Transparent Caption input */}
+                <div className="px-1">
+                  <input 
+                    type="text" 
+                    value={storyCaptionInput}
+                    onChange={(e) => setStoryCaptionInput(e.target.value)}
+                    placeholder="Add a caption..."
+                    className="w-full bg-black/30 border border-white/10 backdrop-blur-sm rounded-full px-5 py-3 text-sm text-white placeholder-white/60 focus:outline-none focus:bg-black/60 focus:border-[#0095f6] transition-all"
+                  />
+                </div>
+
+                {/* Bottom Actions Row */}
+                <div className="flex items-center justify-between gap-3">
+                  {/* Share to your story */}
+                  <button
+                    onClick={() => {
+                      setStoryAudience("everyone");
+                      handleUploadStory();
+                    }}
+                    disabled={isUploadingStory}
+                    className="flex-1 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center gap-2 border border-white/10 text-white font-bold text-[14px] cursor-pointer transition-all hover:scale-102 active:scale-98"
+                  >
+                    {userProfile?.avatar_url ? (
+                      <img src={userProfile.avatar_url} className="w-5.5 h-5.5 rounded-full object-cover" alt="" />
+                    ) : (
+                      <div className="w-5.5 h-5.5 rounded-full bg-cyan-400 text-black text-[9px] flex items-center justify-center font-bold">ME</div>
+                    )}
+                    <span>Your story</span>
+                  </button>
+
+                  {/* Share to Close friends */}
+                  <button
+                    onClick={() => {
+                      setStoryAudience("close_friends");
+                      handleUploadStory();
+                    }}
+                    disabled={isUploadingStory}
+                    className="flex-1 h-12 bg-[#121212]/80 hover:bg-black backdrop-blur-md rounded-full flex items-center justify-center gap-2 border border-[#1db954]/20 hover:border-[#1db954]/50 text-white font-bold text-[14px] cursor-pointer transition-all hover:scale-102 active:scale-98"
+                  >
+                    <div className="w-5.5 h-5.5 rounded-full bg-[#1db954] flex items-center justify-center text-white">
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                        <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                      </svg>
+                    </div>
+                    <span className="text-[#1db954]">Close Friends</span>
+                  </button>
+
+                  {/* Share Arrow Button */}
+                  <button
+                    onClick={() => {
+                      setStoryAudience("everyone");
+                      handleUploadStory();
+                    }}
+                    disabled={isUploadingStory}
+                    className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:scale-105 active:scale-95 transition-all text-black hover:bg-neutral-200 cursor-pointer shrink-0"
+                    title="Share Story"
+                  >
+                    {isUploadingStory ? (
+                      <Loader2 className="w-5 h-5 animate-spin text-black" />
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 translate-x-[1px]">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
