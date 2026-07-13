@@ -1622,19 +1622,7 @@ export const ChatView: React.FC = () => {
       const userStories = stories.filter((s: any) => s.user_id === activeStoryUser);
       const activeStory = userStories[activeStoryIndex];
       if (activeStory && activeStory.user_id !== currentUser.id) {
-        const viewers = activeStory.viewers || [];
-        if (!viewers.includes(currentUser.id)) {
-          const updatedViewers = [...viewers, currentUser.id];
-          const { error } = await supabase
-            .from("stories")
-            .update({ viewers: updatedViewers })
-            .eq("id", activeStory.id);
-          if (!error) {
-            fetchStories();
-          } else {
-            console.error("Error updating story viewers:", error);
-          }
-        }
+        viewStory(activeStory.id);
       }
     };
     markStoryAsViewed();

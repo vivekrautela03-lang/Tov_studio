@@ -3039,7 +3039,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
 
     const { data: story, error: fetchErr } = await supabase
       .from("stories")
-      .select("views")
+      .select("views, viewers")
       .eq("id", storyId)
       .single();
 
@@ -3049,14 +3049,9 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     }
 
     const viewsList = Array.isArray(story.views) ? story.views : [];
+    const viewersList = Array.isArray(story.viewers) ? story.viewers : [];
     
-    const alreadyViewed = viewsList.some((v: any) => {
-      if (typeof v === "string") return v === user.id;
-      if (v && typeof v === "object") return v.id === user.id;
-      return false;
-    });
-
-    if (alreadyViewed) return;
+    if (viewersList.includes(user.id)) return;
 
     const profile = useProjectStore.getState().userProfile;
     const viewEntry = {
@@ -3067,10 +3062,11 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     };
 
     const newViews = [...viewsList, viewEntry];
+    const newViewers = [...viewersList, user.id];
 
     const { error: updateErr } = await supabase
       .from("stories")
-      .update({ views: newViews })
+      .update({ views: newViews, viewers: newViewers })
       .eq("id", storyId);
 
     if (updateErr) {

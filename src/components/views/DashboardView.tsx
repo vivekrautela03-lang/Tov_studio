@@ -1256,13 +1256,7 @@ export const DashboardView: React.FC = () => {
       const userStories = stories.filter((s: any) => s.user_id === activeStoryUser);
       const activeStory = userStories[activeStoryIndex];
       if (activeStory && activeStory.user_id !== userProfile.id) {
-        const currentViewers = activeStory.viewers || [];
-        if (!currentViewers.includes(userProfile.id)) {
-          const updatedViewers = [...currentViewers, userProfile.id];
-          supabase.from("stories").update({ viewers: updatedViewers }).eq("id", activeStory.id).then(() => {
-            fetchStories();
-          });
-        }
+        viewStory(activeStory.id);
       }
     }
   }, [activeStoryIndex, activeStoryUser, isStoryViewerOpen]);
