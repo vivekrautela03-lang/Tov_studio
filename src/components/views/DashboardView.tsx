@@ -43,9 +43,9 @@ import {
   X,
   MessageSquare,
   Heart,
-  Search,
+  Trash2,
   MoreVertical,
-  Trash2
+  Search
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -673,10 +673,12 @@ export const DashboardView: React.FC = () => {
     setActiveView,
     createChatChannel,
     sendChatMessage,
+    chatChannels,
     stories,
     fetchStories,
     addStory,
     viewStory,
+    likeStory,
     uploadChatAttachment
   } = useProjectStore();
 
@@ -717,10 +719,15 @@ export const DashboardView: React.FC = () => {
   const [storyAudience, setStoryAudience] = useState<string>("everyone");
   const [isUploadingStory, setIsUploadingStory] = useState(false);
   const [dashboardSearchQuery, setDashboardSearchQuery] = useState("");
+  const [selectedStorySong, setSelectedStorySong] = useState<any | null>(null);
+  const [storyTextOverlay, setStoryTextOverlay] = useState<string>("");
+  const [isStoryMusicPickerOpen, setIsStoryMusicPickerOpen] = useState(false);
+  const [isViewerListOpen, setIsViewerListOpen] = useState(false);
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const audioPreviewRef = React.useRef<HTMLAudioElement | null>(null);
   const voiceIntervalRef = React.useRef<any>(null);
+  const storyFileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const getFirstName = (fullName: string) => {
     if (!fullName) return "";
@@ -781,6 +788,49 @@ export const DashboardView: React.FC = () => {
       if (voiceIntervalRef.current) clearInterval(voiceIntervalRef.current);
     };
   }, []);
+
+  // Background music preview in story viewer
+  useEffect(() => {
+    if (isStoryViewerOpen && activeStoryUser && stories.length > 0) {
+      const userStories = stories.filter((s: any) => s.user_id === activeStoryUser);
+      const activeStory = userStories[activeStoryIndex];
+      if (activeStory && activeStory.song_preview_url) {
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+        const audio = new Audio(activeStory.song_preview_url);
+        audio.loop = true;
+        audio.play().catch(e => console.log("Audio play failed:", e));
+        audioRef.current = audio;
+      } else {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current = null;
+        }
+      }
+    } else {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    }
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, [isStoryViewerOpen, activeStoryUser, activeStoryIndex]);
+
+  // Register story view when user views a story
+  useEffect(() => {
+    if (isStoryViewerOpen && activeStoryUser && stories.length > 0) {
+      const userStories = stories.filter((s: any) => s.user_id === activeStoryUser);
+      const activeStory = userStories[activeStoryIndex];
+      if (activeStory && activeStory.user_id !== userProfile?.id) {
+        viewStory(activeStory.id);
+      }
+    }
+  }, [isStoryViewerOpen, activeStoryUser, activeStoryIndex]);
 
   // 2. Supabase Real-time Presence Subscription
   useEffect(() => {
@@ -994,14 +1044,17 @@ export const DashboardView: React.FC = () => {
       const mediaUrl = await uploadChatAttachment(storyFile);
       const payload = {
         textCaption: storyCaptionInput,
+        textOverlay: storyTextOverlay || null,
         stamp: null
       };
 
-      await addStory(mediaUrl, storyMediaType, JSON.stringify(payload), null, storyAudience);
+      await addStory(mediaUrl, storyMediaType, JSON.stringify(payload), selectedStorySong, storyAudience);
       setIsStoryUploaderOpen(false);
       setStoryFile(null);
       setStoryPreview("");
       setStoryCaptionInput("");
+      setStoryTextOverlay("");
+      setSelectedStorySong(null);
       fetchStories();
     } catch (e: any) {
       alert("Story upload failed: " + e.message);
@@ -2024,7 +2077,10 @@ export const DashboardView: React.FC = () => {
               {/* Media Grid */}
               <div className="grid grid-cols-3 gap-0.5 px-0.5 flex-1">
                 {/* Live Camera / Custom Upload input card */}
-                <label className="aspect-[3/4] bg-[#1c1c1e] hover:bg-[#262626] flex flex-col items-center justify-center gap-2 cursor-pointer border border-white/5 transition-colors group relative">
+                <div 
+                  onClick={() => storyFileInputRef.current?.click()}
+                  className="aspect-[3/4] bg-[#1c1c1e] hover:bg-[#262626] flex flex-col items-center justify-center gap-2 cursor-pointer border border-white/5 transition-colors group relative"
+                >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-white group-hover:scale-110 transition-transform">
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                     <circle cx="12" cy="13" r="4" />
@@ -2032,13 +2088,14 @@ export const DashboardView: React.FC = () => {
                   <span className="text-[10px] text-white/60 font-bold uppercase tracking-wider">Camera</span>
                   <input 
                     type="file" 
+                    ref={storyFileInputRef}
                     accept="image/*,video/*" 
                     onChange={handleStoryFileChange} 
                     className="hidden" 
                   />
-                </label>
+                </div>
 
-                {/* Premium Mock Items */}
+                {/* Premium Mock Items - clicking any opens real file dialog */}
                 {[
                   "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=600&q=80",
                   "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&q=80",
@@ -2051,7 +2108,7 @@ export const DashboardView: React.FC = () => {
                 ].map((url, idx) => (
                   <div 
                     key={idx} 
-                    onClick={() => handleSelectMockMedia(url, "image")}
+                    onClick={() => storyFileInputRef.current?.click()}
                     className="aspect-[3/4] bg-neutral-900 overflow-hidden relative cursor-pointer border border-white/5 group"
                   >
                     <img 
@@ -2076,6 +2133,38 @@ export const DashboardView: React.FC = () => {
                   <img src={storyPreview} className="w-full h-full object-cover" alt="" />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/50" />
+
+                {/* Floating custom text overlay */}
+                {storyTextOverlay && (
+                  <div 
+                    onClick={() => {
+                      const text = prompt("Edit text overlay:", storyTextOverlay);
+                      if (text !== null) setStoryTextOverlay(text);
+                    }}
+                    className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 px-4 py-2.5 bg-black/60 border border-white/20 rounded-2xl text-center max-w-[85%] font-extrabold text-[22px] tracking-wide text-white drop-shadow-md cursor-pointer select-none hover:scale-105 active:scale-95 transition-transform"
+                  >
+                    {storyTextOverlay}
+                  </div>
+                )}
+
+                {/* Floating music sticker */}
+                {selectedStorySong && (
+                  <div 
+                    onClick={() => {
+                      if (confirm("Remove music from story?")) {
+                        setSelectedStorySong(null);
+                      }
+                    }}
+                    className="absolute top-[50%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 p-3.5 bg-neutral-900/90 border border-white/10 backdrop-blur-md rounded-2xl flex items-center gap-3 shadow-xl max-w-[80%] cursor-pointer select-none hover:scale-105 active:scale-95 transition-transform"
+                  >
+                    <img src={selectedStorySong.artwork} className="w-12 h-12 rounded-xl object-cover shrink-0" alt="" />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs font-bold text-white block truncate">{selectedStorySong.name}</span>
+                      <span className="text-[10px] text-[#0095f6] font-semibold block truncate">{selectedStorySong.artist}</span>
+                      <span className="text-[9px] text-white/40 block mt-0.5">🎵 Story Soundtrack</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Top bar on top of background preview */}
@@ -2120,7 +2209,16 @@ export const DashboardView: React.FC = () => {
                   ].map(act => (
                     <button 
                       key={act.id} 
-                      onClick={() => alert(`Simulated Instagram story decoration tool: ${act.id.toUpperCase()}`)}
+                      onClick={() => {
+                        if (act.id === "text") {
+                          const text = prompt("Enter text overlay for your story:", storyTextOverlay);
+                          if (text !== null) setStoryTextOverlay(text);
+                        } else if (act.id === "music") {
+                          setIsStoryMusicPickerOpen(true);
+                        } else {
+                          alert(`Simulated story decoration tool: ${act.id.toUpperCase()}`);
+                        }
+                      }}
                       className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 hover:scale-105 active:scale-95 transition-all cursor-pointer"
                     >
                       {act.el}
@@ -2204,6 +2302,88 @@ export const DashboardView: React.FC = () => {
         </div>
       )}
 
+      {/* --- STORY MUSIC PICKER DIALOG OVERLAY --- */}
+      {isStoryMusicPickerOpen && (
+        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/85 backdrop-blur-sm animate-fadein">
+          <div className="w-[380px] bg-neutral-900 border border-white/10 rounded-[28px] p-5 shadow-2xl space-y-4 text-white relative">
+            <button
+              onClick={() => {
+                setIsStoryMusicPickerOpen(false);
+                setItunesSearchQuery("");
+                setItunesSongs([]);
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#22d3ee] text-center">Add Music to Story</h3>
+
+            <div className="space-y-3">
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  placeholder="Search songs on iTunes..."
+                  value={itunesSearchQuery}
+                  onChange={(e) => {
+                    setItunesSearchQuery(e.target.value);
+                    handleSearchItunes(e.target.value);
+                  }}
+                  className="w-full bg-black/40 border border-white/10 rounded-2xl pl-9 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                />
+                <Search className="w-4 h-4 text-white/40 absolute left-3" />
+              </div>
+
+              {isSearchingItunes ? (
+                <div className="text-center py-4 flex items-center justify-center gap-1.5 text-[10px] text-white/40 font-mono uppercase">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#22d3ee]" /> Searching...
+                </div>
+              ) : itunesSongs.length > 0 ? (
+                <div className="max-h-60 overflow-y-auto no-scrollbar space-y-2 bg-black/20 rounded-2xl p-2 border border-white/5">
+                  {itunesSongs.map(song => (
+                    <div key={song.id} className="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-colors">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <img src={song.artwork} className="w-8 h-8 rounded-lg object-cover" alt="" />
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-bold text-white block truncate">{song.name}</span>
+                          <span className="text-[8px] text-white/40 block truncate">{song.artist}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handlePlayPreview(song)}
+                          className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white shrink-0"
+                        >
+                          {playingSongId === song.id ? <Pause className="w-3.5 h-3.5 text-[#22d3ee]" /> : <Play className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedStorySong(song);
+                            setIsStoryMusicPickerOpen(false);
+                            setItunesSearchQuery("");
+                            setItunesSongs([]);
+                            handlePlayPreview(song);
+                          }}
+                          className="px-2.5 py-1 rounded bg-[#22d3ee] text-black font-bold text-[9.5px] hover:bg-cyan-400 shrink-0"
+                        >
+                          Select
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-[10px] text-white/30 italic">
+                  Search above to pick a soundtrack
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- STORY VIEWER CAROUSEL MODAL --- */}
       {isStoryViewerOpen && activeStoryUser && (() => {
         const userStories = stories.filter((s: any) => s.user_id === activeStoryUser);
@@ -2214,12 +2394,14 @@ export const DashboardView: React.FC = () => {
 
         if (!activeStory) return null;
 
-        // Parse story payload caption
+        // Parse story payload caption and custom text overlays
         let parsedCaption = "";
+        let parsedTextOverlay = "";
         try {
           if (activeStory.caption) {
             const parsed = JSON.parse(activeStory.caption);
             parsedCaption = parsed.textCaption || "";
+            parsedTextOverlay = parsed.textOverlay || "";
           }
         } catch {
           parsedCaption = activeStory.caption || "";
@@ -2231,6 +2413,7 @@ export const DashboardView: React.FC = () => {
             onClick={() => {
               setIsStoryViewerOpen(false);
               setActiveStoryUser(null);
+              setIsViewerListOpen(false);
             }}
           >
             <div 
@@ -2257,6 +2440,25 @@ export const DashboardView: React.FC = () => {
                 {/* Visual gradient covers */}
                 <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/70 to-transparent" />
                 <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/80 to-transparent" />
+
+                {/* Floating custom text overlay */}
+                {parsedTextOverlay && (
+                  <div className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 px-4 py-2.5 bg-black/60 border border-white/20 rounded-2xl text-center max-w-[85%] font-extrabold text-[22px] tracking-wide text-white drop-shadow-md select-none">
+                    {parsedTextOverlay}
+                  </div>
+                )}
+
+                {/* Floating music sticker */}
+                {activeStory.song_name && (
+                  <div className="absolute top-[50%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 p-3.5 bg-neutral-900/90 border border-white/10 backdrop-blur-md rounded-2xl flex items-center gap-3 shadow-xl max-w-[80%] select-none">
+                    <img src={activeStory.song_artwork || "https://api.dicebear.com/7.x/initials/svg?seed=Music"} className="w-12 h-12 rounded-xl object-cover shrink-0" alt="" />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs font-bold text-white block truncate text-left">{activeStory.song_name}</span>
+                      <span className="text-[10px] text-[#0095f6] font-semibold block truncate text-left">{activeStory.song_artist}</span>
+                      <span className="text-[9px] text-white/40 block mt-0.5 text-left">🎵 Story Soundtrack</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Top Controls Overlay */}
@@ -2287,8 +2489,14 @@ export const DashboardView: React.FC = () => {
                       className="w-9 h-9 rounded-full object-cover border border-white/20" 
                       alt="" 
                     />
-                    <div>
+                    <div className="text-left">
                       <span className="text-xs font-bold text-white block leading-none">{name}</span>
+                      {activeStory.song_name && (
+                        <div className="flex items-center gap-1 text-[#0095f6] text-[9.5px] font-bold mt-0.5 animate-pulse">
+                          <span>🎵</span>
+                          <span className="truncate max-w-[150px]">{activeStory.song_name} · {activeStory.song_artist}</span>
+                        </div>
+                      )}
                       <span className="text-[9px] text-white/50 font-mono mt-0.5 block">
                         {new Date(activeStory.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                       </span>
@@ -2311,6 +2519,7 @@ export const DashboardView: React.FC = () => {
                       onClick={() => {
                         setIsStoryViewerOpen(false);
                         setActiveStoryUser(null);
+                        setIsViewerListOpen(false);
                       }}
                       className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-all"
                     >
@@ -2321,49 +2530,218 @@ export const DashboardView: React.FC = () => {
               </div>
 
               {/* Side click zones for navigation */}
-              <div className="absolute inset-y-24 left-0 w-1/3 z-20 cursor-pointer" onClick={handlePrevStory} />
-              <div className="absolute inset-y-24 right-0 w-1/3 z-20 cursor-pointer" onClick={handleNextStory} />
+              <div className="absolute inset-y-24 left-0 w-1/3 z-20 cursor-pointer" onClick={() => {
+                handlePrevStory();
+                setIsViewerListOpen(false);
+              }} />
+              <div className="absolute inset-y-24 right-0 w-1/3 z-20 cursor-pointer" onClick={() => {
+                handleNextStory();
+                setIsViewerListOpen(false);
+              }} />
 
-              {/* Bottom Caption Overlay */}
-              <div className="relative z-10 p-4 text-center">
-                {parsedCaption && (
-                  <p className="text-white text-xs font-semibold px-4 py-2 bg-black/40 backdrop-blur-md border border-white/5 rounded-2xl max-w-[90%] mx-auto shadow-lg leading-relaxed animate-fadein">
-                    {parsedCaption}
-                  </p>
-                )}
-                
-                {/* Viewers indicators for own story */}
-                {activeStory.user_id === userProfile?.id && (() => {
-                  const storyViewersList = (activeStory.viewers || [])
-                    .map((viewerId: string) => allProfiles.find(p => p.id === viewerId))
-                    .filter(Boolean);
-
-                  return (
-                    <div className="mt-3 bg-black/60 border border-white/10 rounded-2xl p-2.5 max-w-[90%] mx-auto text-left shadow-lg">
-                      <span className="text-[8.5px] uppercase tracking-wider text-white/40 font-bold block mb-1.5">
-                        Story Viewers ({storyViewersList.length})
-                      </span>
-                      {storyViewersList.length > 0 ? (
-                        <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5">
-                          {storyViewersList.map((viewer: any) => {
-                            const viewerAvatar = viewer.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(viewer.full_name || "Viewer")}&backgroundColor=030712&textColor=ffffff`;
+              {/* Bottom Actions Row */}
+              {activeStory.user_id === userProfile?.id ? (
+                /* --- OWN STORY ACTIONS (ACTIVITY STACK) --- */
+                <div className="relative z-10 p-4 text-center flex flex-col items-center shrink-0">
+                  {parsedCaption && (
+                    <p className="text-white text-xs font-semibold px-4 py-2 bg-black/40 backdrop-blur-md border border-white/5 rounded-2xl max-w-[90%] mx-auto shadow-lg leading-relaxed mb-3 animate-fadein">
+                      {parsedCaption}
+                    </p>
+                  )}
+                  
+                  <button
+                    onClick={() => setIsViewerListOpen(true)}
+                    className="flex items-center gap-2 bg-black/50 border border-white/10 px-4 py-2 rounded-full hover:bg-black/80 transition-all text-white font-bold text-xs cursor-pointer shadow-lg"
+                  >
+                    {(() => {
+                      const viewsList = activeStory.views || [];
+                      const firstThree = viewsList.slice(0, 3);
+                      return (
+                        <div className="flex -space-x-1.5 mr-1">
+                          {firstThree.map((v: any, index: number) => {
+                            const avatarUrl = v?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(v?.full_name || "V")}`;
                             return (
-                              <div key={viewer.id} className="flex flex-col items-center shrink-0 w-10 text-center select-none">
-                                <img src={viewerAvatar} className="w-6 h-6 rounded-full object-cover border border-white/10" alt="" />
-                                <span className="text-[7px] text-white/70 truncate w-full mt-0.5">
-                                  {getFirstName(viewer.full_name)}
-                                </span>
-                              </div>
+                              <img key={index} src={avatarUrl} className="w-4.5 h-4.5 rounded-full border border-black object-cover" alt="" />
                             );
                           })}
                         </div>
-                      ) : (
-                        <span className="text-[9px] text-white/30 italic">No viewers yet</span>
-                      )}
+                      );
+                    })()}
+                    <span>Activity</span>
+                    <span className="text-white/40 font-mono">{(activeStory.views || []).length}</span>
+                  </button>
+                </div>
+              ) : (
+                /* --- TEAMMATE STORY ACTIONS (REPLY & LIKE) --- */
+                <div className="relative z-10 p-4 flex items-center justify-between gap-3 w-full shrink-0">
+                  {parsedCaption && (
+                    <div className="absolute bottom-full mb-3 left-4 right-4 text-center">
+                      <p className="text-white text-xs font-semibold px-4 py-2 bg-black/40 backdrop-blur-md border border-white/5 rounded-2xl max-w-[95%] mx-auto shadow-lg leading-relaxed animate-fadein">
+                        {parsedCaption}
+                      </p>
                     </div>
-                  );
-                })()}
-              </div>
+                  )}
+
+                  <input
+                    type="text"
+                    placeholder="Send message..."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const val = (e.target as HTMLInputElement).value;
+                        if (val.trim()) {
+                          // Send DM reaction into teammate's thread
+                          let channel = chatChannels.find((c: any) => 
+                            !c.is_group && c.chat_channel_members?.some((m: any) => m.user_id === activeStory.user_id)
+                          );
+                          const textPayload = `💬 Replied to your story: "${val}"`;
+                          if (channel) {
+                            sendChatMessage(channel.id, textPayload);
+                          } else {
+                            createChatChannel("Direct Message", false, [activeStory.user_id]).then(newChanId => {
+                              if (newChanId) sendChatMessage(newChanId, textPayload);
+                            });
+                          }
+                          alert(`Story reply successfully sent to ${name}!`);
+                          (e.target as HTMLInputElement).value = "";
+                        }
+                      }
+                    }}
+                    className="flex-1 bg-transparent border border-white/30 rounded-full px-4 py-2 text-xs text-white placeholder-white/60 focus:outline-none focus:border-white focus:bg-black/40 transition-all h-9"
+                  />
+
+                  {(() => {
+                    const isLiked = (activeStory.likes || []).includes(userProfile?.id);
+                    return (
+                      <button
+                        onClick={() => likeStory(activeStory.id)}
+                        className={`w-9 h-9 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md text-white transition-all cursor-pointer hover:scale-110 ${isLiked ? "text-[#e0245e]" : "text-white/70 hover:text-white"}`}
+                        title="Like Story"
+                      >
+                        <svg viewBox="0 0 24 24" fill={isLiked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                        </svg>
+                      </button>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* --- SLIDE-UP VIEWER LIST DRAWER (IMAGE 1 SCREENSHOT) --- */}
+              {isViewerListOpen && (
+                <div className="absolute inset-x-0 bottom-0 z-40 bg-[#0c0d12] border-t border-white/10 rounded-t-[24px] h-[75%] flex flex-col justify-between text-white animate-slideup" onClick={(e) => e.stopPropagation()}>
+                  {/* Handle indicator */}
+                  <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-3 shrink-0 cursor-pointer" onClick={() => setIsViewerListOpen(false)} />
+
+                  {/* Header Stats Bar */}
+                  <div className="px-4 py-2 flex items-center justify-between border-b border-white/5 shrink-0">
+                    <div className="flex items-center gap-4">
+                      {/* Activity stats icon */}
+                      <button className="text-white/60 hover:text-white">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-5 h-5">
+                          <line x1="18" y1="20" x2="18" y2="10" />
+                          <line x1="12" y1="20" x2="12" y2="4" />
+                          <line x1="6" y1="20" x2="6" y2="14" />
+                        </svg>
+                      </button>
+
+                      {/* View count indicator */}
+                      <div className="flex items-center gap-1.5 text-[#0095f6] font-bold text-sm">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4.5 h-4.5">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        <span>{(activeStory.views || []).length}</span>
+                      </div>
+                    </div>
+
+                    {/* Delete story button */}
+                    <button 
+                      onClick={() => {
+                        if (confirm("Delete this story?")) {
+                          handleDeleteStory(activeStory.id);
+                          setIsViewerListOpen(false);
+                        }
+                      }}
+                      className="p-1.5 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer"
+                      title="Delete Story"
+                    >
+                      <Trash2 className="w-4.5 h-4.5" />
+                    </button>
+                  </div>
+
+                  {/* Viewers list */}
+                  <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4">
+                    <span className="text-[12px] uppercase tracking-wider text-white/40 font-bold block text-left">
+                      Who viewed your story
+                    </span>
+                    {(() => {
+                      const storyViewersList = (activeStory.views || [])
+                        .map((v: any) => {
+                          const viewerId = typeof v === "string" ? v : v?.id;
+                          return allProfiles.find(p => p.id === viewerId);
+                        })
+                        .filter(Boolean);
+
+                      if (storyViewersList.length === 0) {
+                        return (
+                          <div className="text-center py-12 text-xs text-white/30 italic">
+                            No views yet
+                          </div>
+                        );
+                      }
+
+                      return storyViewersList.map((viewer: any) => {
+                        const viewerAvatar = viewer.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(viewer.full_name || "Viewer")}&backgroundColor=030712&textColor=ffffff`;
+                        const isLiked = (activeStory.likes || []).includes(viewer.id);
+                        const handle = viewer.full_name?.toLowerCase().replace(/\s+/g, ".") || "viewer";
+
+                        return (
+                          <div key={viewer.id} className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              {/* Avatar with heart overlay badge if they liked */}
+                              <div className="relative">
+                                <img src={viewerAvatar} className="w-10 h-10 rounded-full object-cover border border-white/10" alt="" />
+                                {isLiked && (
+                                  <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 bg-[#e0245e] rounded-full border border-black flex items-center justify-center text-white shadow-md animate-pulse">
+                                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-2.5 h-2.5">
+                                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-left">
+                                <span className="text-xs font-bold text-white block leading-none">{handle}</span>
+                                <span className="text-[10px] text-white/50 block mt-0.5">{viewer.full_name}</span>
+                              </div>
+                            </div>
+
+                            {/* DM paper airplane & Options */}
+                            <div className="flex items-center gap-2">
+                              <button className="p-1.5 hover:bg-white/5 text-white/40 hover:text-white rounded-full">
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setIsStoryViewerOpen(false);
+                                  setActiveStoryUser(null);
+                                  setIsViewerListOpen(false);
+                                  setActiveView("chat");
+                                }}
+                                className="p-1.5 hover:bg-white/5 text-white/40 hover:text-[#0095f6] rounded-full transition-colors"
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 rotate-[15deg]">
+                                  <line x1="22" y1="2" x2="11" y2="13" />
+                                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
