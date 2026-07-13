@@ -2912,84 +2912,118 @@ export const ChatView: React.FC = () => {
                 </div>
               )}
 
-              {/* Floating Input capsule */}
-              <div className="relative max-w-4xl mx-auto w-full flex items-center gap-2 bg-white/[0.06] backdrop-blur-[24px] border border-white/20 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_8px_32px_0_rgba(0,0,0,0.35)] rounded-[28px] px-3.5 py-2.5">
-                
-                <input
-                  type="file"
-                  id="media-attach-file"
-                  className="hidden"
-                  onChange={handleSelectFile}
-                />
-
-                {/* Plus button expanding grid of 13 attachments */}
-                <div className="relative">
-                  <button
-                    onClick={() => setIsPlusMenuOpen(!isPlusMenuOpen)}
-                    className={`p-2 rounded-full border transition-all cursor-pointer ${
-                      isPlusMenuOpen ? "bg-cyan-400 text-black border-cyan-300 rotate-45" : "bg-white/10 border-white/5 text-white hover:bg-white/15"
-                    }`}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
- 
-                  {isPlusMenuOpen && (
-                    <div className="absolute bottom-12 left-0 bg-[#0d0d11]/95 backdrop-blur-[32px] border border-white/15 rounded-[28px] p-4.5 shadow-2xl grid grid-cols-4 gap-4.5 z-50 animate-slideup w-[310px]">
-                      {[
-                        { icon: Camera, label: "Camera", color: "bg-red-500", click: () => { setIsPlusMenuOpen(false); document.getElementById("media-attach-file")?.click(); } },
-                        { icon: ImageIcon, label: "Gallery", color: "bg-green-500", click: () => { setIsPlusMenuOpen(false); document.getElementById("media-attach-file")?.click(); } },
-                        { icon: FileIcon, label: "Files", color: "bg-blue-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[File] Document.pdf"); } },
-                        { icon: Sticker, label: "GIF", color: "bg-yellow-500", click: () => { setIsPlusMenuOpen(false); setShowGifs(!showGifs); } },
-                        { icon: Smile, label: "Sticker", color: "bg-orange-500", click: () => { setIsPlusMenuOpen(false); setShowEmojiPicker(!showEmojiPicker); } },
-                        { icon: Mic, label: "Voice", color: "bg-purple-500", click: () => { setIsPlusMenuOpen(false); handleToggleVoiceRecord(); } },
-                        { icon: MapPin, label: "Location", color: "bg-teal-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Location] Stage 4, Burbank Studio (34.1578, -118.3392)"); } },
-                        { icon: MusicIcon, label: "Music", color: "bg-indigo-500", click: () => { setIsPlusMenuOpen(false); setIsNoteComposerOpen(true); } },
-                        { icon: FolderIcon, label: "Projects", color: "bg-rose-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Task] Finalize VFX Scene 14"); } },
-                        { icon: Calendar, label: "Calendar", color: "bg-cyan-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Invite] Table Read: Episode 2 - Jul 15, 2:00 PM"); } },
-                        { icon: BarChart2, label: "Poll", color: "bg-lime-500", click: () => { setIsPlusMenuOpen(false); setStoryStampType("poll"); setIsStoryCreatorOpen(true); } },
-                        { icon: User, label: "Contact", color: "bg-amber-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Contact] Vivek Rautela (+1 555-0199)"); } },
-                        { icon: FileText, label: "Documents", color: "bg-emerald-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Document] Script_v3.pdf"); } }
-                      ].map((item, index) => {
-                        const IconComponent = item.icon;
-                        return (
-                          <button
-                            key={index}
-                            onClick={item.click}
-                            className="flex flex-col items-center gap-1 hover:scale-105 transition-transform"
-                          >
-                            <div className={`w-10 h-10 rounded-full ${item.color} flex items-center justify-center text-white shadow-md`}>
-                              <IconComponent className="w-5 h-5" />
-                            </div>
-                            <span className="text-[8px] text-white/60 font-semibold">{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+              {unapprovedChannelIds.includes(activeChannelId) ? (
+                /* --- MESSAGE REQUEST ACTIONS BANNER --- */
+                <div className="max-w-xl mx-auto w-full bg-[#1c1c1e] border border-white/10 rounded-[24px] p-5 shadow-2xl space-y-4 text-center z-10 animate-slideup relative mb-2">
+                  <h5 className="font-bold text-white text-xs">
+                    Accept Message Request?
+                  </h5>
+                  <p className="text-[10px] text-white/50 leading-relaxed px-4">
+                    Do you want to let this person send you messages and calls? They won't know you've read their messages until you accept the request.
+                  </p>
+                  <div className="flex gap-2 justify-center">
+                    <button
+                      onClick={() => {
+                        setUnapprovedChannelIds(prev => prev.filter(id => id !== activeChannelId));
+                        alert("Message request deleted.");
+                        setActiveChannelId("");
+                      }}
+                      className="px-5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold rounded-full text-[11px] transition-colors cursor-pointer"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => {
+                        setUnapprovedChannelIds(prev => prev.filter(id => id !== activeChannelId));
+                        setGeneralChannelIds(prev => [...prev, activeChannelId]);
+                        alert("Message request accepted and moved to General box!");
+                      }}
+                      className="px-6 py-2 bg-[#0095f6] hover:bg-blue-600 text-white font-bold rounded-full text-[11px] transition-all shadow-lg hover:scale-102 active:scale-98 cursor-pointer"
+                    >
+                      Accept
+                    </button>
+                  </div>
                 </div>
- 
-                <input
-                  type="text"
-                  placeholder="Search or Ask AI..."
-                  value={messageInput}
-                  onChange={(e) => {
-                    setMessageInput(e.target.value);
-                    handleTypingStatus(e.target.value.trim().length > 0);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSendMessage();
-                  }}
-                  className="flex-1 bg-transparent border-none outline-none text-xs text-white placeholder-white/35 focus:ring-0"
-                />
- 
-                <button
-                  onClick={() => handleSendMessage()}
-                  disabled={isUploading}
-                  className="p-2 bg-cyan-400 hover:bg-cyan-300 text-black rounded-full shadow-lg transition-transform hover:scale-105 flex-shrink-0"
-                >
-                  <Send className="w-4 h-4 fill-black" />
-                </button>
-              </div>
+              ) : (
+                /* --- Floating Input capsule --- */
+                <div className="relative max-w-4xl mx-auto w-full flex items-center gap-2 bg-white/[0.06] backdrop-blur-[24px] border border-white/20 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_8px_32px_0_rgba(0,0,0,0.35)] rounded-[28px] px-3.5 py-2.5">
+                  
+                  <input
+                    type="file"
+                    id="media-attach-file"
+                    className="hidden"
+                    onChange={handleSelectFile}
+                  />
+
+                  {/* Plus button expanding grid of 13 attachments */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsPlusMenuOpen(!isPlusMenuOpen)}
+                      className={`p-2 rounded-full border transition-all cursor-pointer ${
+                        isPlusMenuOpen ? "bg-cyan-400 text-black border-cyan-300 rotate-45" : "bg-white/10 border-white/5 text-white hover:bg-white/15"
+                      }`}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+   
+                    {isPlusMenuOpen && (
+                      <div className="absolute bottom-12 left-0 bg-[#0d0d11]/95 backdrop-blur-[32px] border border-white/15 rounded-[28px] p-4.5 shadow-2xl grid grid-cols-4 gap-4.5 z-50 animate-slideup w-[310px]">
+                        {[
+                          { icon: Camera, label: "Camera", color: "bg-red-500", click: () => { setIsPlusMenuOpen(false); document.getElementById("media-attach-file")?.click(); } },
+                          { icon: ImageIcon, label: "Gallery", color: "bg-green-500", click: () => { setIsPlusMenuOpen(false); document.getElementById("media-attach-file")?.click(); } },
+                          { icon: FileIcon, label: "Files", color: "bg-blue-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[File] Document.pdf"); } },
+                          { icon: Sticker, label: "GIF", color: "bg-yellow-500", click: () => { setIsPlusMenuOpen(false); setShowGifs(!showGifs); } },
+                          { icon: Smile, label: "Sticker", color: "bg-orange-500", click: () => { setIsPlusMenuOpen(false); setShowEmojiPicker(!showEmojiPicker); } },
+                          { icon: Mic, label: "Voice", color: "bg-purple-500", click: () => { setIsPlusMenuOpen(false); handleToggleVoiceRecord(); } },
+                          { icon: MapPin, label: "Location", color: "bg-teal-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Location] Stage 4, Burbank Studio (34.1578, -118.3392)"); } },
+                          { icon: MusicIcon, label: "Music", color: "bg-indigo-500", click: () => { setIsPlusMenuOpen(false); setIsNoteComposerOpen(true); } },
+                          { icon: FolderIcon, label: "Projects", color: "bg-rose-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Task] Finalize VFX Scene 14"); } },
+                          { icon: Calendar, label: "Calendar", color: "bg-cyan-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Invite] Table Read: Episode 2 - Jul 15, 2:00 PM"); } },
+                          { icon: BarChart2, label: "Poll", color: "bg-lime-500", click: () => { setIsPlusMenuOpen(false); setStoryStampType("poll"); setIsStoryCreatorOpen(true); } },
+                          { icon: User, label: "Contact", color: "bg-amber-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Contact] Vivek Rautela (+1 555-0199)"); } },
+                          { icon: FileText, label: "Documents", color: "bg-emerald-500", click: () => { setIsPlusMenuOpen(false); handleSendMessage("[Document] Script_v3.pdf"); } }
+                        ].map((item, index) => {
+                          const IconComponent = item.icon;
+                          return (
+                            <button
+                              key={index}
+                              onClick={item.click}
+                              className="flex flex-col items-center gap-1 hover:scale-105 transition-transform"
+                            >
+                              <div className={`w-10 h-10 rounded-full ${item.color} flex items-center justify-center text-white shadow-md`}>
+                                <IconComponent className="w-5 h-5" />
+                              </div>
+                              <span className="text-[8px] text-white/60 font-semibold">{item.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+   
+                  <input
+                    type="text"
+                    placeholder="Search or Ask AI..."
+                    value={messageInput}
+                    onChange={(e) => {
+                      setMessageInput(e.target.value);
+                      handleTypingStatus(e.target.value.trim().length > 0);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSendMessage();
+                    }}
+                    className="flex-1 bg-transparent border-none outline-none text-xs text-white placeholder-white/35 focus:ring-0"
+                  />
+   
+                  <button
+                    onClick={() => handleSendMessage()}
+                    disabled={isUploading}
+                    className="p-2 bg-cyan-400 hover:bg-cyan-300 text-black rounded-full shadow-lg transition-transform hover:scale-105 flex-shrink-0"
+                  >
+                    <Send className="w-4 h-4 fill-black" />
+                  </button>
+                </div>
+              )}
 
               {/* Emoji Picker Popover */}
               {showEmojiPicker && (
@@ -3196,30 +3230,157 @@ export const ChatView: React.FC = () => {
 
       {/* 4. NEW MESSAGE COMPOSER MODAL */}
       {isNewChatOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="w-[380px] bg-neutral-900 border border-white/10 rounded-[28px] p-5 shadow-2xl space-y-4 text-white">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md animate-fadein">
+          <div className="w-[380px] max-h-[85vh] flex flex-col bg-neutral-900 border border-white/10 rounded-[28px] p-5 shadow-2xl space-y-4 text-white overflow-hidden">
             <div className="flex justify-between items-center border-b border-white/5 pb-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-[#22d3ee]">Create Conversation</span>
-              <button onClick={() => setIsNewChatOpen(false)} className="p-1 rounded bg-white/5 text-white font-bold cursor-pointer">X</button>
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase text-white/50 mb-1">Select Collaborator</label>
-              <select
-                onChange={async (e) => {
-                  const id = e.target.value;
-                  if (!id) return;
+              <span className="text-xs font-bold uppercase tracking-widest text-[#22d3ee]">New Message</span>
+              <button 
+                onClick={() => {
                   setIsNewChatOpen(false);
-                  const chanId = await createChatChannel("Direct Message", false, [id]);
-                  if (chanId) setActiveChannelId(chanId);
-                }}
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                  setNewChatIsGroup(false);
+                  setNewChatGroupName("");
+                  setNewChatSelectedMembers([]);
+                }} 
+                className="p-1.5 rounded-full hover:bg-white/5 text-white/60 hover:text-white cursor-pointer"
               >
-                <option value="">Select User Profile</option>
-                {profiles.filter(p => p.id !== currentUser?.id).map(p => (
-                  <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
-                ))}
-              </select>
+                <X className="w-4 h-4" />
+              </button>
             </div>
+
+            {/* Toggle tabs for DM vs Group */}
+            <div className="grid grid-cols-2 bg-black/40 p-1 rounded-full border border-white/5 shrink-0">
+              <button
+                onClick={() => setNewChatIsGroup(false)}
+                className={`py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${!newChatIsGroup ? "bg-[#22d3ee] text-black" : "text-white/60 hover:text-white"}`}
+              >
+                Direct Message
+              </button>
+              <button
+                onClick={() => setNewChatIsGroup(true)}
+                className={`py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${newChatIsGroup ? "bg-[#22d3ee] text-black" : "text-white/60 hover:text-white"}`}
+              >
+                Group Chat
+              </button>
+            </div>
+
+            {!newChatIsGroup ? (
+              /* --- DIRECT MESSAGE SETUP --- */
+              <div className="space-y-3 flex-1 overflow-y-auto no-scrollbar py-1">
+                <label className="block text-[9px] uppercase tracking-wider text-white/40 font-bold">Select Collaborator</label>
+                <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1 no-scrollbar">
+                  {profiles.filter(p => p.id !== currentUser?.id).map(p => (
+                    <button
+                      key={p.id}
+                      onClick={async () => {
+                        setIsNewChatOpen(false);
+                        const chanId = await createChatChannel("Direct Message", false, [p.id]);
+                        if (chanId) setActiveChannelId(chanId);
+                      }}
+                      className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-white/5 hover:bg-[#22d3ee]/10 text-left transition-colors border border-white/5 cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-neutral-800 flex items-center justify-center font-bold text-cyan-400 text-xs shrink-0">
+                        {p.avatar_url ? (
+                          <img src={p.avatar_url} className="w-full h-full object-cover" alt="" />
+                        ) : (
+                          p.full_name?.substring(0, 2).toUpperCase()
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-white block truncate">{p.full_name || "User"}</span>
+                        <span className="text-[10px] text-white/45 block truncate">{p.email}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* --- GROUP CHAT SETUP --- */
+              <div className="flex-1 flex flex-col min-h-0 space-y-4">
+                <div className="space-y-1.5 shrink-0">
+                  <label className="block text-[9px] uppercase tracking-wider text-white/40 font-bold">Group Name</label>
+                  <input
+                    type="text"
+                    placeholder="Enter group name (e.g. VFX Crew)..."
+                    value={newChatGroupName}
+                    onChange={(e) => setNewChatGroupName(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#22d3ee] h-9"
+                  />
+                </div>
+
+                <div className="flex-1 flex flex-col min-h-0 space-y-1.5">
+                  <label className="block text-[9px] uppercase tracking-wider text-white/40 font-bold">Select Members</label>
+                  <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 no-scrollbar max-h-[200px]">
+                    {profiles.filter(p => p.id !== currentUser?.id).map(p => {
+                      const isSelected = newChatSelectedMembers.includes(p.id);
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => {
+                            setNewChatSelectedMembers(prev => 
+                              isSelected ? prev.filter(id => id !== p.id) : [...prev, p.id]
+                            );
+                          }}
+                          className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${
+                            isSelected ? "bg-[#22d3ee]/10 border-[#22d3ee]/30" : "bg-white/5 border-white/5 hover:bg-white/10"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-8 h-8 rounded-full overflow-hidden bg-neutral-800 flex items-center justify-center font-bold text-cyan-400 text-xs shrink-0">
+                              {p.avatar_url ? (
+                                <img src={p.avatar_url} className="w-full h-full object-cover" alt="" />
+                              ) : (
+                                p.full_name?.substring(0, 2).toUpperCase()
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-xs font-bold text-white block truncate">{p.full_name || "User"}</span>
+                              <span className="text-[10px] text-white/45 block truncate">{p.email}</span>
+                            </div>
+                          </div>
+                          <div className={`w-5.5 h-5.5 rounded-full border flex items-center justify-center transition-all shrink-0 ${
+                            isSelected ? "bg-[#22d3ee] border-[#22d3ee] text-black" : "border-white/20 bg-black/20"
+                          }`}>
+                            {isSelected && (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-3 h-3">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button
+                  onClick={async () => {
+                    if (!newChatGroupName.trim()) {
+                      alert("Please specify a group name.");
+                      return;
+                    }
+                    if (newChatSelectedMembers.length < 1) {
+                      alert("Please select at least 1 group member.");
+                      return;
+                    }
+                    setIsNewChatOpen(false);
+                    const name = newChatGroupName.trim();
+                    const members = [...newChatSelectedMembers];
+                    
+                    // Reset modal state
+                    setNewChatIsGroup(false);
+                    setNewChatGroupName("");
+                    setNewChatSelectedMembers([]);
+
+                    const chanId = await createChatChannel(name, true, members);
+                    if (chanId) setActiveChannelId(chanId);
+                    alert(`Group "${name}" successfully created!`);
+                  }}
+                  className="w-full py-2.5 bg-[#22d3ee] hover:bg-[#22d3ee]/90 text-black font-extrabold rounded-xl text-xs transition-colors cursor-pointer shadow-lg mt-2 shrink-0"
+                >
+                  Create Group Chat
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
