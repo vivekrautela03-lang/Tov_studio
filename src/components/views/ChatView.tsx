@@ -133,7 +133,7 @@ export const ChatView: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
 
   // Filters & Header States
-  const [activeFilter, setActiveFilter] = useState<"Primary" | "General" | "Requests">("Primary");
+  const [activeFilter, setActiveFilter] = useState<"Primary" | "General" | "Groups">("Primary");
   const [generalChannelIds, setGeneralChannelIds] = useState<string[]>([]);
   const [unapprovedChannelIds, setUnapprovedChannelIds] = useState<string[]>([]);
   const [localUnreadChannelIds, setLocalUnreadChannelIds] = useState<string[]>([]);
@@ -1932,21 +1932,20 @@ export const ChatView: React.FC = () => {
     }
   };
 
-  // Custom filters matching Primary / General / Requests categories
+  // Custom filters matching Primary / General / Groups categories
   const filteredChannels = chatChannels.filter(channel => {
     const details = getChannelDetails(channel);
-    const isRequest = unapprovedChannelIds.includes(channel.id);
     const isGeneral = generalChannelIds.includes(channel.id);
 
     // Tab filter
-    if (activeFilter === "Requests") {
-      if (!isRequest) return false;
+    if (activeFilter === "Groups") {
+      if (!channel.is_group) return false;
     } else if (activeFilter === "General") {
-      if (isRequest) return false;
+      if (channel.is_group) return false;
       if (!isGeneral) return false;
     } else {
       // Primary tab
-      if (isRequest || isGeneral) return false;
+      if (channel.is_group || isGeneral) return false;
     }
 
     // Search filter
@@ -1978,7 +1977,7 @@ export const ChatView: React.FC = () => {
       }
     }
 
-    if (channel.is_archived && activeFilter !== "Requests") {
+    if (channel.is_archived && activeFilter !== "Groups") {
       return false;
     }
 
@@ -2221,11 +2220,10 @@ export const ChatView: React.FC = () => {
           </button>
         </div>
 
-        {/* Sliding Tab Underline Selection (Primary, General, Requests) */}
+        {/* Sliding Tab Underline Selection (Primary, General, Groups) */}
         <div className="flex border-b border-white/10 relative px-4 mt-2 justify-around select-none shrink-0">
-          {(["Primary", "General", "Requests"] as const).map((tab) => {
-            const isRequest = tab === "Requests";
-            const requestsCount = unapprovedChannelIds.length;
+          {(["Primary", "General", "Groups"] as const).map((tab) => {
+            const isGroups = tab === "Groups";
             
             return (
               <button
@@ -2235,11 +2233,19 @@ export const ChatView: React.FC = () => {
                   activeFilter === tab ? "text-white" : "text-[#8e8e8e] hover:text-white"
                 }`}
               >
-                <span className="inline-flex items-center gap-1.5 justify-center w-full">
-                  {tab}
-                  {isRequest && requestsCount > 0 && (
-                    <span className="bg-[#ff3040] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none animate-pulse">
-                      {requestsCount}
+                <span className="inline-flex items-center gap-1 justify-center w-full">
+                  <span>{tab}</span>
+                  {isGroups && (
+                    <span 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setNewChatIsGroup(true);
+                        setIsNewChatOpen(true);
+                      }}
+                      className="ml-1 p-0.5 rounded-md hover:bg-white/15 text-cyan-400 hover:text-cyan-300 transition-colors flex items-center justify-center shrink-0"
+                      title="Create Group Chat"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
                     </span>
                   )}
                 </span>
