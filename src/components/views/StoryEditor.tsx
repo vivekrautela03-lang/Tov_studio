@@ -920,7 +920,7 @@ export default function StoryEditor({ mediaUrl, mediaType, onClose, onSave, user
         onMouseUp={handleCanvasMouseUp}
         onTouchMove={handleCanvasMouseMove}
         onTouchEnd={handleCanvasMouseUp}
-        className="w-[380px] h-[640px] bg-neutral-950 rounded-[28px] overflow-hidden relative shadow-2xl border border-white/10 select-none flex items-center justify-center"
+        className="w-full max-w-md h-full bg-neutral-950 rounded-none md:rounded-[28px] overflow-hidden relative shadow-2xl border-none md:border md:border-white/10 select-none flex items-center justify-center flex-1"
       >
         
         {/* Underlay Media */}

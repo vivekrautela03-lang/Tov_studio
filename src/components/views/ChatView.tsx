@@ -3880,7 +3880,7 @@ export const ChatView: React.FC = () => {
             return (
               <div 
                 onClick={(e) => e.stopPropagation()}
-                className="w-[380px] h-[640px] flex flex-col justify-between bg-neutral-950 border border-white/10 rounded-[28px] overflow-hidden relative shadow-2xl"
+                className="w-full max-w-md h-full flex flex-col justify-between bg-neutral-950 border-none md:border md:border-white/10 rounded-none md:rounded-[28px] overflow-hidden relative shadow-2xl"
               >
                 
                 {/* Progress bars */}

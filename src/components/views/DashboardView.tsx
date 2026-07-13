@@ -2387,7 +2387,7 @@ export const DashboardView: React.FC = () => {
           >
             <div 
               onClick={(e) => e.stopPropagation()}
-              className="relative w-[380px] h-[640px] bg-[#050505] rounded-[24px] overflow-hidden flex flex-col justify-between shadow-2xl border border-white/10"
+              className="relative w-full max-w-md h-full bg-[#050505] rounded-none md:rounded-[24px] overflow-hidden flex flex-col justify-between shadow-2xl border-none md:border md:border-white/10"
             >
               {/* Media rendering (Image / Video) */}
               <div className="absolute inset-0 z-0 select-none pointer-events-none">
