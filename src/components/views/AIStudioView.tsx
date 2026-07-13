@@ -2,11 +2,11 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useProjectStore } from "@/store/useProjectStore";
-import { Sparkles, Send, ArrowRight, HelpCircle, RefreshCw, Trash2, Mic, Paperclip } from "lucide-react";
+import { Sparkles, Send, ArrowRight, HelpCircle, RefreshCw, Trash2, Mic, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const AIStudioView: React.FC = () => {
-  const { userProfile, projects, activeProjectId } = useProjectStore();
+  const { userProfile, projects, activeProjectId, setActiveView } = useProjectStore();
   
   // Custom local state to store chat logs for Gemini-style conversation
   const [messages, setMessages] = useState<any[]>([
@@ -60,7 +60,7 @@ export const AIStudioView: React.FC = () => {
       if (lower.includes("call sheet")) {
         response = `### 🎬 AI GENERATED CALL SHEET: THE MIDNIGHT CODE\n**Date:** July 14, 2026 | **Director:** ${userProfile?.full_name || "Creative Director"} | **Call Time:** 18:00 (Night Shoot)\n**Location:** Neo-Tokyo Alleyways Set (Stage 4 Studio)\n\n| Time | Event | Scene / Setup | Talents / Crew |\n| :--- | :--- | :--- | :--- |\n| **18:00** | Crew Call & Focus Sync | Prep rain machines, camera focus alignments | All Camera Unit, Grip, Gaffer |\n| **19:00** | Scene 1 Block A | EXT. STREETS: Kael's Steadicam walk past vents | Christian Bale (Sim), Steadicam Op |\n| **21:00** | Lunch Break | Catering | All Crew & Cast |\n| **22:00** | Scene 1 Block B | DRONE SCAN: Security drone descends | Stunt Crew, VFX Supervisor |\n| **01:30** | Wrap & Backup | live data DIT LTO transfers | DIT, Camera PAs |\n\n> **Rain Alert:** 80% precipitation forecast from 22:00. Ensure camera waterproof shrouds are active.`;
       } else if (lower.includes("analyze") || lower.includes("screenplay") || lower.includes("script")) {
-        response = `### 🧠 AI SCREENPLAY CONTINUITY REPORT: SCENE 1\nAfter parsing **EXT. NEO-TOKYO STREETS - NIGHT** screenplay structure, I have compiled the following extraction logs:\n\n*   **Speaking Characters:** Kael, Drone Voice\n*   **Identified Props:** synthetic street food, plasma emitter, earpiece\n*   **Identified Wardrobe:** Trench coat, cybernetic eye, wire-frame goggles (Rina, Scene 2)\n*   **Dialogue Index:** 7 speech blocks\n\n#### ⚠️ Continuity Warnings & Tone Audits\n1.  **Luminescent Prop mismatch:** The plasma blaster prop is set to glow red in Kael's coat, but the VFX overlay in Scene 4 uses a blue laser stream. Prop master should adjust LED dials to match.\n2.  **Atmospheric Contrast:** Scene 1 notes heavy rain. Ensure Rina's hair is slightly damp in Scene 2 Apartment (CONTINUOUS) for physical continuity.`;
+        response = `### 🧠 AI SCREENPLAY CONTINU REPORT: SCENE 1\nAfter parsing **EXT. NEO-TOKYO STREETS - NIGHT** screenplay structure, I have compiled the following extraction logs:\n\n*   **Speaking Characters:** Kael, Drone Voice\n*   **Identified Props:** synthetic street food, plasma emitter, earpiece\n*   **Identified Wardrobe:** Trench coat, cybernetic eye, wire-frame goggles (Rina, Scene 2)\n*   **Dialogue Index:** 7 speech blocks\n\n#### ⚠️ Continuity Warnings & Tone Audits\n1.  **Luminescent Prop mismatch:** The plasma blaster prop is set to glow red in Kael's coat, but the VFX overlay in Scene 4 uses a blue laser stream. Prop master should adjust LED dials to match.\n2.  **Atmospheric Contrast:** Scene 1 notes heavy rain. Ensure Rina's hair is slightly damp in Scene 2 Apartment (CONTINUOUS) for physical continuity.`;
       } else if (lower.includes("budget")) {
         response = `### 📊 AI ESTIMATED LINE-ITEM BUDGET: DRONE SEQUENCE\nScope: High altitude tracking shot of supercar speedways.\n\n| Item | Description | Quantity | Rate | Total |\n| :--- | :--- | :--- | :--- | :--- |\n| **Drone Rental** | DJI Inspire 3 Cinema Drone | 2 Days | $1,500/day | $3,000 |\n| **Pilot Fee** | Certified Drone Operator (FAA Part 107) | 2 Days | $800/day | $1,600 |\n| **Spotter** | Safety crew spotter | 2 Days | $300/day | $600 |\n| **Permits** | Bureau of Land Management clearance permit | 1 | Flat | $500 |\n| **VFX Prep** | 3D Camera tracking alignment points setup | Flat | Service | $1,200 |\n| **Insurance** | Aerial liability equipment coverage binder | Flat | premium | $1,100 |\n| **Total Est.** | | | | **$8,000** |`;
       } else if (lower.includes("poster") || lower.includes("idea") || lower.includes("teaser")) {
@@ -100,7 +100,7 @@ export const AIStudioView: React.FC = () => {
   const greetingName = userProfile?.full_name?.split(" ")[0] || "Filmmaker";
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] bg-[#050505] border border-white/[0.04] rounded-[28px] overflow-hidden relative text-white">
+    <div className="flex flex-col h-screen bg-[#050505] relative text-white w-full">
       {/* Subtle Gemini Ambient Glow Orbs */}
       <div className="absolute top-[-100px] right-[-100px] w-96 h-96 rounded-full bg-cyan-500/5 blur-[120px] pointer-events-none z-0" />
       <div className="absolute bottom-[-100px] left-[-100px] w-96 h-96 rounded-full bg-purple-500/5 blur-[120px] pointer-events-none z-0" />
@@ -120,13 +120,23 @@ export const AIStudioView: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={handleClearHistory}
-          className="p-2 rounded-full hover:bg-white/5 text-white/40 hover:text-white transition-all cursor-pointer"
-          title="Clear Conversation"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleClearHistory}
+            className="p-2 rounded-full hover:bg-white/5 text-white/40 hover:text-white transition-all cursor-pointer animate-fade-in"
+            title="Clear Conversation"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+          
+          <button
+            onClick={() => setActiveView("dashboard")}
+            className="p-2 rounded-full hover:bg-white/5 text-white/40 hover:text-white transition-all cursor-pointer ml-1 animate-fade-in"
+            title="Close Assistant"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Main chat window */}
