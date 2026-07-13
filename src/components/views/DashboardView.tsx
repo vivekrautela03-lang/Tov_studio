@@ -42,7 +42,10 @@ import {
   Mic,
   X,
   MessageSquare,
-  Heart
+  Heart,
+  Search,
+  MoreVertical,
+  Trash2
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -669,7 +672,12 @@ export const DashboardView: React.FC = () => {
     setActiveProjectId,
     setActiveView,
     createChatChannel,
-    sendChatMessage
+    sendChatMessage,
+    stories,
+    fetchStories,
+    addStory,
+    viewStory,
+    uploadChatAttachment
   } = useProjectStore();
 
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -695,6 +703,20 @@ export const DashboardView: React.FC = () => {
   const [noteDetailReplyText, setNoteDetailReplyText] = useState("");
   const [yourNoteOptionsOpen, setYourNoteOptionsOpen] = useState(false);
   const [songStartOffset, setSongStartOffset] = useState<number>(0);
+
+  // Stories States
+  const [isStoryUploaderOpen, setIsStoryUploaderOpen] = useState(false);
+  const [isStoryViewerOpen, setIsStoryViewerOpen] = useState(false);
+  const [activeStoryUser, setActiveStoryUser] = useState<string | null>(null);
+  const [activeStoryIndex, setActiveStoryIndex] = useState(0);
+  const [storyProgress, setStoryProgress] = useState(0);
+  const [storyFile, setStoryFile] = useState<File | null>(null);
+  const [storyPreview, setStoryPreview] = useState("");
+  const [storyCaptionInput, setStoryCaptionInput] = useState("");
+  const [storyMediaType, setStoryMediaType] = useState<"image" | "video">("image");
+  const [storyAudience, setStoryAudience] = useState<string>("everyone");
+  const [isUploadingStory, setIsUploadingStory] = useState(false);
+  const [dashboardSearchQuery, setDashboardSearchQuery] = useState("");
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const audioPreviewRef = React.useRef<HTMLAudioElement | null>(null);
@@ -746,6 +768,7 @@ export const DashboardView: React.FC = () => {
           .gt("created_at", twentyFourHoursAgo)
           .order("created_at", { ascending: false });
         if (notesList) setNotes(notesList);
+        fetchStories();
       } catch (err) {
         console.error("Error loading dashboard data:", err);
       }
@@ -934,6 +957,135 @@ export const DashboardView: React.FC = () => {
     };
   };
 
+  // Stories UI/UX Handlers
+  const handleStoryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setStoryFile(file);
+      const isVideo = file.type.startsWith("video/");
+      setStoryMediaType(isVideo ? "video" : "image");
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setStoryPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUploadStory = async () => {
+    if (!storyFile) return;
+    setIsUploadingStory(true);
+    try {
+      const mediaUrl = await uploadChatAttachment(storyFile);
+      const payload = {
+        textCaption: storyCaptionInput,
+        stamp: null
+      };
+
+      await addStory(mediaUrl, storyMediaType, JSON.stringify(payload), null, storyAudience);
+      setIsStoryUploaderOpen(false);
+      setStoryFile(null);
+      setStoryPreview("");
+      setStoryCaptionInput("");
+      fetchStories();
+    } catch (e: any) {
+      alert("Story upload failed: " + e.message);
+    } finally {
+      setIsUploadingStory(false);
+    }
+  };
+
+  const handleDeleteStory = async (storyId: string) => {
+    if (confirm("Are you sure you want to delete this story?")) {
+      const { error } = await supabase.from("stories").delete().eq("id", storyId);
+      if (!error) {
+        await fetchStories();
+        const userStories = stories.filter((s: any) => s.user_id === activeStoryUser);
+        if (userStories.length <= 1) {
+          setIsStoryViewerOpen(false);
+          setActiveStoryUser(null);
+        } else {
+          setActiveStoryIndex(prev => Math.max(0, prev - 1));
+        }
+      } else {
+        alert("Error deleting story: " + error.message);
+      }
+    }
+  };
+
+  const handleNextStory = () => {
+    if (!activeStoryUser) return;
+    const userStories = stories.filter((s: any) => s.user_id === activeStoryUser);
+    if (activeStoryIndex < userStories.length - 1) {
+      setActiveStoryIndex(activeStoryIndex + 1);
+      setStoryProgress(0);
+    } else {
+      const usersWithStories = Array.from(new Set(stories.map(s => s.user_id)));
+      const currentUserIndex = usersWithStories.indexOf(activeStoryUser);
+      if (currentUserIndex < usersWithStories.length - 1) {
+        setActiveStoryUser(usersWithStories[currentUserIndex + 1]);
+        setActiveStoryIndex(0);
+        setStoryProgress(0);
+      } else {
+        setIsStoryViewerOpen(false);
+        setActiveStoryUser(null);
+      }
+    }
+  };
+
+  const handlePrevStory = () => {
+    if (!activeStoryUser) return;
+    if (activeStoryIndex > 0) {
+      setActiveStoryIndex(activeStoryIndex - 1);
+      setStoryProgress(0);
+    } else {
+      const usersWithStories = Array.from(new Set(stories.map(s => s.user_id)));
+      const currentUserIndex = usersWithStories.indexOf(activeStoryUser);
+      if (currentUserIndex > 0) {
+        const prevUser = usersWithStories[currentUserIndex - 1];
+        const prevUserStories = stories.filter(s => s.user_id === prevUser);
+        setActiveStoryUser(prevUser);
+        setActiveStoryIndex(prevUserStories.length - 1);
+        setStoryProgress(0);
+      }
+    }
+  };
+
+  // Story viewer progression timer
+  useEffect(() => {
+    let timer: any;
+    if (isStoryViewerOpen && activeStoryUser) {
+      timer = setInterval(() => {
+        setStoryProgress((prev) => {
+          if (prev >= 100) {
+            handleNextStory();
+            return 0;
+          }
+          return prev + 1.5;
+        });
+      }, 100);
+    }
+    return () => clearInterval(timer);
+  }, [isStoryViewerOpen, activeStoryIndex, activeStoryUser, stories]);
+
+  // View logger
+  useEffect(() => {
+    setStoryProgress(0);
+    if (isStoryViewerOpen && activeStoryUser && userProfile) {
+      const userStories = stories.filter((s: any) => s.user_id === activeStoryUser);
+      const activeStory = userStories[activeStoryIndex];
+      if (activeStory && activeStory.user_id !== userProfile.id) {
+        const currentViewers = activeStory.viewers || [];
+        if (!currentViewers.includes(userProfile.id)) {
+          const updatedViewers = [...currentViewers, userProfile.id];
+          supabase.from("stories").update({ viewers: updatedViewers }).eq("id", activeStory.id).then(() => {
+            fetchStories();
+          });
+        }
+      }
+    }
+  }, [activeStoryIndex, activeStoryUser, isStoryViewerOpen]);
+
   const handleSearchItunes = async (query: string) => {
     if (!query.trim()) {
       setItunesSongs([]);
@@ -1056,6 +1208,136 @@ export const DashboardView: React.FC = () => {
   return (
     <div className="space-y-8 animate-fade-in pb-16 text-xs">
       
+      {/* INSTAGRAM STYLED TOP BAR & STORIES ROW */}
+      <div className="bg-[#0b0b0d] border border-white/5 rounded-3xl p-4 shadow-2xl space-y-4">
+        {/* Top Header Bar: Add Story +, Search input, Paper-airplane DM navigator, and options menu */}
+        <div className="flex items-center gap-3">
+          {/* Plus Add-Story button with gradient ring */}
+          <button 
+            onClick={() => setIsStoryUploaderOpen(true)}
+            className="w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-tr from-[#3897f0] via-[#a80077] to-[#b12a5b] p-[2.5px] hover:scale-105 active:scale-95 transition-all shadow-md shrink-0 cursor-pointer"
+            title="Create Story"
+          >
+            <div className="w-full h-full rounded-full bg-[#050505] flex items-center justify-center font-bold text-white text-[20px]">
+              +
+            </div>
+          </button>
+
+          {/* Pill-shaped search input */}
+          <div className="flex-1 relative flex items-center">
+            <input 
+              type="text"
+              placeholder="Search..."
+              value={dashboardSearchQuery}
+              onChange={(e) => setDashboardSearchQuery(e.target.value)}
+              className="w-full bg-[#262626] border-none rounded-[14px] pl-9 pr-4 py-2 text-[14.5px] text-white placeholder-[#8e8e8e] focus:outline-none transition-all shadow-sm"
+            />
+            <Search className="w-4.5 h-4.5 text-[#8e8e8e] absolute left-3" />
+          </div>
+
+          {/* Direct Message (Paper Airplane) Navigation Shortcut */}
+          <button 
+            onClick={() => setActiveView("chat")}
+            className="p-2 hover:bg-white/5 rounded-full transition-all text-[#f5f5f5] hover:text-white cursor-pointer shrink-0"
+            title="Direct Messages"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-5.5 h-5.5 rotate-[15deg]">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+
+          {/* More options button */}
+          <button 
+            className="p-2 hover:bg-white/5 rounded-full transition-all text-[#8e8e8e] hover:text-white cursor-pointer shrink-0"
+            title="Dashboard Options"
+          >
+            <MoreVertical className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Horizontal Stories list row */}
+        <div className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth items-center py-1">
+          {/* Creator's own story circle */}
+          {(() => {
+            const myStories = stories.filter(s => s.user_id === userProfile?.id);
+            const hasStories = myStories.length > 0;
+            const hasUnseen = hasStories && myStories.some(s => !s.viewers?.includes(userProfile?.id));
+            
+            return (
+              <div className="flex flex-col items-center gap-1.5 shrink-0 relative select-none">
+                <div 
+                  onClick={() => {
+                    if (hasStories) {
+                      setActiveStoryUser(userProfile.id);
+                      setActiveStoryIndex(0);
+                      setIsStoryViewerOpen(true);
+                    } else {
+                      setIsStoryUploaderOpen(true);
+                    }
+                  }}
+                  className={`w-16 h-16 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all ${
+                    hasStories 
+                      ? hasUnseen 
+                        ? "bg-gradient-to-tr from-[#3897f0] via-[#a80077] to-[#b12a5b] p-[2.5px]" 
+                        : "bg-neutral-800 p-[1.5px]"
+                      : "border border-white/10 p-[1px]"
+                  }`}
+                >
+                  <div className="w-full h-full rounded-full bg-black p-[2px] overflow-hidden flex items-center justify-center font-bold text-sm text-cyan-400">
+                    {userProfile?.avatar_url ? (
+                      <img src={userProfile.avatar_url} className="w-full h-full object-cover rounded-full" alt="" />
+                    ) : (
+                      userProfile?.full_name?.substring(0, 2).toUpperCase() || "ME"
+                    )}
+                  </div>
+                </div>
+                <span className="text-[11px] text-[#8e8e8e] font-semibold mt-1">Your story</span>
+              </div>
+            );
+          })()}
+
+          {/* Other team members stories */}
+          {allProfiles.filter(p => p.id !== userProfile?.id && stories.some(s => s.user_id === p.id)).map(p => {
+            const userStories = stories.filter(s => s.user_id === p.id);
+            const hasUnseen = userStories.some(s => !s.viewers?.includes(userProfile?.id));
+            const isOnline = onlineUsers.includes(p.id);
+
+            return (
+              <div key={p.id} className="flex flex-col items-center gap-1.5 shrink-0 relative select-none group">
+                <div 
+                  onClick={() => {
+                    setActiveStoryUser(p.id);
+                    setActiveStoryIndex(0);
+                    setIsStoryViewerOpen(true);
+                  }}
+                  className={`w-16 h-16 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all relative ${
+                    hasUnseen
+                      ? "bg-gradient-to-tr from-[#3897f0] via-[#a80077] to-[#b12a5b] p-[2.5px]" 
+                      : "bg-[#262626] p-[1.5px]" 
+                  }`}
+                >
+                  <div className="w-full h-full rounded-full bg-black p-[2px] overflow-hidden flex items-center justify-center font-bold text-sm text-cyan-400">
+                    {p.avatar_url ? (
+                      <img src={p.avatar_url} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                      p.full_name?.substring(0, 2).toUpperCase() || "U"
+                    )}
+                  </div>
+                  {/* Online presence dot */}
+                  {isOnline && (
+                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#4ed840] rounded-full border-2 border-black shadow-[0_0_4px_#4ed840]" />
+                  )}
+                </div>
+                <span className="text-[11px] text-[#8e8e8e] truncate max-w-[72px] mt-1 font-semibold">
+                  {p.full_name || "User"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* 1. ACTIVE MEMBERS */}
       <div className="space-y-3">
         <h3 className="text-[10px] uppercase font-mono tracking-wider font-bold text-white/40">Active Crew</h3>
@@ -1916,6 +2198,263 @@ export const DashboardView: React.FC = () => {
           </div>
         </div>
       )}
+      {/* --- STORY CREATOR / UPLOADER MODAL --- */}
+      {isStoryUploaderOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadein">
+          <div className="w-[380px] bg-neutral-900 border border-white/10 rounded-[28px] p-6 shadow-2xl space-y-5 text-white relative">
+            <button 
+              onClick={() => {
+                setIsStoryUploaderOpen(false);
+                setStoryFile(null);
+                setStoryPreview("");
+                setStoryCaptionInput("");
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#22d3ee] text-center">Create Story</h3>
+
+            <div className="space-y-4">
+              {/* Media preview area */}
+              <div className="w-full h-48 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-center overflow-hidden relative">
+                {storyPreview ? (
+                  storyMediaType === "video" ? (
+                    <video src={storyPreview} className="w-full h-full object-cover" controls />
+                  ) : (
+                    <img src={storyPreview} className="w-full h-full object-cover" alt="" />
+                  )
+                ) : (
+                  <label className="flex flex-col items-center gap-2 cursor-pointer text-[#8e8e8e] hover:text-white transition-colors">
+                    <Plus className="w-8 h-8 text-[#22d3ee]" />
+                    <span className="text-[10px] uppercase font-bold tracking-wider">Select Photo/Video</span>
+                    <input 
+                      type="file" 
+                      accept="image/*,video/*" 
+                      onChange={handleStoryFileChange} 
+                      className="hidden" 
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Caption input */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] uppercase tracking-wider text-white/40 font-bold block">Caption</label>
+                <input 
+                  type="text" 
+                  placeholder="Enter caption..." 
+                  value={storyCaptionInput} 
+                  onChange={(e) => setStoryCaptionInput(e.target.value)} 
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]" 
+                />
+              </div>
+
+              {/* Audience selector */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] uppercase tracking-wider text-white/40 font-bold block">Audience</label>
+                <div className="flex gap-2">
+                  {["everyone", "close_friends"].map((aud) => (
+                    <button
+                      key={aud}
+                      onClick={() => setStoryAudience(aud)}
+                      className={`flex-1 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all ${
+                        storyAudience === aud 
+                          ? "bg-[#22d3ee]/15 border-[#22d3ee]/40 text-[#22d3ee]" 
+                          : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
+                      }`}
+                    >
+                      {aud === "everyone" ? "Everyone" : "Close Friends"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Upload action button */}
+              <button
+                onClick={handleUploadStory}
+                disabled={isUploadingStory || !storyFile}
+                className="w-full py-2.5 rounded-2xl bg-gradient-to-br from-[#22d3ee] to-cyan-500 hover:from-cyan-400 hover:to-cyan-600 disabled:opacity-40 disabled:hover:from-[#22d3ee] text-black font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md shadow-cyan-400/10"
+              >
+                {isUploadingStory ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-black" />
+                    <span>Posting Story...</span>
+                  </>
+                ) : (
+                  <span>Post Story</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- STORY VIEWER CAROUSEL MODAL --- */}
+      {isStoryViewerOpen && activeStoryUser && (() => {
+        const userStories = stories.filter((s: any) => s.user_id === activeStoryUser);
+        const activeStory = userStories[activeStoryIndex];
+        const matchedProfile = allProfiles.find((p) => p.id === activeStoryUser) || userProfile;
+        const name = matchedProfile?.full_name || "Crew Member";
+        const avatar = matchedProfile?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=030712&textColor=ffffff`;
+
+        if (!activeStory) return null;
+
+        // Parse story payload caption
+        let parsedCaption = "";
+        try {
+          if (activeStory.caption) {
+            const parsed = JSON.parse(activeStory.caption);
+            parsedCaption = parsed.textCaption || "";
+          }
+        } catch {
+          parsedCaption = activeStory.caption || "";
+        }
+
+        return (
+          <div 
+            className="fixed inset-0 z-[160] flex items-center justify-center bg-black/90 backdrop-blur-md animate-fadein"
+            onClick={() => {
+              setIsStoryViewerOpen(false);
+              setActiveStoryUser(null);
+            }}
+          >
+            <div 
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-[380px] h-[640px] bg-[#050505] rounded-[24px] overflow-hidden flex flex-col justify-between shadow-2xl border border-white/10"
+            >
+              {/* Media rendering (Image / Video) */}
+              <div className="absolute inset-0 z-0">
+                {activeStory.media_type === "video" ? (
+                  <video 
+                    src={activeStory.media_url} 
+                    className="w-full h-full object-cover" 
+                    autoPlay 
+                    playsInline 
+                    loop 
+                  />
+                ) : (
+                  <img 
+                    src={activeStory.media_url} 
+                    className="w-full h-full object-cover" 
+                    alt="" 
+                  />
+                )}
+                {/* Visual gradient covers */}
+                <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/70 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/80 to-transparent" />
+              </div>
+
+              {/* Top Controls Overlay */}
+              <div className="relative z-10 p-3 space-y-3 w-full">
+                {/* Progress Indicators bar */}
+                <div className="flex gap-1.5 px-1">
+                  {userStories.map((s: any, idx: number) => {
+                    let fillPercent = 0;
+                    if (idx < activeStoryIndex) fillPercent = 100;
+                    else if (idx === activeStoryIndex) fillPercent = storyProgress;
+
+                    return (
+                      <div key={s.id} className="flex-1 h-1 bg-white/20 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-white transition-all duration-100 ease-linear" 
+                          style={{ width: `${fillPercent}%` }} 
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Profile header details */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <img 
+                      src={avatar} 
+                      className="w-9 h-9 rounded-full object-cover border border-white/20" 
+                      alt="" 
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-white block leading-none">{name}</span>
+                      <span className="text-[9px] text-white/50 font-mono mt-0.5 block">
+                        {new Date(activeStory.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {/* Delete story button if own story */}
+                    {activeStory.user_id === userProfile?.id && (
+                      <button 
+                        onClick={() => handleDeleteStory(activeStory.id)}
+                        className="p-1.5 rounded-full bg-red-500/10 hover:bg-red-500/30 border border-red-500/30 text-red-400 cursor-pointer transition-colors"
+                        title="Delete Story"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    
+                    <button 
+                      onClick={() => {
+                        setIsStoryViewerOpen(false);
+                        setActiveStoryUser(null);
+                      }}
+                      className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-all"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Side click zones for navigation */}
+              <div className="absolute inset-y-24 left-0 w-1/3 z-20 cursor-pointer" onClick={handlePrevStory} />
+              <div className="absolute inset-y-24 right-0 w-1/3 z-20 cursor-pointer" onClick={handleNextStory} />
+
+              {/* Bottom Caption Overlay */}
+              <div className="relative z-10 p-4 text-center">
+                {parsedCaption && (
+                  <p className="text-white text-xs font-semibold px-4 py-2 bg-black/40 backdrop-blur-md border border-white/5 rounded-2xl max-w-[90%] mx-auto shadow-lg leading-relaxed animate-fadein">
+                    {parsedCaption}
+                  </p>
+                )}
+                
+                {/* Viewers indicators for own story */}
+                {activeStory.user_id === userProfile?.id && (() => {
+                  const storyViewersList = (activeStory.viewers || [])
+                    .map((viewerId: string) => allProfiles.find(p => p.id === viewerId))
+                    .filter(Boolean);
+
+                  return (
+                    <div className="mt-3 bg-black/60 border border-white/10 rounded-2xl p-2.5 max-w-[90%] mx-auto text-left shadow-lg">
+                      <span className="text-[8.5px] uppercase tracking-wider text-white/40 font-bold block mb-1.5">
+                        Story Viewers ({storyViewersList.length})
+                      </span>
+                      {storyViewersList.length > 0 ? (
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5">
+                          {storyViewersList.map((viewer: any) => {
+                            const viewerAvatar = viewer.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(viewer.full_name || "Viewer")}&backgroundColor=030712&textColor=ffffff`;
+                            return (
+                              <div key={viewer.id} className="flex flex-col items-center shrink-0 w-10 text-center select-none">
+                                <img src={viewerAvatar} className="w-6 h-6 rounded-full object-cover border border-white/10" alt="" />
+                                <span className="text-[7px] text-white/70 truncate w-full mt-0.5">
+                                  {getFirstName(viewer.full_name)}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-[9px] text-white/30 italic">No viewers yet</span>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
