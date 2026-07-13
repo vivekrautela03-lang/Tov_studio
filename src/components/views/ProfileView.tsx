@@ -19,6 +19,7 @@ import {
   Eye,
   Camera,
   Heart,
+  Bookmark,
   Grid,
   Archive,
   Compass
@@ -27,7 +28,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export const ProfileView: React.FC = () => {
-  const { setActiveView, followersCount, followingCount } = useProjectStore();
+  const { 
+    setActiveView, 
+    followersCount, 
+    followingCount, 
+    likePortfolioItem, 
+    bookmarkPortfolioItem 
+  } = useProjectStore();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [socials, setSocials] = useState<any>({
@@ -615,30 +622,68 @@ export const ProfileView: React.FC = () => {
                 className="relative aspect-square rounded-lg overflow-hidden border border-white/5 group cursor-pointer bg-neutral-900"
               >
                 <img src={item.thumbnail_url} className="w-full h-full object-cover" alt="" />
-                
-                {/* Overlay hover details */}
-                <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-between p-3">
+                       {/* Overlay hover details */}
+                <div className="absolute inset-0 bg-black/85 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-between p-3 select-none">
                   <div className="flex justify-between items-start">
-                    <h5 className="font-bold text-white text-[10px] truncate max-w-[80px]">{item.title}</h5>
+                    <h5 className="font-bold text-white text-[10px] truncate max-w-[120px]">{item.title}</h5>
                     <button
-                      onClick={(e) => handleDeletePortfolio(item.id, e)}
-                      className="p-1 rounded bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePortfolio(item.id, e);
+                      }}
+                      className="p-1 rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
+                      title="Remove Post"
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <p className="text-[9px] text-text-secondary line-clamp-3 leading-snug">{item.description}</p>
                   
-                  {item.url && item.url !== "#" && (
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[9px] text-[#22d3ee] hover:underline font-bold"
-                    >
-                      View Asset
-                    </a>
-                  )}
+                  <p className="text-[9.5px] text-text-secondary line-clamp-3 leading-snug">{item.description}</p>
+                  
+                  {/* Likes, Bookmarks, and View Actions bar */}
+                  <div className="flex items-center justify-between border-t border-white/10 pt-2 mt-1">
+                    <div className="flex items-center gap-3">
+                      {/* Like button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          likePortfolioItem(item.id);
+                        }}
+                        className={`flex items-center gap-1 transition-transform active:scale-110 cursor-pointer ${
+                          (item.likes || []).includes(user?.id) ? "text-red-500 font-bold" : "text-white/60 hover:text-white"
+                        }`}
+                        title="Like Post"
+                      >
+                        <Heart className={`w-3.5 h-3.5 ${(item.likes || []).includes(user?.id) ? "fill-current" : ""}`} />
+                        <span className="text-[8.5px]">{(item.likes || []).length}</span>
+                      </button>
+
+                      {/* Bookmark button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          bookmarkPortfolioItem(item.id);
+                        }}
+                        className={`transition-transform active:scale-110 cursor-pointer ${
+                          (item.bookmarks || []).includes(user?.id) ? "text-yellow-400" : "text-white/60 hover:text-white"
+                        }`}
+                        title="Save Post"
+                      >
+                        <Bookmark className={`w-3.5 h-3.5 ${(item.bookmarks || []).includes(user?.id) ? "fill-current" : ""}`} />
+                      </button>
+                    </div>
+
+                    {item.url && item.url !== "#" && (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[9px] text-[#22d3ee] hover:underline font-black uppercase tracking-wider"
+                      >
+                        View
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

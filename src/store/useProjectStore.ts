@@ -443,6 +443,8 @@ interface ProjectStoreState {
   updateSocialLinks: (links: Partial<SocialLinks>) => Promise<void>;
   addPortfolioItem: (item: Omit<PortfolioItem, "id">) => Promise<void>;
   deletePortfolioItem: (id: string) => Promise<void>;
+  likePortfolioItem: (id: string) => Promise<void>;
+  bookmarkPortfolioItem: (id: string) => Promise<void>;
   addUserSkill: (skill: string) => Promise<void>;
   removeUserSkill: (skill: string) => Promise<void>;
   addUserTag: (tag: string) => Promise<void>;
@@ -2381,6 +2383,72 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     }
 
     set((state) => ({ portfolio: state.portfolio.filter((item) => item.id !== id) }));
+    useProjectStore.getState().fetchWorkspaceData();
+  },
+
+  likePortfolioItem: async (id) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: item, error: fetchErr } = await supabase
+      .from("portfolio")
+      .select("likes")
+      .eq("id", id)
+      .single();
+
+    if (fetchErr || !item) {
+      console.error("Error fetching portfolio item for like:", fetchErr);
+      return;
+    }
+
+    const likesList = item.likes || [];
+    const newLikes = likesList.includes(user.id)
+      ? likesList.filter((uid: string) => uid !== user.id)
+      : [...likesList, user.id];
+
+    const { error: updateErr } = await supabase
+      .from("portfolio")
+      .update({ likes: newLikes })
+      .eq("id", id);
+
+    if (updateErr) {
+      console.error("Error updating portfolio likes:", updateErr);
+      return;
+    }
+
+    useProjectStore.getState().fetchWorkspaceData();
+  },
+
+  bookmarkPortfolioItem: async (id) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: item, error: fetchErr } = await supabase
+      .from("portfolio")
+      .select("bookmarks")
+      .eq("id", id)
+      .single();
+
+    if (fetchErr || !item) {
+      console.error("Error fetching portfolio item for bookmark:", fetchErr);
+      return;
+    }
+
+    const bookmarksList = item.bookmarks || [];
+    const newBookmarks = bookmarksList.includes(user.id)
+      ? bookmarksList.filter((uid: string) => uid !== user.id)
+      : [...bookmarksList, user.id];
+
+    const { error: updateErr } = await supabase
+      .from("portfolio")
+      .update({ bookmarks: newBookmarks })
+      .eq("id", id);
+
+    if (updateErr) {
+      console.error("Error updating portfolio bookmarks:", updateErr);
+      return;
+    }
+
     useProjectStore.getState().fetchWorkspaceData();
   },
 
