@@ -133,7 +133,11 @@ export const ChatView: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
 
   // Filters & Header States
-  const [activeFilter, setActiveFilter] = useState<"Primary" | "Projects" | "Requests" | "Unread" | "Archived">("Primary");
+  const [activeFilter, setActiveFilter] = useState<"Primary" | "General" | "Requests">("Primary");
+  const [generalChannelIds, setGeneralChannelIds] = useState<string[]>([]);
+  const [unapprovedChannelIds, setUnapprovedChannelIds] = useState<string[]>([]);
+  const [localUnreadChannelIds, setLocalUnreadChannelIds] = useState<string[]>([]);
+  const [closeFriendUserIds, setCloseFriendUserIds] = useState<string[]>([]);
   const [sidebarSearch, setSidebarSearch] = useState("");
   const [messageSearch, setMessageSearch] = useState("");
   const [showSearchBox, setShowSearchBox] = useState(false);
@@ -311,6 +315,21 @@ export const ChatView: React.FC = () => {
     fetchNotes();
     fetchStories();
   }, []);
+
+  // Initialize some channels in general and requests lists so they are populated
+  useEffect(() => {
+    if (chatChannels.length > 0) {
+      const defaultRequests = chatChannels
+        .filter((c, idx) => idx === chatChannels.length - 1 && !c.is_group)
+        .map(c => c.id);
+      setUnapprovedChannelIds(prev => prev.length === 0 ? defaultRequests : prev);
+
+      const defaultGeneral = chatChannels
+        .filter((c, idx) => idx % 3 === 1 && !defaultRequests.includes(c.id))
+        .map(c => c.id);
+      setGeneralChannelIds(prev => prev.length === 0 ? defaultGeneral : prev);
+    }
+  }, [chatChannels]);
 
   // 2. Presence & typing tracking
   const initializePresence = (user: any) => {
@@ -915,6 +934,316 @@ export const ChatView: React.FC = () => {
     });
   };
 
+  const formatRelativeTime = (dateString: string) => {
+    if (!dateString) return "";
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffMs = now.getTime() - date.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffSecs < 60) return "now";
+    if (diffMins < 60) return `${diffMins}m`;
+    if (diffHours < 24) return `${diffHours}h`;
+    if (diffDays < 7) return `${diffDays}d`;
+    return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  };
+
+  const getLastMessagePreview = (channelId: string) => {
+    const lastMsg = lastMessages[channelId];
+    if (!lastMsg) return "No messages yet";
+    
+    const isSender = lastMsg.sender_id === currentUser?.id;
+    const rawContent = decryptedCache[lastMsg.id] || lastMsg.content || "";
+    
+    let prefix = isSender ? "You: " : "";
+    let messageText = rawContent;
+    
+    if (rawContent.startsWith("[Voice Note]")) {
+      messageText = "voice message";
+    } else if (rawContent.startsWith("[PDF]")) {
+      messageText = "document";
+    } else if (rawContent.startsWith("[Location]")) {
+      messageText = "location pin";
+    } else if (rawContent.startsWith("[Contact]")) {
+      messageText = "contact card";
+    } else if (rawContent.startsWith("[Task]")) {
+      messageText = "task details";
+    } else if (rawContent.startsWith("[Invite]")) {
+      messageText = "event invite";
+    } else if (rawContent.startsWith("[Reel]")) {
+      messageText = "video reel";
+    } else if (lastMsg.attachment_url) {
+      messageText = "photo";
+    }
+    
+    return `${prefix}${messageText}`;
+  };
+
+  const handleBlockUser = async (blockedUserId: string) => {
+    if (!currentUser) return;
+    const { error } = await supabase.from("blocked_users").insert({ user_id: currentUser.id, blocked_user_id: blockedUserId });
+    if (error) {
+      if (error.code === "23505") {
+        alert("This user is already blocked.");
+      } else {
+        alert(error.message);
+      }
+    } else {
+      alert("User blocked successfully.");
+    }
+  };
+
+  const handleReportUser = async (reportedUserId: string) => {
+    if (!currentUser) return;
+    const reason = prompt("Enter the reason for reporting this user:");
+    if (!reason?.trim()) return;
+    const { error } = await supabase.from("reported_users").insert({
+      reporter_id: currentUser.id,
+      reported_user_id: reportedUserId,
+      reason: reason.trim()
+    });
+    if (error) {
+      alert(error.message);
+    } else {
+      alert("User reported successfully.");
+    }
+  };
+
+  const toggleCloseFriend = (userId: string) => {
+    setCloseFriendUserIds(prev => 
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleSelectProfileDM = async (userId: string) => {
+    let channel = chatChannels.find((c: any) => 
+      !c.is_group && c.chat_channel_members?.some((m: any) => m.user_id === userId)
+    );
+    let channelId = channel?.id;
+    if (!channelId) {
+      channelId = await createChatChannel("Direct Message", false, [userId]);
+    }
+    if (channelId) {
+      setActiveChannelId(channelId);
+    }
+  };
+
+  const SwipeableChatItem = ({ 
+    channel, 
+    isActive, 
+    details, 
+    hasUnread, 
+    statusText, 
+    isMuted, 
+    isPinned, 
+    isCloseFriend, 
+    onClick, 
+    onLongPress 
+  }: {
+    channel: any;
+    isActive: boolean;
+    details: any;
+    hasUnread: boolean;
+    statusText: string;
+    isMuted: boolean;
+    isPinned: boolean;
+    isCloseFriend: boolean;
+    onClick: () => void;
+    onLongPress: (e: any) => void;
+  }) => {
+    const [translateX, setTranslateX] = useState(0);
+    const [isSwiping, setIsSwiping] = useState(false);
+    const swipeStartX = useRef(0);
+    const swipeStartTranslateX = useRef(0);
+    const dragThreshold = 5;
+    const hasDragged = useRef(false);
+    const cardRef = useRef<HTMLDivElement>(null);
+
+    // Touch handlers
+    const handleTouchStart = (e: React.TouchEvent) => {
+      setIsSwiping(true);
+      swipeStartX.current = e.touches[0].clientX;
+      swipeStartTranslateX.current = translateX;
+      hasDragged.current = false;
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+      if (!isSwiping) return;
+      const delta = e.touches[0].clientX - swipeStartX.current;
+      if (Math.abs(delta) > dragThreshold) {
+        hasDragged.current = true;
+      }
+      const targetX = swipeStartTranslateX.current + delta;
+      const clamped = Math.min(0, Math.max(-170, targetX));
+      setTranslateX(clamped);
+    };
+
+    const handleTouchEnd = () => {
+      setIsSwiping(false);
+      if (translateX < -80) {
+        setTranslateX(-160);
+      } else {
+        setTranslateX(0);
+      }
+    };
+
+    // Mouse handlers for desktop dragging
+    const handleMouseDown = (e: React.MouseEvent) => {
+      setIsSwiping(true);
+      swipeStartX.current = e.clientX;
+      swipeStartTranslateX.current = translateX;
+      hasDragged.current = false;
+      
+      const handleGlobalMouseMove = (moveEv: MouseEvent) => {
+        const delta = moveEv.clientX - swipeStartX.current;
+        if (Math.abs(delta) > dragThreshold) {
+          hasDragged.current = true;
+        }
+        const targetX = swipeStartTranslateX.current + delta;
+        const clamped = Math.min(0, Math.max(-170, targetX));
+        setTranslateX(clamped);
+      };
+
+      const handleGlobalMouseUp = () => {
+        setIsSwiping(false);
+        window.removeEventListener("mousemove", handleGlobalMouseMove);
+        window.removeEventListener("mouseup", handleGlobalMouseUp);
+        if (translateX < -80) {
+          setTranslateX(-160);
+        } else {
+          setTranslateX(0);
+        }
+      };
+
+      window.addEventListener("mousemove", handleGlobalMouseMove);
+      window.addEventListener("mouseup", handleGlobalMouseUp);
+    };
+
+    return (
+      <div className="relative overflow-hidden w-full rounded-[12px] bg-black select-none h-[72px] shrink-0">
+        {/* Background Action Buttons */}
+        <div className="absolute right-0 top-0 bottom-0 flex z-0">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMuteChannel(channel.id);
+              setTranslateX(0);
+            }}
+            className="bg-[#5f52a0] text-white flex flex-col items-center justify-center w-[53px] h-full text-[10px] gap-1 font-bold hover:brightness-110 transition-all"
+          >
+            <VolumeX className="w-3.5 h-3.5" />
+            <span>Mute</span>
+          </button>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleArchiveChannel(channel.id);
+              setTranslateX(0);
+            }}
+            className="bg-[#262626] text-white flex flex-col items-center justify-center w-[53px] h-full text-[10px] gap-1 font-bold hover:brightness-110 border-l border-white/5 transition-all"
+          >
+            <Archive className="w-3.5 h-3.5" />
+            <span>Archive</span>
+          </button>
+          <button 
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (confirm("Delete this conversation?")) {
+                await supabase.from("chat_channels").delete().eq("id", channel.id);
+                fetchChatChannels();
+              }
+              setTranslateX(0);
+            }}
+            className="bg-[#ed4956] text-white flex flex-col items-center justify-center w-[54px] h-full text-[10px] gap-1 font-bold hover:brightness-110 transition-all"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete</span>
+          </button>
+        </div>
+
+        {/* Main card panel content */}
+        <div
+          ref={cardRef}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleMouseDown}
+          onClick={(e) => {
+            if (hasDragged.current) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+            onClick();
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            onLongPress(e);
+          }}
+          onMouseDownCapture={(e) => {
+            const timeout = setTimeout(() => {
+              if (!hasDragged.current) {
+                onLongPress(e);
+              }
+            }, 500);
+            const clear = () => clearTimeout(timeout);
+            window.addEventListener("mouseup", clear, { once: true });
+            window.addEventListener("touchend", clear, { once: true });
+          }}
+          style={{ transform: `translateX(${translateX}px)` }}
+          className={`flex items-center gap-3 px-4 py-3 text-left bg-[#0b0b0d] hover:bg-[#1a1a1c] border-b border-white/5 cursor-pointer relative z-10 w-full h-full ${
+            isSwiping ? "" : "transition-transform duration-200"
+          } ${isActive ? "bg-[#1c1c1e]" : ""}`}
+        >
+          <div className="relative shrink-0">
+            {details.isGroup ? (
+              <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center font-bold text-cyan-400 text-sm">
+                {details.title.substring(0, 2).toUpperCase()}
+              </div>
+            ) : (
+              <div className="w-12 h-12 rounded-full overflow-hidden border border-white/5 bg-neutral-800">
+                <img src={details.avatar || ""} className="w-full h-full object-cover" alt="" />
+              </div>
+            )}
+            
+            {/* Online green indicator */}
+            {!details.isGroup && details.userId && onlineUsers.includes(details.userId) && (
+              <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#4ed840] rounded-full border-2 border-[#0b0b0d]" />
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <span className={`text-[14px] truncate flex items-center gap-1.5 ${hasUnread ? "font-bold text-white" : "font-medium text-[#f5f5f5]"}`}>
+                {details.title}
+                {isPinned && <Pin className="w-3 h-3 text-amber-400 fill-amber-400/20 rotate-45" />}
+                {isMuted && <VolumeX className="w-3 h-3 text-white/40" />}
+                {isCloseFriend && (
+                  <span className="bg-[#4ed840] text-black text-[9px] px-1 rounded font-bold uppercase tracking-wider flex items-center scale-90">CF</span>
+                )}
+              </span>
+              <span className="text-[12px] text-[#8e8e8e] shrink-0">
+                {channel.last_msg_time ? formatRelativeTime(channel.last_msg_time) : ""}
+              </span>
+            </div>
+            
+            <div className="flex justify-between items-center mt-1">
+              <p className={`text-[13px] truncate pr-4 ${hasUnread ? "font-bold text-white" : "text-[#8e8e8e]"}`}>
+                {statusText}
+              </p>
+              {hasUnread && (
+                <span className="w-2.5 h-2.5 rounded-full bg-[#0095f6] shrink-0" />
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Format Call Timer
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -1309,21 +1638,57 @@ export const ChatView: React.FC = () => {
     }
   };
 
-  // Custom filters matching Primary / Projects categories
+  // Custom filters matching Primary / General / Requests categories
   const filteredChannels = chatChannels.filter(channel => {
     const details = getChannelDetails(channel);
-    
-    // search filter
-    if (sidebarSearch.trim()) {
-      const q = sidebarSearch.toLowerCase();
-      const matches = details.title.toLowerCase().includes(q) || details.description.toLowerCase().includes(q);
-      if (!matches) return false;
+    const isRequest = unapprovedChannelIds.includes(channel.id);
+    const isGeneral = generalChannelIds.includes(channel.id);
+
+    // Tab filter
+    if (activeFilter === "Requests") {
+      if (!isRequest) return false;
+    } else if (activeFilter === "General") {
+      if (isRequest) return false;
+      if (!isGeneral) return false;
+    } else {
+      // Primary tab
+      if (isRequest || isGeneral) return false;
     }
 
-    if (activeFilter === "Projects") return channel.is_group === true;
-    if (activeFilter === "Unread") return channel.unread_count > 0;
-    if (activeFilter === "Archived") return channel.is_archived === true;
-    return channel.is_archived !== true; // Primary DMs default
+    // Search filter
+    if (sidebarSearch.trim()) {
+      const q = sidebarSearch.toLowerCase();
+      
+      // 1. Channel title / description
+      const titleMatch = details.title.toLowerCase().includes(q) || details.description.toLowerCase().includes(q);
+      
+      // 2. Members list
+      const membersMatch = channel.chat_channel_members?.some((m: any) => {
+        const p = m.profiles;
+        return p?.full_name?.toLowerCase().includes(q) || p?.email?.toLowerCase().includes(q);
+      });
+
+      // 3. Last message content
+      const lastMsg = lastMessages[channel.id];
+      const lastMsgDecrypted = lastMsg ? (decryptedCache[lastMsg.id] || lastMsg.content || "") : "";
+      const messageMatch = lastMsgDecrypted.toLowerCase().includes(q);
+
+      // 4. Notes matching this channel's collaborator
+      const notesMatch = notes.some((n: any) => {
+        const isCollab = channel.chat_channel_members?.some((m: any) => m.user_id === n.user_id);
+        return isCollab && n.content?.toLowerCase().includes(q);
+      });
+
+      if (!titleMatch && !membersMatch && !messageMatch && !notesMatch) {
+        return false;
+      }
+    }
+
+    if (channel.is_archived && activeFilter !== "Requests") {
+      return false;
+    }
+
+    return true;
   });
 
   const activeTheme = activeChannel?.theme_name || "dark";
@@ -1501,33 +1866,31 @@ export const ChatView: React.FC = () => {
         </div>
       )}
 
-      {/* 1. CONVERSATION SIDEBAR */}
-      <div className={`w-full md:w-[360px] border-r border-white/10 flex flex-col h-full bg-[#101217]/50 backdrop-blur-[32px] relative z-10 shrink-0 ${activeChannelId ? "hidden md:flex" : "flex"}`}>
+      {/* 1. REDESIGNED CONVERSATION SIDEBAR - INSTAGRAM DM INBOX STYLE */}
+      <div className={`w-full md:w-[360px] flex flex-col h-full bg-[#0b0b0d] border-r border-white/10 relative z-10 shrink-0 select-none ${activeChannelId ? "hidden md:flex" : "flex"}`}>
         
-        {/* REDESIGNED DASHBOARD HOME HEADER TOOLBAR */}
-        <div className="bg-white/[0.04] backdrop-blur-[24px] border border-white/10 rounded-[28px] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_8px_32px_0_rgba(0,0,0,0.25)] p-3 mx-3 mt-3 mb-2 flex items-center justify-between transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)]">
-          
-          <div className="flex items-center gap-2">
+        {/* Sticky Header: Exit back to dashboard, Username with Dropdown, Pencil Icon */}
+        <div className="sticky top-0 z-40 bg-[#0b0b0d] px-5 py-4 flex items-center justify-between border-b border-white/5">
+          <div className="flex items-center gap-1.5">
             <button 
               onClick={() => setActiveView("dashboard")} 
-              className="p-2 hover:bg-white/[0.08] rounded-full transition-all text-white/80 hover:text-white"
-              title="Back to Dashboard"
+              className="p-1.5 hover:bg-[#262626] rounded-full transition-all text-[#a8a8a8] hover:text-white mr-1"
+              title="Exit Chat View"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-5 h-5" />
             </button>
             
-            {/* Username selector dropdown */}
             <div className="relative">
               <button 
                 onClick={() => setShowUserDropdown(!showUserDropdown)} 
-                className="flex items-center gap-1.5 p-1 px-2.5 rounded-full hover:bg-white/[0.08] border border-white/5 transition-all text-xs font-semibold text-white/90"
+                className="flex items-center gap-1 px-1 py-0.5 text-[20px] font-bold text-white tracking-tight hover:opacity-80 transition-opacity"
               >
-                <span className="max-w-[80px] truncate">{userProfile?.full_name || currentUser?.email || "Workspace"}</span>
-                <ChevronDown className="w-3 h-3 text-white/50" />
+                <span className="max-w-[150px] truncate">{userProfile?.username || userProfile?.full_name?.toLowerCase().replace(/\s+/g, '_') || currentUser?.email?.split('@')[0] || "psf_vivek"}</span>
+                <ChevronDown className="w-4 h-4 text-[#a8a8a8]" />
               </button>
               {showUserDropdown && (
-                <div className="absolute left-0 mt-2 w-48 rounded-[20px] bg-black/90 backdrop-blur-xl border border-white/15 p-2 shadow-2xl z-50 animate-fadein">
-                  <div className="px-2.5 py-1 text-[9px] text-white/40 uppercase tracking-widest font-mono font-bold mb-1">Select Status</div>
+                <div className="absolute left-0 mt-2 w-48 rounded-[12px] bg-[#262626] border border-white/10 p-1.5 shadow-2xl z-50 animate-fadein">
+                  <div className="px-2.5 py-1 text-[9px] text-[#8e8e8e] uppercase tracking-widest font-bold mb-1">Select Status</div>
                   {[
                     { id: "active", label: "Active Now", color: "bg-green-500" },
                     { id: "away", label: "Away", color: "bg-amber-500" },
@@ -1540,11 +1903,11 @@ export const ChatView: React.FC = () => {
                         setUserStatus(status.id);
                         setShowUserDropdown(false);
                       }}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-white/10 text-left text-xs transition-colors"
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[8px] hover:bg-white/5 text-left text-xs transition-colors"
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full ${status.color}`} />
-                      <span className="text-white/80">{status.label}</span>
-                      {userStatus === status.id && <Check className="w-3 h-3 text-cyan-400 ml-auto" />}
+                      <span className={`w-2 h-2 rounded-full ${status.color}`} />
+                      <span className="text-white/90">{status.label}</span>
+                      {userStatus === status.id && <Check className="w-3.5 h-3.5 text-cyan-400 ml-auto" />}
                     </button>
                   ))}
                 </div>
@@ -1552,179 +1915,261 @@ export const ChatView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            {/* Presence dot & Compose / Search buttons */}
-            <span className={`w-2.5 h-2.5 rounded-full ${
-              userStatus === "active" ? "bg-green-500 shadow-[0_0_6px_#22c55e]" :
-              userStatus === "away" ? "bg-amber-500" :
-              userStatus === "dnd" ? "bg-red-500" : "bg-gray-500"
-            }`} title={`Status: ${userStatus}`} />
-
-            <button
-              onClick={() => setIsNewChatOpen(true)}
-              className="p-1.5 bg-white/[0.08] hover:bg-[#22d3ee] border border-white/10 rounded-full transition-all text-white hover:text-black shadow-md cursor-pointer"
-              title="Compose Message"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setShowSearchBox(!showSearchBox)}
-              className={`p-1.5 rounded-full border transition-all cursor-pointer ${
-                showSearchBox ? "bg-cyan-500/20 border-cyan-400/40 text-cyan-400" : "bg-white/[0.08] border-white/10 text-white hover:bg-white/15"
-              }`}
-              title="Search"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-          </div>
+          <button 
+            onClick={() => setIsNewChatOpen(true)}
+            className="p-1 hover:opacity-75 transition-opacity text-white"
+            title="Compose Message"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+          </button>
         </div>
 
-        {/* Circular glass search bar with Mock AI suggestions */}
-        {showSearchBox && (
-          <div className="px-3 mb-2 relative z-30 animate-fadein">
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                placeholder="Search or Ask AI..."
-                value={sidebarSearch}
-                onChange={(e) => setSidebarSearch(e.target.value)}
-                onFocus={() => setShowAiSearchSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowAiSearchSuggestions(false), 200)}
-                className="w-full bg-white/[0.05] backdrop-blur-md border border-white/10 rounded-full pl-9 pr-4 py-2 text-xs text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/30 transition-all shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]"
-              />
-              <Search className="w-3.5 h-3.5 text-white/40 absolute left-3" />
-              {sidebarSearch && (
-                <button onClick={() => setSidebarSearch("")} className="absolute right-3 p-0.5 hover:bg-white/10 rounded-full text-white/50 hover:text-white">
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
+        {/* Sliding Tab Underline Selection (Primary, General, Requests) */}
+        <div className="flex border-b border-white/10 relative px-4 mt-2 justify-around select-none shrink-0">
+          {(["Primary", "General", "Requests"] as const).map((tab) => {
+            const isRequest = tab === "Requests";
+            const requestsCount = unapprovedChannelIds.length;
+            
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveFilter(tab)}
+                className={`flex-1 text-center py-2.5 text-[14px] font-semibold transition-colors relative z-10 ${
+                  activeFilter === tab ? "text-white" : "text-[#8e8e8e] hover:text-white"
+                }`}
+              >
+                <span className="inline-flex items-center gap-1.5 justify-center w-full">
+                  {tab}
+                  {isRequest && requestsCount > 0 && (
+                    <span className="bg-[#ff3040] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none animate-pulse">
+                      {requestsCount}
+                    </span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+          {/* Smooth Underline */}
+          <div 
+            className="absolute bottom-0 h-[1.5px] bg-white transition-all duration-300 ease-out"
+            style={{
+              width: `${100 / 3}%`,
+              left: `${((activeFilter === "Primary" ? 0 : activeFilter === "General" ? 1 : 2) * 100) / 3}%`
+            }}
+          />
+        </div>
 
-            {showAiSearchSuggestions && (
-              <div className="absolute left-3 right-3 mt-1 rounded-[24px] bg-black/90 backdrop-blur-xl border border-white/15 p-3 shadow-2xl z-50 animate-fadein">
-                <div className="flex items-center gap-1.5 text-cyan-400 text-[10px] font-bold uppercase tracking-wider mb-2">
-                  <Sparkles className="w-3 h-3 animate-pulse" />
-                  <span>AI Suggestions</span>
-                </div>
-                <div className="space-y-1">
-                  {[
-                    { text: "Summarize recent DMs", action: () => { summarizeThread(); } },
-                    { text: "Smart Suggest smart replies", action: () => { suggestSmartReplies(); } },
-                    { text: "Filter by VFX discussions", action: () => { setSidebarSearch("VFX"); } }
-                  ].map((s, idx) => (
-                    <button
-                      key={idx}
-                      onClick={s.action}
-                      className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-white/10 text-xs text-white/80 hover:text-white transition-all flex items-center justify-between"
-                    >
-                      <span>{s.text}</span>
-                      <span className="text-[9px] text-white/40 font-mono">»</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+        {/* Search Input Bar (Rounded, below tabs, always visible) */}
+        <div className="px-5 py-3 relative z-30 shrink-0">
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              placeholder="Search"
+              value={sidebarSearch}
+              onChange={(e) => setSidebarSearch(e.target.value)}
+              onFocus={() => setShowAiSearchSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowAiSearchSuggestions(false), 200)}
+              className="w-full bg-[#262626] border-none rounded-[10px] pl-9 pr-8 py-2 text-[14px] text-white placeholder-[#8e8e8e] focus:outline-none transition-all shadow-sm"
+            />
+            <Search className="w-4 h-4 text-[#8e8e8e] absolute left-3" />
+            {sidebarSearch && (
+              <button onClick={() => setSidebarSearch("")} className="absolute right-3 p-0.5 hover:bg-white/10 rounded-full text-white/50 hover:text-white">
+                <X className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
-        )}
 
-        {/* Categories / Filter Pills */}
-        <div className="px-3 pb-2 flex gap-1 items-center overflow-x-auto no-scrollbar shrink-0">
-          {(["Primary", "Projects", "Requests", "Unread", "Archived"] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveFilter(tab)}
-              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all border ${
-                activeFilter === tab 
-                  ? "bg-cyan-500/20 border-cyan-400/40 text-cyan-300"
-                  : "bg-white/[0.04] border-white/5 text-white/50 hover:bg-white/[0.08] hover:text-white"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+          {showAiSearchSuggestions && (
+            <div className="absolute left-5 right-5 mt-1 rounded-[14px] bg-[#262626] border border-white/10 p-3 shadow-2xl z-50 animate-fadein">
+              <div className="flex items-center gap-1.5 text-cyan-400 text-[10px] font-bold uppercase tracking-wider mb-2">
+                <Sparkles className="w-3 h-3 animate-pulse" />
+                <span>AI Suggestions</span>
+              </div>
+              <div className="space-y-1">
+                {[
+                  { text: "Summarize recent DMs", action: () => { summarizeThread(); } },
+                  { text: "Smart Suggest smart replies", action: () => { suggestSmartReplies(); } },
+                  { text: "Filter by VFX discussions", action: () => { setSidebarSearch("VFX"); } }
+                ].map((s, idx) => (
+                  <button
+                    key={idx}
+                    onClick={s.action}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-white/5 text-xs text-white/80 hover:text-white transition-all flex items-center justify-between"
+                  >
+                    <span>{s.text}</span>
+                    <span className="text-[9px] text-white/40 font-mono">»</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* STORIES ROW */}
-        <div className="px-4 py-3 shrink-0 border-b border-white/10 bg-white/[0.005]">
-          <div className="text-[10px] font-extrabold uppercase tracking-widest text-[#22d3ee] mb-2 flex items-center gap-1.5">
-            <span>Stories</span>
-          </div>
-          <div className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth items-center py-2">
-            {/* My Story circle */}
-            <div className="flex flex-col items-center gap-1 cursor-pointer shrink-0 relative">
+        {/* STORIES & NOTES ROW */}
+        <div className="px-5 py-2.5 border-b border-white/5 bg-[#0b0b0d] shrink-0">
+          <div className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth items-start py-2">
+            
+            {/* First circle: "Your note" / Me */}
+            <div className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0 relative select-none">
+              {/* Bubble Note display */}
+              {(() => {
+                const ownNote = notes.find(n => n.user_id === currentUser?.id);
+                if (ownNote) {
+                  return (
+                    <div 
+                      onClick={() => {
+                        if (confirm("Delete your current note?")) {
+                          deleteNote(ownNote.id);
+                        }
+                      }}
+                      className="absolute -top-7 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center group/note animate-fadein"
+                    >
+                      <div className="bg-[#262626] border border-white/15 px-2.5 py-1 rounded-[16px] max-w-[80px] shadow-[0_4px_12px_rgba(0,0,0,0.5)] text-center text-[10px] leading-tight text-white select-none relative group-hover/note:bg-red-950/90 transition-colors">
+                        {ownNote.song_name && (
+                          <div className="flex items-center justify-center gap-0.5 mb-0.5 text-[8px] text-cyan-300 truncate">
+                            <span>🎵</span>
+                            <span className="truncate max-w-[40px]">{ownNote.song_name}</span>
+                          </div>
+                        )}
+                        <p className="truncate max-w-[65px] font-medium">{ownNote.content}</p>
+                      </div>
+                      <div className="w-1.5 h-1.5 bg-[#262626] border border-white/10 rounded-full -mt-0.5 group-hover/note:bg-red-950" />
+                      <div className="w-0.5 h-0.5 bg-[#262626] border border-white/10 rounded-full mt-0.5 group-hover/note:bg-red-950" />
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               <div 
-                onClick={() => setIsStoryUploaderOptionsOpen(true)}
-                className="w-20 h-20 rounded-full border border-white/20 bg-white/[0.08] flex items-center justify-center relative font-bold text-sm text-cyan-400 hover:scale-105 transition-transform shadow-md"
+                onClick={() => {
+                  const ownNote = notes.find(n => n.user_id === currentUser?.id);
+                  if (ownNote) {
+                    setIsStoryUploaderOptionsOpen(true);
+                  } else {
+                    setIsAddNoteOptionsOpen(true);
+                  }
+                }}
+                className="relative"
               >
-                {userProfile?.avatar_url ? (
-                  <img src={userProfile.avatar_url} className="w-full h-full object-cover rounded-full" alt="" />
-                ) : (
-                  userProfile?.full_name?.substring(0, 2).toUpperCase() || "ME"
-                )}
-                <div className="absolute bottom-0 right-0 w-6 h-6 bg-cyan-400 text-black font-extrabold rounded-full flex items-center justify-center border-2 border-[#121319] text-sm shadow-sm backdrop-blur-md bg-opacity-70">
+                {(() => {
+                  const myStories = stories.filter(s => s.user_id === currentUser?.id);
+                  const hasStories = myStories.length > 0;
+                  return (
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                      hasStories ? "bg-gradient-to-tr from-[#3897f0] via-[#a80077] to-[#b12a5b] p-[2.5px]" : "bg-neutral-800 p-[1.5px]"
+                    }`}>
+                      <div className="w-full h-full rounded-full bg-black p-[2px]">
+                        {userProfile?.avatar_url ? (
+                          <img src={userProfile.avatar_url} className="w-full h-full object-cover rounded-full" alt="" />
+                        ) : (
+                          <div className="w-full h-full rounded-full bg-neutral-800 flex items-center justify-center font-bold text-cyan-400 text-sm">
+                            {userProfile?.full_name?.substring(0, 2).toUpperCase() || "ME"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="absolute bottom-0 right-0 w-5 h-5 bg-[#0095f6] text-white font-bold rounded-full flex items-center justify-center border-[2px] border-[#0b0b0d] text-[12px] shadow-sm">
                   +
                 </div>
               </div>
-              <span className="text-[10px] text-white/50 font-semibold mt-1">My Story</span>
+              <span className="text-[11px] text-[#8e8e8e] font-semibold mt-1">Your note</span>
             </div>
 
-            {/* Other stories circles */}
-            {profiles.filter(p => p.id !== currentUser?.id && stories.some((s: any) => s.user_id === p.id)).map(p => {
-              const userStories = stories.filter((s: any) => s.user_id === p.id);
-              const hasActiveStories = userStories.length > 0;
-              const hasUnseen = hasActiveStories && userStories.some((s: any) => !s.views?.includes(currentUser?.id));
-              const isVerified = p.full_name?.toLowerCase().includes("director") || p.full_name?.toLowerCase().includes("vfx") || p.full_name?.length % 2 === 0;
+            {/* Crew members circles */}
+            {(() => {
+              const otherProfiles = profiles.filter(p => p.id !== currentUser?.id);
+              const activeMembers = otherProfiles.filter(p => {
+                const hasNote = notes.some(n => n.user_id === p.id);
+                const hasStories = stories.some(s => s.user_id === p.id);
+                const isOnline = onlineUsers.includes(p.id);
+                return hasNote || hasStories || isOnline;
+              });
+              const rowMembers = activeMembers.length > 0 ? activeMembers : otherProfiles.slice(0, 10);
 
-              return (
-                <div key={p.id} className="flex flex-col items-center gap-1 shrink-0 relative group">
-                  {/* Large avatar with colorful ring for unseen, gray for seen */}
-                  <div 
-                    onClick={() => {
-                      if (hasActiveStories) {
-                        setActiveStoryUser(p.id);
-                        setActiveStoryIndex(0);
-                        setIsStoryViewerOpen(true);
-                        viewStory(userStories[0].id);
-                      }
-                    }}
-                    className={`w-20 h-20 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all relative ${
-                      hasUnseen
-                        ? "bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 p-[3px] animate-[pulse_1.5s_infinite]" 
-                        : "bg-white/20 p-[2px]" 
-                    }`}
-                  >
-                    <div className="w-full h-full rounded-full bg-neutral-900 overflow-hidden flex items-center justify-center font-bold text-sm text-cyan-400">
-                      {p.avatar_url ? (
-                        <img src={p.avatar_url} className="w-full h-full object-cover" alt="" />
-                      ) : (
-                        p.full_name?.substring(0, 2).toUpperCase() || "U"
+              return rowMembers.map(p => {
+                const userStories = stories.filter((s: any) => s.user_id === p.id);
+                const hasActiveStories = userStories.length > 0;
+                const hasUnseen = hasActiveStories && userStories.some((s: any) => !s.viewers?.includes(currentUser?.id));
+                const userNote = notes.find((n: any) => n.user_id === p.id);
+                const isOnline = onlineUsers.includes(p.id);
+
+                return (
+                  <div key={p.id} className="flex flex-col items-center gap-1.5 shrink-0 relative select-none group">
+                    {/* Note bubble */}
+                    {userNote && (
+                      <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center animate-fadein">
+                        <div className="bg-[#262626] border border-white/15 px-2.5 py-1 rounded-[16px] max-w-[80px] shadow-[0_4px_12px_rgba(0,0,0,0.5)] text-center text-[10px] leading-tight text-white select-none relative">
+                          {userNote.song_name && (
+                            <div className="flex items-center justify-center gap-0.5 mb-0.5 text-[8px] text-cyan-300 truncate">
+                              <span>🎵</span>
+                              <span className="truncate max-w-[40px]">{userNote.song_name}</span>
+                            </div>
+                          )}
+                          <p className="truncate max-w-[65px] font-medium">{userNote.content}</p>
+                        </div>
+                        <div className="w-1.5 h-1.5 bg-[#262626] border border-white/10 rounded-full -mt-0.5" />
+                        <div className="w-0.5 h-0.5 bg-[#262626] border border-white/10 rounded-full mt-0.5" />
+                      </div>
+                    )}
+
+                    {/* Avatar ring */}
+                    <div 
+                      onClick={() => {
+                        if (hasActiveStories) {
+                          setActiveStoryUser(p.id);
+                          setActiveStoryIndex(0);
+                          setIsStoryViewerOpen(true);
+                          viewStory(userStories[0].id);
+                        } else {
+                          handleSelectProfileDM(p.id);
+                        }
+                      }}
+                      className="relative cursor-pointer"
+                    >
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                        hasActiveStories 
+                          ? hasUnseen 
+                            ? "bg-gradient-to-tr from-[#3897f0] via-[#a80077] to-[#b12a5b] p-[2.5px]" 
+                            : "bg-[#262626] p-[1.5px]"
+                          : "border border-white/10 p-[1px]"
+                      }`}>
+                        <div className="w-full h-full rounded-full bg-black p-[2px]">
+                          {p.avatar_url ? (
+                            <img src={p.avatar_url} className="w-full h-full object-cover rounded-full" alt="" />
+                          ) : (
+                            <div className="w-full h-full rounded-full bg-neutral-800 flex items-center justify-center font-bold text-cyan-400 text-sm">
+                              {p.full_name?.substring(0, 2).toUpperCase() || "U"}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Online dot indicator */}
+                      {isOnline && (
+                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#4ed840] rounded-full border-2 border-[#0b0b0d] shadow-[0_0_4px_rgba(78,216,64,0.4)]" />
                       )}
                     </div>
-
-                    {/* Verified badges */}
-                    {isVerified && (
-                      <span className="absolute -top-1.5 -right-1 bg-blue-500 text-white rounded-full p-0.5 border border-black shadow-sm">
-                        <CheckCircle2 className="w-2.5 h-2.5 fill-white text-blue-500" />
-                      </span>
-                    )}
-
-                    {/* Green presence indicators */}
-                    {onlineUsers.includes(p.id) && (
-                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#121319] shadow-[0_0_6px_#22c55e]" />
-                    )}
+                    
+                    <span className="text-[11px] text-[#8e8e8e] truncate max-w-[72px] mt-0.5 font-medium">
+                      {p.full_name || p.email?.split('@')[0]}
+                    </span>
                   </div>
-                  
-                  <span className="text-[10px] text-white/50 truncate max-w-[80px]">
-                    {p.full_name || "User"}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
+
           </div>
         </div>
 
-        {/* CHAT LIST WITH LONG PRESS ACTION SHEET */}
-        <div className="flex-1 overflow-y-auto p-2.5 space-y-2 no-scrollbar">
+        {/* CHAT LIST CONTAINER */}
+        <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5 no-scrollbar flex flex-col">
           {filteredChannels.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center text-white/30">
               <span className="text-3xl">🎬</span>
@@ -1734,13 +2179,16 @@ export const ChatView: React.FC = () => {
             filteredChannels.map((channel) => {
               const details = getChannelDetails(channel);
               const isActive = channel.id === activeChannelId;
-              const hasUnread = channel.unread_count > 0;
-              const isLocked = lockedChannels[channel.id];
+              const hasUnread = channel.unread_count > 0 || localUnreadChannelIds.includes(channel.id);
+              
+              const isMuted = channel.muted_by?.includes(currentUser?.id) || channel.is_muted;
+              const isPinned = channel.pinned_by?.includes(currentUser?.id) || channel.is_pinned;
+              const isCloseFriend = closeFriendUserIds.includes(details.userId || "");
 
               // Derive status text
-              let statusText = "";
-              const otherMember = channel.chat_channel_members?.find((m: any) => m.user_id !== currentUser?.id);
               const lastMsg = lastMessages[channel.id];
+              let statusText = getLastMessagePreview(channel.id);
+              const otherMember = channel.chat_channel_members?.find((m: any) => m.user_id !== currentUser?.id);
               const isTyping = Object.values(typingUsers).some((t: any) => t.channelId === channel.id);
 
               if (isTyping) {
@@ -1751,25 +2199,26 @@ export const ChatView: React.FC = () => {
                   const isRead = otherMember && lastMsg.read_by?.includes(otherMember.user_id);
                   const isDelivered = otherMember && lastMsg.delivered_to?.includes(otherMember.user_id);
                   if (isRead) {
-                    statusText = "Seen";
+                    statusText += " · Seen";
                   } else if (isDelivered) {
-                    statusText = "Delivered";
+                    statusText += " · Delivered";
                   } else {
-                    statusText = "Sent";
-                  }
-                } else {
-                  const isRead = lastMsg.read_by?.includes(currentUser?.id);
-                  if (isRead) {
-                    statusText = "Seen";
-                  } else {
-                    statusText = "Delivered";
+                    statusText += " · Sent";
                   }
                 }
               }
 
               return (
-                <div
+                <SwipeableChatItem
                   key={channel.id}
+                  channel={channel}
+                  isActive={isActive}
+                  details={details}
+                  hasUnread={hasUnread}
+                  statusText={statusText}
+                  isMuted={isMuted}
+                  isPinned={isPinned}
+                  isCloseFriend={isCloseFriend}
                   onClick={() => {
                     if (isSelectionModeActive) {
                       setSelectedChannelIds(prev => 
@@ -1779,80 +2228,19 @@ export const ChatView: React.FC = () => {
                       );
                       return;
                     }
-                    if (isLocked) {
+                    if (lockedChannels[channel.id]) {
                       setShowFaceIdLock(channel.id);
                     } else {
+                      if (localUnreadChannelIds.includes(channel.id)) {
+                        setLocalUnreadChannelIds(prev => prev.filter(id => id !== channel.id));
+                      }
                       setActiveChannelId(channel.id);
                     }
                   }}
-                  onMouseDown={(e) => startLongPressTimer(e, channel)}
-                  onMouseUp={cancelLongPressTimer}
-                  onMouseLeave={cancelLongPressTimer}
-                  onTouchStart={(e) => startLongPressTimer(e, channel)}
-                  onTouchMove={cancelLongPressTimer}
-                  onTouchEnd={cancelLongPressTimer}
-                  className={`flex items-center gap-3 px-4 py-3 text-left text-xs transition-all cursor-pointer bg-white/[0.03] hover:bg-white/[0.07] rounded-[20px] border border-white/5 select-none ${
-                    isActive ? "bg-cyan-500/10 border-cyan-400/30" : ""
-                  }`}
-                >
-                  {isSelectionModeActive && (
-                    <input
-                      type="checkbox"
-                      checked={selectedChannelIds.includes(channel.id)}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        setSelectedChannelIds(prev => 
-                          prev.includes(channel.id) 
-                            ? prev.filter(id => id !== channel.id)
-                            : [...prev, channel.id]
-                        );
-                      }}
-                      className="mr-1 accent-cyan-400 cursor-pointer h-4 w-4 rounded border-white/20 bg-white/5 text-cyan-500 focus:ring-0 focus:ring-offset-0"
-                    />
-                  )}
-                  
-                  <div className="relative shrink-0">
-                    {details.isGroup ? (
-                      <div className="w-10 h-10 rounded-[14px] bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center font-bold text-cyan-400">
-                        {details.title.substring(0, 2).toUpperCase()}
-                      </div>
-                    ) : (
-                      <img src={details.avatar || ""} className="w-10 h-10 rounded-full object-cover border border-white/10" alt="" />
-                    )}
-                    {!details.isGroup && details.userId && onlineUsers.includes(details.userId) && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-black shadow-[0_0_4px_#22c55e]" />
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-white truncate text-xs flex items-center gap-1">
-                        {details.title}
-                        {isLocked && <Lock className="w-2.5 h-2.5 text-white/40" />}
-                        {channel.is_pinned && <Pin className="w-2.5 h-2.5 text-amber-400 fill-amber-400/20 rotate-45" />}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center mt-1">
-                      {statusText && (
-                        <span className={`text-[10px] uppercase font-bold tracking-wider ${
-                          statusText === "Typing..." 
-                            ? "text-green-400 animate-pulse" 
-                            : statusText === "Seen"
-                              ? "text-cyan-400 font-semibold"
-                              : statusText === "Delivered"
-                                ? "text-white/60"
-                                : "text-white/40"
-                        }`}>
-                          {statusText}
-                        </span>
-                      )}
-                      {hasUnread && (
-                        <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)] ml-auto" />
-                      )}
-                    </div>
-                  </div>
-                </div>
+                  onLongPress={() => {
+                    setActiveBottomSheetChannel(channel);
+                  }}
+                />
               );
             })
           )}
@@ -1860,7 +2248,7 @@ export const ChatView: React.FC = () => {
 
         {/* LIQUID GLASS SELECTION MODE BANNER */}
         {isSelectionModeActive && (
-          <div className="p-3 bg-white/[0.04] backdrop-blur-[24px] border-t border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15),0_-8px_32px_0_rgba(0,0,0,0.35)] flex flex-col gap-2 shrink-0">
+          <div className="p-3 bg-[#161618] border-t border-white/10 shadow-[0_-8px_32px_rgba(0,0,0,0.35)] flex flex-col gap-2 shrink-0">
             <div className="flex justify-between items-center px-1">
               <span className="text-[10px] uppercase tracking-wider text-cyan-400 font-bold">
                 {selectedChannelIds.length} Selected
@@ -1886,7 +2274,7 @@ export const ChatView: React.FC = () => {
                   setIsSelectionModeActive(false);
                   setSelectedChannelIds([]);
                 }}
-                className="py-1 px-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/30 text-[9px] text-cyan-300 font-bold uppercase tracking-wider transition-all text-center"
+                className="py-1 px-2 rounded-xl bg-[#262626] hover:bg-[#363636] border border-white/10 text-[9px] text-white font-bold uppercase tracking-wider transition-all text-center"
               >
                 Create Group
               </button>
@@ -1896,7 +2284,7 @@ export const ChatView: React.FC = () => {
                   setIsSelectionModeActive(false);
                   setSelectedChannelIds([]);
                 }}
-                className="py-1 px-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/30 text-[9px] text-cyan-300 font-bold uppercase tracking-wider transition-all text-center"
+                className="py-1 px-2 rounded-xl bg-[#262626] hover:bg-[#363636] border border-white/10 text-[9px] text-white font-bold uppercase tracking-wider transition-all text-center"
               >
                 Create Broadcast
               </button>
@@ -1907,7 +2295,7 @@ export const ChatView: React.FC = () => {
                   setIsSelectionModeActive(false);
                   setSelectedChannelIds([]);
                 }}
-                className="py-1 px-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/30 text-[9px] text-cyan-300 font-bold uppercase tracking-wider transition-all text-center"
+                className="py-1 px-2 rounded-xl bg-[#262626] hover:bg-[#363636] border border-white/10 text-[9px] text-white font-bold uppercase tracking-wider transition-all text-center"
               >
                 Mute Selected
               </button>
@@ -1923,7 +2311,7 @@ export const ChatView: React.FC = () => {
                     setSelectedChannelIds([]);
                   }
                 }}
-                className="py-1 px-2 rounded-xl bg-red-500/10 hover:bg-red-500/25 border border-red-400/30 text-[9px] text-red-300 font-bold uppercase tracking-wider transition-all text-center"
+                className="py-1 px-2 rounded-xl bg-red-950/20 hover:bg-red-950/40 border border-red-500/30 text-[9px] text-red-300 font-bold uppercase tracking-wider transition-all text-center"
               >
                 Delete Selected
               </button>
@@ -1934,7 +2322,7 @@ export const ChatView: React.FC = () => {
                   setIsSelectionModeActive(false);
                   setSelectedChannelIds([]);
                 }}
-                className="py-1 px-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/30 text-[9px] text-cyan-300 font-bold uppercase tracking-wider transition-all text-center"
+                className="py-1 px-2 rounded-xl bg-[#262626] hover:bg-[#363636] border border-white/10 text-[9px] text-white font-bold uppercase tracking-wider transition-all text-center"
               >
                 Archive Selected
               </button>
@@ -1948,7 +2336,7 @@ export const ChatView: React.FC = () => {
                   setIsSelectionModeActive(false);
                   setSelectedChannelIds([]);
                 }}
-                className="py-1 px-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/30 text-[9px] text-cyan-300 font-bold uppercase tracking-wider transition-all text-center"
+                className="py-1 px-2 rounded-xl bg-[#262626] hover:bg-[#363636] border border-white/10 text-[9px] text-white font-bold uppercase tracking-wider transition-all text-center"
               >
                 Add Label
               </button>
@@ -3813,99 +4201,196 @@ export const ChatView: React.FC = () => {
         </div>
       )}
 
-      {/* --- LIQUID GLASS LONG PRESS BOTTOM SHEET --- */}
-      {activeBottomSheetChannel && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[115] flex items-end justify-center transition-opacity duration-300" onClick={() => setActiveBottomSheetChannel(null)}>
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-[#0d0d12]/90 backdrop-blur-[32px] border-t border-white/20 rounded-t-[32px] p-6 max-h-[85vh] overflow-y-auto shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25)] animate-[slideUp_0.3s_cubic-bezier(0.16,1,0.3,1)] z-[120] space-y-4 text-white"
-          >
-            {/* Sheet Handle bar */}
-            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-2 cursor-pointer" onClick={() => setActiveBottomSheetChannel(null)} />
-            
-            <div className="flex items-center gap-3 border-b border-white/10 pb-3">
-              <div className="w-11 h-11 rounded-xl bg-cyan-500/10 flex items-center justify-center font-bold text-cyan-400">
-                {getChannelDetails(activeBottomSheetChannel).title.substring(0,2).toUpperCase()}
-              </div>
-              <div>
-                <h4 className="font-bold text-white text-xs">{getChannelDetails(activeBottomSheetChannel).title}</h4>
-                <p className="text-[10px] text-white/50">{getChannelDetails(activeBottomSheetChannel).description}</p>
-              </div>
-            </div>
+      {/* --- INSTAGRAM STYLED CENTER VIEWPORT LONG PRESS MODAL --- */}
+      {activeBottomSheetChannel && (() => {
+        const details = getChannelDetails(activeBottomSheetChannel);
+        const isMuted = activeBottomSheetChannel.muted_by?.includes(currentUser?.id) || activeBottomSheetChannel.is_muted;
+        const isPinned = activeBottomSheetChannel.pinned_by?.includes(currentUser?.id) || activeBottomSheetChannel.is_pinned;
+        const isCloseFriend = closeFriendUserIds.includes(details.userId || "");
+        const isLocalUnread = localUnreadChannelIds.includes(activeBottomSheetChannel.id);
+        const isRequest = unapprovedChannelIds.includes(activeBottomSheetChannel.id);
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              
+        return (
+          <div 
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[150] flex items-center justify-center p-4 animate-fadein" 
+            onClick={() => setActiveBottomSheetChannel(null)}
+          >
+            <div 
+              onClick={(e) => e.stopPropagation()}
+              className="w-[280px] bg-[#262626] border border-white/10 rounded-[14px] overflow-hidden flex flex-col text-center divide-y divide-[#363636] text-white shadow-2xl animate-[scaleIn_0.2s_ease-out]"
+            >
+              {/* Header Preview */}
+              <div className="py-4 px-3 flex flex-col items-center gap-1.5 bg-[#262626]">
+                <div className="w-14 h-14 rounded-full overflow-hidden border border-white/10 bg-neutral-800 flex items-center justify-center font-bold text-cyan-400 text-lg">
+                  {details.avatar ? (
+                    <img src={details.avatar} className="w-full h-full object-cover" alt="" />
+                  ) : (
+                    details.title.substring(0, 2).toUpperCase()
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-white truncate max-w-[220px]">{details.title}</h4>
+                  <p className="text-[10px] text-[#8e8e8e] truncate max-w-[220px]">{details.description}</p>
+                </div>
+              </div>
+
+              {/* Pin Chat */}
               <button 
                 onClick={() => { togglePinChannel(activeBottomSheetChannel.id); setActiveBottomSheetChannel(null); }}
-                className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-left transition-all"
+                className="w-full py-3 text-xs font-semibold text-[#0095f6] hover:bg-white/5 active:bg-white/10 transition-colors"
               >
-                <Pin className="w-4 h-4 text-amber-400" />
-                <span>{activeBottomSheetChannel.is_pinned ? "Unpin Chat" : "Pin Chat"}</span>
+                {isPinned ? "Unpin" : "Pin"}
               </button>
 
-              <button 
-                onClick={() => { toggleArchiveChannel(activeBottomSheetChannel.id); setActiveBottomSheetChannel(null); }}
-                className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-left transition-all"
-              >
-                <Archive className="w-4 h-4 text-purple-400" />
-                <span>Archive Chat</span>
-              </button>
-
+              {/* Mute Chat */}
               <button 
                 onClick={() => { toggleMuteChannel(activeBottomSheetChannel.id); setActiveBottomSheetChannel(null); }}
-                className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-left transition-all"
+                className="w-full py-3 text-xs font-semibold text-white hover:bg-white/5 active:bg-white/10 transition-colors"
               >
-                <VolumeX className="w-4 h-4 text-red-400" />
-                <span>Mute Notifications</span>
+                {isMuted ? "Unmute Notifications" : "Mute Notifications"}
               </button>
 
+              {/* Archive */}
               <button 
-                onClick={async () => {
-                  if (confirm(`Delete DM with ${getChannelDetails(activeBottomSheetChannel).title}?`)) {
-                    const { error } = await supabase.from("chat_channels").delete().eq("id", activeBottomSheetChannel.id);
-                    if (!error) {
-                      if (activeChannelId === activeBottomSheetChannel.id) {
-                        setActiveChannelId("");
-                      }
-                      fetchChatChannels();
-                    }
-                    setActiveBottomSheetChannel(null);
-                  }
+                onClick={() => { toggleArchiveChannel(activeBottomSheetChannel.id); setActiveBottomSheetChannel(null); }}
+                className="w-full py-3 text-xs font-semibold text-white hover:bg-white/5 active:bg-white/10 transition-colors"
+              >
+                Archive
+              </button>
+
+              {/* Mark Read/Unread */}
+              <button 
+                onClick={() => {
+                  setLocalUnreadChannelIds(prev => 
+                    prev.includes(activeBottomSheetChannel.id)
+                      ? prev.filter(id => id !== activeBottomSheetChannel.id)
+                      : [...prev, activeBottomSheetChannel.id]
+                  );
+                  setActiveBottomSheetChannel(null);
                 }}
-                className="flex items-center gap-2 p-3 bg-red-950/20 border border-red-500/30 rounded-2xl hover:bg-red-950/40 text-left transition-all text-red-300"
+                className="w-full py-3 text-xs font-semibold text-white hover:bg-white/5 active:bg-white/10 transition-colors"
               >
-                <Trash2 className="w-4 h-4 text-red-400" />
-                <span>Delete Chat</span>
+                {isLocalUnread ? "Mark as Read" : "Mark as Unread"}
               </button>
 
+              {/* Move to General / Primary */}
               <button 
-                onClick={() => { toggleLockChannel(activeBottomSheetChannel.id); }}
-                className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-left transition-all"
+                onClick={() => {
+                  if (generalChannelIds.includes(activeBottomSheetChannel.id)) {
+                    setGeneralChannelIds(prev => prev.filter(id => id !== activeBottomSheetChannel.id));
+                  } else {
+                    setGeneralChannelIds(prev => [...prev, activeBottomSheetChannel.id]);
+                  }
+                  setActiveBottomSheetChannel(null);
+                }}
+                className="w-full py-3 text-xs font-semibold text-white hover:bg-white/5 active:bg-white/10 transition-colors"
               >
-                <Lock className="w-4 h-4 text-emerald-400" />
-                <span>{lockedChannels[activeBottomSheetChannel.id] ? "Unlock Chat" : "Lock Chat"}</span>
+                {generalChannelIds.includes(activeBottomSheetChannel.id) ? "Move to Primary" : "Move to General"}
               </button>
 
+              {/* Approve Request (only if in Request state) */}
+              {isRequest && (
+                <button 
+                  onClick={() => {
+                    setUnapprovedChannelIds(prev => prev.filter(id => id !== activeBottomSheetChannel.id));
+                    setActiveBottomSheetChannel(null);
+                    alert("Chat request approved!");
+                  }}
+                  className="w-full py-3 text-xs font-bold text-green-400 hover:bg-white/5 active:bg-white/10 transition-colors"
+                >
+                  Approve Request
+                </button>
+              )}
+
+              {/* Close Friend */}
               <button 
-                onClick={() => { setIsSelectionModeActive(true); setSelectedChannelIds([activeBottomSheetChannel.id]); setActiveBottomSheetChannel(null); }}
-                className="flex items-center gap-2 p-3 bg-cyan-500/15 border border-cyan-400/30 rounded-2xl hover:bg-cyan-500/25 text-left transition-all"
+                onClick={() => {
+                  if (details.userId) {
+                    toggleCloseFriend(details.userId);
+                  } else {
+                    alert("Cannot set close friend status for this chat.");
+                  }
+                  setActiveBottomSheetChannel(null);
+                }}
+                className="w-full py-3 text-xs font-semibold text-green-400 hover:bg-white/5 active:bg-white/10 transition-colors"
               >
-                <Check className="w-4 h-4 text-cyan-400" />
-                <span>Select</span>
+                {isCloseFriend ? "Remove Close Friends" : "Close Friends"}
               </button>
 
+              {/* Restrict */}
+              <button 
+                onClick={() => {
+                  setActiveBottomSheetChannel(null);
+                  alert("Restrict Action: This account is restricted.");
+                }}
+                className="w-full py-3 text-xs font-semibold text-white hover:bg-white/5 active:bg-white/10 transition-colors"
+              >
+                Restrict
+              </button>
+
+              {/* Block */}
+              <button 
+                onClick={() => {
+                  if (details.userId) {
+                    handleBlockUser(details.userId);
+                  } else {
+                    alert("No valid user to block.");
+                  }
+                  setActiveBottomSheetChannel(null);
+                }}
+                className="w-full py-3 text-xs font-bold text-[#ed4956] hover:bg-white/5 active:bg-white/10 transition-colors"
+              >
+                Block
+              </button>
+
+              {/* Report */}
+              <button 
+                onClick={() => {
+                  if (details.userId) {
+                    handleReportUser(details.userId);
+                  } else {
+                    alert("No valid user to report.");
+                  }
+                  setActiveBottomSheetChannel(null);
+                }}
+                className="w-full py-3 text-xs font-bold text-[#ed4956] hover:bg-white/5 active:bg-white/10 transition-colors"
+              >
+                Report
+              </button>
+
+              {/* View Profile */}
+              <button 
+                onClick={() => {
+                  setActiveBottomSheetChannel(null);
+                  alert(`Collaborator Bio: ${details.description}`);
+                }}
+                className="w-full py-3 text-xs font-semibold text-white hover:bg-white/5 active:bg-white/10 transition-colors"
+              >
+                View Profile
+              </button>
+
+              {/* Custom Theme */}
+              <button 
+                onClick={() => {
+                  setActiveBottomSheetChannel(null);
+                  setIsThemePickerOpen(true);
+                }}
+                className="w-full py-3 text-xs font-semibold text-white hover:bg-white/5 active:bg-white/10 transition-colors"
+              >
+                Custom Theme
+              </button>
+
+              {/* Cancel */}
               <button 
                 onClick={() => setActiveBottomSheetChannel(null)}
-                className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 text-left transition-all col-span-2 justify-center"
+                className="w-full py-3 text-xs font-semibold text-white/50 hover:bg-white/5 active:bg-white/10 transition-colors"
               >
-                <X className="w-4 h-4 text-white/50" />
-                <span>Cancel</span>
+                Cancel
               </button>
-
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );
