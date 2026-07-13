@@ -445,6 +445,8 @@ interface ProjectStoreState {
   deletePortfolioItem: (id: string) => Promise<void>;
   likePortfolioItem: (id: string) => Promise<void>;
   bookmarkPortfolioItem: (id: string) => Promise<void>;
+  incrementProfileViews: (userId: string) => Promise<void>;
+  incrementPortfolioViews: (postId: string) => Promise<void>;
   addUserSkill: (skill: string) => Promise<void>;
   removeUserSkill: (skill: string) => Promise<void>;
   addUserTag: (tag: string) => Promise<void>;
@@ -2449,6 +2451,21 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       return;
     }
 
+    useProjectStore.getState().fetchWorkspaceData();
+  },
+
+  incrementProfileViews: async (userId) => {
+    const { data } = await supabase.from("profiles").select("views").eq("id", userId).single();
+    if (data) {
+      await supabase.from("profiles").update({ views: (data.views || 0) + 1 }).eq("id", userId);
+    }
+  },
+
+  incrementPortfolioViews: async (postId) => {
+    const { data } = await supabase.from("portfolio").select("views").eq("id", postId).single();
+    if (data) {
+      await supabase.from("portfolio").update({ views: (data.views || 0) + 1 }).eq("id", postId);
+    }
     useProjectStore.getState().fetchWorkspaceData();
   },
 

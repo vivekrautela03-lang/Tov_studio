@@ -33,7 +33,9 @@ export const ProfileView: React.FC = () => {
     followersCount, 
     followingCount, 
     likePortfolioItem, 
-    bookmarkPortfolioItem 
+    bookmarkPortfolioItem,
+    incrementProfileViews,
+    incrementPortfolioViews
   } = useProjectStore();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -45,6 +47,7 @@ export const ProfileView: React.FC = () => {
   const [highlights, setHighlights] = useState<any[]>([]);
   const [portfolio, setPortfolio] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewedPortfolioIds, setViewedPortfolioIds] = useState<string[]>([]);
   const [selectedMember, setSelectedMember] = useState<any | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
@@ -147,6 +150,9 @@ export const ProfileView: React.FC = () => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user);
       fetchProfileData(user);
+      if (user) {
+        incrementProfileViews(user.id);
+      }
     });
   }, []);
 
@@ -477,6 +483,9 @@ export const ProfileView: React.FC = () => {
             <div>
               <span className="text-white font-bold">{followingCount}</span> following
             </div>
+            <div>
+              <span className="text-white font-bold">{profile?.views || 0}</span> views
+            </div>
           </div>
 
           {/* Bio text block */}
@@ -619,6 +628,12 @@ export const ProfileView: React.FC = () => {
             {portfolio.map((item) => (
               <div
                 key={item.id}
+                onMouseEnter={() => {
+                  if (!viewedPortfolioIds.includes(item.id)) {
+                    incrementPortfolioViews(item.id);
+                    setViewedPortfolioIds((prev) => [...prev, item.id]);
+                  }
+                }}
                 className="relative aspect-square rounded-lg overflow-hidden border border-white/5 group cursor-pointer bg-neutral-900"
               >
                 <img src={item.thumbnail_url} className="w-full h-full object-cover" alt="" />
@@ -671,6 +686,12 @@ export const ProfileView: React.FC = () => {
                       >
                         <Bookmark className={`w-3.5 h-3.5 ${(item.bookmarks || []).includes(user?.id) ? "fill-current" : ""}`} />
                       </button>
+
+                      {/* Views count */}
+                      <div className="flex items-center gap-1 text-white/50 ml-1" title="Views">
+                        <Eye className="w-3.5 h-3.5" />
+                        <span className="text-[8.5px] font-semibold">{item.views || 0}</span>
+                      </div>
                     </div>
 
                     {item.url && item.url !== "#" && (
