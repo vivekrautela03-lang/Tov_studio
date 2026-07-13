@@ -1385,10 +1385,13 @@ export default function StoryEditor({ mediaUrl, mediaType, onClose, onSave, user
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] font-bold text-white/40 uppercase">Clip length</span>
                   <div className="flex gap-1.5">
-                    {[5, 10, 15, 30].map((dur) => (
+                    {[5, 10, 15, 30, 60].map((dur) => (
                       <button
                         key={dur}
-                        onClick={() => setSongDuration(dur)}
+                        onClick={() => {
+                          setSongDuration(dur);
+                          setSongOffset(0); // Reset offset to prevent overflow
+                        }}
                         className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${songDuration === dur ? "bg-[#0095f6] text-white" : "bg-white/10 text-white/60"}`}
                       >
                         {dur}s
@@ -1402,14 +1405,14 @@ export default function StoryEditor({ mediaUrl, mediaType, onClose, onSave, user
                   <input
                     type="range"
                     min="0"
-                    max="15"
+                    max={Math.max(0, 30 - songDuration)}
                     value={songOffset}
                     onChange={(e) => setSongOffset(Number(e.target.value))}
                     className="w-full accent-orange-500 bg-white/10 h-1 rounded-full cursor-pointer"
                   />
                   <div className="flex justify-between text-[9px] text-white/30 font-mono">
                     <span>{songOffset}s</span>
-                    <span>{songOffset + songDuration}s</span>
+                    <span>{Math.min(30, songOffset + songDuration)}s</span>
                   </div>
                 </div>
               </div>

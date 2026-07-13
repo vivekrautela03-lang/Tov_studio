@@ -1081,9 +1081,33 @@ export const DashboardView: React.FC = () => {
   const handleStoryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setStoryFile(file);
       const isVideo = file.type.startsWith("video/");
-      setStoryMediaType(isVideo ? "video" : "image");
+      
+      if (isVideo) {
+        const tempVideo = document.createElement("video");
+        tempVideo.preload = "metadata";
+        tempVideo.src = URL.createObjectURL(file);
+        tempVideo.onloadedmetadata = () => {
+          URL.revokeObjectURL(tempVideo.src);
+          if (tempVideo.duration > 60.5) {
+            alert("Video duration exceeds 60 seconds! Stories are limited to a maximum of 60 seconds.");
+            e.target.value = "";
+            return;
+          }
+          setStoryFile(file);
+          setStoryMediaType("video");
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setStoryPreview(reader.result as string);
+            setIsStoryUploaderOpen(true);
+          };
+          reader.readAsDataURL(file);
+        };
+        return;
+      }
+
+      setStoryFile(file);
+      setStoryMediaType("image");
       const reader = new FileReader();
       reader.onloadend = () => {
         setStoryPreview(reader.result as string);
