@@ -1208,56 +1208,9 @@ export const DashboardView: React.FC = () => {
   return (
     <div className="space-y-8 animate-fade-in pb-16 text-xs">
       
-      {/* INSTAGRAM STYLED TOP BAR & STORIES ROW */}
-      <div className="bg-[#0b0b0d] border border-white/5 rounded-3xl p-4 shadow-2xl space-y-4">
-        {/* Top Header Bar: Add Story +, Search input, Paper-airplane DM navigator, and options menu */}
-        <div className="flex items-center gap-3">
-          {/* Plus Add-Story button with gradient ring */}
-          <button 
-            onClick={() => setIsStoryUploaderOpen(true)}
-            className="w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-tr from-[#3897f0] via-[#a80077] to-[#b12a5b] p-[2.5px] hover:scale-105 active:scale-95 transition-all shadow-md shrink-0 cursor-pointer"
-            title="Create Story"
-          >
-            <div className="w-full h-full rounded-full bg-[#050505] flex items-center justify-center font-bold text-white text-[20px]">
-              +
-            </div>
-          </button>
-
-          {/* Pill-shaped search input */}
-          <div className="flex-1 relative flex items-center">
-            <input 
-              type="text"
-              placeholder="Search..."
-              value={dashboardSearchQuery}
-              onChange={(e) => setDashboardSearchQuery(e.target.value)}
-              className="w-full bg-[#262626] border-none rounded-[14px] pl-9 pr-4 py-2 text-[14.5px] text-white placeholder-[#8e8e8e] focus:outline-none transition-all shadow-sm"
-            />
-            <Search className="w-4.5 h-4.5 text-[#8e8e8e] absolute left-3" />
-          </div>
-
-          {/* Direct Message (Paper Airplane) Navigation Shortcut */}
-          <button 
-            onClick={() => setActiveView("chat")}
-            className="p-2 hover:bg-white/5 rounded-full transition-all text-[#f5f5f5] hover:text-white cursor-pointer shrink-0"
-            title="Direct Messages"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-5.5 h-5.5 rotate-[15deg]">
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          </button>
-
-          {/* More options button */}
-          <button 
-            className="p-2 hover:bg-white/5 rounded-full transition-all text-[#8e8e8e] hover:text-white cursor-pointer shrink-0"
-            title="Dashboard Options"
-          >
-            <MoreVertical className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Horizontal Stories list row */}
-        <div className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth items-center py-1">
+      {/* INSTAGRAM STYLED STORIES ROW */}
+      <div className="bg-[#0b0b0d] border border-white/5 rounded-3xl p-4 shadow-2xl overflow-x-auto no-scrollbar scroll-smooth">
+        <div className="flex gap-4 items-center py-1">
           {/* Creator's own story circle */}
           {(() => {
             const myStories = stories.filter(s => s.user_id === userProfile?.id);

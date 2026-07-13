@@ -17,7 +17,8 @@ import {
   CalendarPlus,
   Check,
   UserCheck,
-  MessageSquare
+  MessageSquare,
+  MoreVertical
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -163,63 +164,73 @@ export const Header: React.FC = () => {
         <div className="flex items-center gap-2.5 md:gap-4">
           
           {/* Project Switcher */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setIsProjectDropdownOpen(!isProjectDropdownOpen);
-                setIsCreateDropdownOpen(false);
-              }}
-              className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white text-xs px-3 py-2 rounded-lg border border-white/5 transition-all duration-200 cursor-pointer"
-            >
-              <span className="font-semibold">{activeProject?.title}</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary uppercase font-bold tracking-wider">
-                {activeProject?.status}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-text-secondary" />
-            </button>
+          <div className="flex items-center gap-1.5">
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setIsProjectDropdownOpen(!isProjectDropdownOpen);
+                  setIsCreateDropdownOpen(false);
+                }}
+                className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white text-xs px-3 py-2 rounded-lg border border-white/5 transition-all duration-200 cursor-pointer"
+              >
+                <span className="font-semibold">{activeProject?.title}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary uppercase font-bold tracking-wider">
+                  {activeProject?.status}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-text-secondary" />
+              </button>
 
-            {isProjectDropdownOpen && (
-              <div className="absolute left-0 mt-2 w-64 bg-card border border-white/5 rounded-lg shadow-2xl z-50 p-1">
-                <div className="px-3 py-2 text-[10px] text-text-secondary font-semibold uppercase tracking-wider">
-                  Switch Production
-                </div>
-                <div className="space-y-0.5 max-h-60 overflow-y-auto">
-                  {projects.map((proj) => (
+              {isProjectDropdownOpen && (
+                <div className="absolute left-0 mt-2 w-64 bg-card border border-white/5 rounded-lg shadow-2xl z-50 p-1">
+                  <div className="px-3 py-2 text-[10px] text-text-secondary font-semibold uppercase tracking-wider">
+                    Switch Production
+                  </div>
+                  <div className="space-y-0.5 max-h-60 overflow-y-auto">
+                    {projects.map((proj) => (
+                      <button
+                        key={proj.id}
+                        onClick={() => selectProject(proj.id)}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-white/5 text-xs text-left cursor-pointer transition-colors duration-150"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-white font-medium">{proj.title}</span>
+                          <span className="text-[10px] text-text-secondary">{proj.director}</span>
+                        </div>
+                        {proj.id === activeProjectId && (
+                          <Check className="w-3.5 h-3.5 text-primary" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="border-t border-white/5 mt-1 pt-1">
                     <button
-                      key={proj.id}
-                      onClick={() => selectProject(proj.id)}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-white/5 text-xs text-left cursor-pointer transition-colors duration-150"
+                      onClick={() => {
+                        setIsProjectDropdownOpen(false);
+                        setIsNewProjOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-primary/10 text-primary text-xs text-left font-medium cursor-pointer transition-colors duration-150"
                     >
-                      <div className="flex flex-col">
-                        <span className="text-white font-medium">{proj.title}</span>
-                        <span className="text-[10px] text-text-secondary">{proj.director}</span>
-                      </div>
-                      {proj.id === activeProjectId && (
-                        <Check className="w-3.5 h-3.5 text-primary" />
-                      )}
+                      <Plus className="w-3.5 h-3.5" />
+                      New Production...
                     </button>
-                  ))}
+                  </div>
                 </div>
-                <div className="border-t border-white/5 mt-1 pt-1">
-                  <button
-                    onClick={() => {
-                      setIsProjectDropdownOpen(false);
-                      setIsNewProjOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-primary/10 text-primary text-xs text-left font-medium cursor-pointer transition-colors duration-150"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    New Production...
-                  </button>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            <button
+              onClick={() => setIsNewProjOpen(true)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-[#22d3ee]/20 text-[#22d3ee] transition-all duration-200 cursor-pointer border border-white/5 shrink-0"
+              title="Add New Project"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Global Search Button (Responsive width) */}
           <button
             onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-white p-2.5 sm:px-3 sm:py-2 rounded-lg text-xs border border-white/5 transition-all duration-200 cursor-pointer w-9.5 h-9.5 sm:w-48 text-left justify-center sm:justify-between"
+            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-white p-2.5 sm:px-3 sm:py-2 rounded-lg text-xs border border-white/5 transition-all duration-200 cursor-pointer w-9.5 h-9.5 sm:w-80 text-left justify-center sm:justify-between"
           >
             <div className="flex items-center gap-2">
               <Search className="w-3.5 h-3.5 shrink-0" />
@@ -241,7 +252,10 @@ export const Header: React.FC = () => {
               className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white relative transition-all duration-200 cursor-pointer border border-white/5"
               title="Messages & Alerts"
             >
-              <MessageSquare className="w-4.5 h-4.5 text-[#22d3ee] drop-shadow-[0_0_8px_rgba(34,211,238,0.2)]" />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-[#22d3ee] drop-shadow-[0_0_8px_rgba(34,211,238,0.2)] rotate-[15deg]">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
               {(unreadCount > 0 || chatChannels.some(ch => ch.unread_count > 0)) && (
                 <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
               )}
@@ -254,26 +268,7 @@ export const Header: React.FC = () => {
             className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white relative transition-all duration-200 cursor-pointer border border-white/5"
             title="Open Hub Menu"
           >
-            <Menu className="w-4.5 h-4.5" />
-          </button>
-
-          {/* Profile Avatar trigger */}
-          <button
-            onClick={() => setActiveView("profile")}
-            className="w-9 h-9 rounded-full overflow-hidden border border-white/10 hover:border-[#22d3ee] transition-all duration-200 cursor-pointer shrink-0"
-            title="Profile"
-          >
-            {profile?.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                className="w-full h-full object-cover"
-                alt=""
-              />
-            ) : (
-              <div className="w-full h-full bg-[#22d3ee] flex items-center justify-center font-bold text-black text-xs">
-                {profile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
-              </div>
-            )}
+            <MoreVertical className="w-4.5 h-4.5 text-[#22d3ee] drop-shadow-[0_0_8px_rgba(34,211,238,0.2)]" />
           </button>
 
         </div>
