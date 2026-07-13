@@ -168,6 +168,7 @@ export const ChatView: React.FC = () => {
   const [noteDetailReplyText, setNoteDetailReplyText] = useState("");
   const [activeStoryUser, setActiveStoryUser] = useState<string | null>(null);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number>(0);
+  const [isViewerListOpen, setIsViewerListOpen] = useState(false);
   
   // Custom theme/wallpaper picker drawer
   const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
@@ -1355,6 +1356,38 @@ export const ChatView: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [isStoryViewerOpen, activeStoryUser, activeStoryIndex, isPaused, stories]);
+
+  // Autoplay story background audio in ChatView stories viewer
+  useEffect(() => {
+    if (isStoryViewerOpen && activeStoryUser && stories.length > 0) {
+      const userStories = stories.filter((s: any) => s.user_id === activeStoryUser);
+      const activeStory = userStories[activeStoryIndex];
+      if (activeStory && activeStory.song_preview_url) {
+        if (audioPreviewRef.current) {
+          audioPreviewRef.current.pause();
+        }
+        const audio = new Audio(activeStory.song_preview_url);
+        audio.loop = true;
+        audio.play().catch(e => console.log("Audio play failed in ChatView:", e));
+        audioPreviewRef.current = audio;
+      } else {
+        if (audioPreviewRef.current) {
+          audioPreviewRef.current.pause();
+          audioPreviewRef.current = null;
+        }
+      }
+    } else {
+      if (audioPreviewRef.current) {
+        audioPreviewRef.current.pause();
+        audioPreviewRef.current = null;
+      }
+    }
+    return () => {
+      if (audioPreviewRef.current) {
+        audioPreviewRef.current.pause();
+      }
+    };
+  }, [isStoryViewerOpen, activeStoryUser, activeStoryIndex]);
 
   useEffect(() => {
     setStoryProgress(0);
@@ -3727,9 +3760,13 @@ export const ChatView: React.FC = () => {
         </div>
       )}
 
-      {/* --- DYNAMIC STORIES VIEWER MODAL WITH CUSTOM STAMPS --- */}
+      {/* --- DYNAMIC STORIES VIEWER MODAL --- */}
       {isStoryViewerOpen && activeStoryUser && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/95 text-white">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/95 text-white" onClick={() => {
+          setIsStoryViewerOpen(false);
+          setActiveStoryUser(null);
+          setIsViewerListOpen(false);
+        }}>
           {(() => {
             const userStories = stories.filter((s: any) => s.user_id === activeStoryUser);
             if (userStories.length === 0) return null;
@@ -3737,19 +3774,24 @@ export const ChatView: React.FC = () => {
             const author = activeStory.profiles;
             const hasLiked = activeStory.likes?.includes(currentUser?.id);
 
-            // Parse caption JSON
-            let captionText = activeStory.caption || "";
-            let stamp: any = null;
+            // Parse caption JSON and custom text overlay
+            let captionText = "";
+            let textOverlayText = "";
             try {
-              if (activeStory.caption && activeStory.caption.startsWith("{")) {
+              if (activeStory.caption) {
                 const parsed = JSON.parse(activeStory.caption);
-                captionText = parsed.textCaption;
-                stamp = parsed.stamp;
+                captionText = parsed.textCaption || "";
+                textOverlayText = parsed.textOverlay || "";
               }
-            } catch (e) {}
+            } catch (e) {
+              captionText = activeStory.caption || "";
+            }
 
             return (
-              <div className="w-full max-w-md h-full md:h-[90vh] flex flex-col justify-between bg-neutral-950 border border-white/10 md:rounded-[32px] overflow-hidden relative shadow-2xl">
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className="w-[380px] h-[640px] flex flex-col justify-between bg-neutral-950 border border-white/10 rounded-[28px] overflow-hidden relative shadow-2xl"
+              >
                 
                 {/* Progress bars */}
                 <div className="absolute top-0 inset-x-0 p-3 bg-gradient-to-b from-black/80 to-transparent z-20 flex gap-1">
@@ -3759,7 +3801,7 @@ export const ChatView: React.FC = () => {
                     if (idx === activeStoryIndex) width = `${storyProgress}%`;
                     return (
                       <div key={story.id} className="h-1 flex-1 bg-white/20 rounded-full overflow-hidden">
-                        <div className="h-full bg-cyan-400 transition-all duration-100 ease-linear" style={{ width }} />
+                        <div className="h-full bg-white transition-all duration-100 ease-linear" style={{ width }} />
                       </div>
                     );
                   })}
@@ -3775,8 +3817,14 @@ export const ChatView: React.FC = () => {
                         author?.full_name?.substring(0, 2).toUpperCase()
                       )}
                     </div>
-                    <div>
+                    <div className="text-left">
                       <span className="text-[11px] font-bold block">{author?.full_name || "Collaborator"}</span>
+                      {activeStory.song_name && (
+                        <div className="flex items-center gap-1 text-[#0095f6] text-[9px] font-bold mt-0.5 animate-pulse">
+                          <span>🎵</span>
+                          <span className="truncate max-w-[150px]">{activeStory.song_name}</span>
+                        </div>
+                      )}
                       <span className="text-[8px] text-white/40 font-mono">{new Date(activeStory.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                   </div>
@@ -3794,7 +3842,11 @@ export const ChatView: React.FC = () => {
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
-                    <button onClick={handleCloseStoryViewer} className="p-1 rounded-full bg-black/40 hover:bg-black/80 text-white cursor-pointer">
+                    <button onClick={() => {
+                      setIsStoryViewerOpen(false);
+                      setActiveStoryUser(null);
+                      setIsViewerListOpen(false);
+                    }} className="p-1 rounded-full bg-black/40 hover:bg-black/80 text-white cursor-pointer">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -3802,7 +3854,10 @@ export const ChatView: React.FC = () => {
 
                 {/* Click zones */}
                 <div className="absolute inset-y-16 inset-x-0 z-10 flex">
-                  <div onClick={handlePrevStory} className="w-1/3 h-full cursor-w-resize" />
+                  <div onClick={() => {
+                    handlePrevStory();
+                    setIsViewerListOpen(false);
+                  }} className="w-1/3 h-full cursor-pointer" />
                   <div 
                     onMouseDown={() => setIsPaused(true)}
                     onMouseUp={() => setIsPaused(false)}
@@ -3811,7 +3866,10 @@ export const ChatView: React.FC = () => {
                     onTouchEnd={() => setIsPaused(false)}
                     className="w-1/3 h-full"
                   />
-                  <div onClick={handleNextStory} className="w-1/3 h-full cursor-e-resize" />
+                  <div onClick={() => {
+                    handleNextStory();
+                    setIsViewerListOpen(false);
+                  }} className="w-1/3 h-full cursor-pointer" />
                 </div>
 
                 {/* Content Area */}
@@ -3822,157 +3880,220 @@ export const ChatView: React.FC = () => {
                     <img src={activeStory.media_url} className="w-full h-full object-contain pointer-events-none" alt="" />
                   )}
 
-                  {/* INTERACTIVE CUSTOM STAMP OVERLAY */}
-                  {stamp && (
-                    <div className="absolute top-1/3 inset-x-8 z-20 flex flex-col items-center">
-                      
-                      {stamp.type === "poll" && (
-                        <div className="w-56 bg-black/70 backdrop-blur-md border border-white/10 rounded-[20px] p-3.5 text-center space-y-2 shadow-2xl">
-                          <span className="text-[10px] text-white/50 uppercase font-mono tracking-wider">Story Poll</span>
-                          <p className="text-xs font-bold text-white">{stamp.data.question || "Do you agree?"}</p>
-                          
-                          {pollVoted ? (
-                            <div className="space-y-1.5 pt-1">
-                              <div className="flex justify-between text-[10px] font-bold">
-                                <span>{stamp.data.optA || "Option A"}: 65%</span>
-                                <span>{stamp.data.optB || "Option B"}: 35%</span>
-                              </div>
-                              <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
-                                <div className="h-full bg-cyan-400" style={{ width: "65%" }} />
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex gap-2 pt-1">
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); setPollVoted("A"); }}
-                                className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-bold border border-white/5"
-                              >
-                                {stamp.data.optA || "A"}
-                              </button>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); setPollVoted("B"); }}
-                                className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-bold border border-white/5"
-                              >
-                                {stamp.data.optB || "B"}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {stamp.type === "link" && (
-                        <a 
-                          href={stamp.data.url} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-1.5 py-2 px-4 bg-cyan-500/20 backdrop-blur-md border border-cyan-400/40 rounded-full text-xs font-bold text-cyan-300 hover:scale-105 transition-transform"
-                        >
-                          <LinkIcon className="w-3.5 h-3.5" />
-                          <span>{stamp.data.label || "Visit Link"}</span>
-                        </a>
-                      )}
-
-                      {stamp.type === "countdown" && (
-                        <div className="bg-black/75 backdrop-blur-md border border-white/10 rounded-[20px] p-3 text-center space-y-1 w-48 shadow-2xl">
-                          <span className="text-[9px] text-white/50 uppercase tracking-widest block font-bold">{stamp.data.title || "Countdown"}</span>
-                          <div className="flex justify-center gap-2 text-xs font-mono font-bold text-cyan-300">
-                            <span>18h</span>:<span>45m</span>:<span>20s</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {stamp.type === "slider" && (
-                        <div className="w-48 bg-black/70 backdrop-blur-md border border-white/10 rounded-[20px] p-3 text-center space-y-2 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                          <span className="text-[18px] block">{stamp.data.emoji || "🔥"}</span>
-                          <input 
-                            type="range" 
-                            min="0" 
-                            max="100" 
-                            value={emojiSliderVal} 
-                            onChange={(e) => setEmojiSliderVal(Number(e.target.value))}
-                            className="w-full accent-cyan-400 bg-white/10 h-1 rounded-full cursor-pointer" 
-                          />
-                        </div>
-                      )}
-
+                  {/* Floating custom text overlay */}
+                  {textOverlayText && (
+                    <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 px-4 py-2.5 bg-black/60 border border-white/20 rounded-2xl text-center max-w-[85%] font-extrabold text-[20px] tracking-wide text-white drop-shadow-md select-none">
+                      {textOverlayText}
                     </div>
                   )}
 
                   {/* Attached song sticker */}
                   {activeStory.song_name && (
-                    <div className="absolute bottom-16 left-4 right-4 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl p-2 flex items-center justify-between z-20">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <img src={activeStory.song_artwork} className="w-8 h-8 rounded object-cover border border-white/5 animate-spin" style={{ animationDuration: '4s' }} alt="" />
-                        <div className="text-left min-w-0">
-                          <span className="text-[10px] font-bold text-white block truncate">{activeStory.song_name}</span>
-                          <span className="text-[8px] text-white/40 block truncate">{activeStory.song_artist}</span>
-                        </div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 p-3 bg-neutral-900/90 border border-white/10 backdrop-blur-md rounded-2xl flex items-center gap-2.5 shadow-xl max-w-[80%] select-none">
+                      <img src={activeStory.song_artwork || "https://api.dicebear.com/7.x/initials/svg?seed=Music"} className="w-10 h-10 rounded-xl object-cover shrink-0" alt="" />
+                      <div className="min-w-0 flex-1 text-left">
+                        <span className="text-[11px] font-bold text-white block truncate">{activeStory.song_name}</span>
+                        <span className="text-[9px] text-[#0095f6] font-semibold block truncate">{activeStory.song_artist}</span>
+                        <span className="text-[8px] text-white/40 block mt-0.5">🎵 Story Soundtrack</span>
                       </div>
-                      <button
-                        onClick={() => handlePlayPreview({ id: activeStory.song_id, preview_url: activeStory.song_preview_url })}
-                        className="p-1 rounded-full bg-white/10 text-white hover:bg-white/20 shrink-0 cursor-pointer"
-                      >
-                        {playingSongId === activeStory.song_id ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Caption */}
-                  {captionText && (
-                    <div className="absolute bottom-4 inset-x-4 bg-black/40 p-2 text-center text-xs text-white z-20 pointer-events-none select-none rounded-xl border border-white/5">
-                      {captionText}
                     </div>
                   )}
                 </div>
 
-                {/* Replies & interactive footers */}
-                <div className="p-3 border-t border-white/10 bg-[#09090B] z-20 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => likeStory(activeStory.id)}
-                      className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white transition-colors cursor-pointer"
-                    >
-                      <Heart className={`w-5 h-5 ${hasLiked ? "text-red-500 fill-red-500" : "text-white"}`} />
-                    </button>
+                {/* Footer Controls & Interactive Overlays */}
+                {activeStory.user_id === currentUser?.id ? (
+                  /* --- OWN STORY VIEWERS TRIGGER --- */
+                  <div className="relative z-20 p-4 text-center flex flex-col items-center bg-[#09090b] border-t border-white/10">
+                    {captionText && (
+                      <p className="text-white text-xs font-semibold px-4 py-2 bg-black/40 backdrop-blur-md border border-white/5 rounded-2xl max-w-[90%] mx-auto shadow-lg leading-relaxed mb-3">
+                        {captionText}
+                      </p>
+                    )}
                     
-                    <input
-                      type="text"
-                      placeholder="Send a quick reply..."
-                      value={quickReplyText}
-                      onChange={(e) => setQuickReplyText(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleSendQuickReply(); }}
-                      className="flex-1 bg-black/40 border border-white/10 rounded-full px-4 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
-                    />
-                    <button onClick={handleSendQuickReply} className="p-2 rounded-full bg-cyan-500 text-black hover:bg-cyan-400 font-bold cursor-pointer">
-                      <Send className="w-4 h-4" />
+                    <button
+                      onClick={() => setIsViewerListOpen(true)}
+                      className="flex items-center gap-2 bg-black/50 border border-white/10 px-4 py-2 rounded-full hover:bg-black/80 transition-all text-white font-bold text-xs cursor-pointer shadow-lg"
+                    >
+                      {(() => {
+                        const viewsList = activeStory.views || [];
+                        const firstThree = viewsList.slice(0, 3);
+                        return (
+                          <div className="flex -space-x-1.5 mr-1">
+                            {firstThree.map((v: any, index: number) => {
+                              const avatarUrl = v?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(v?.full_name || "V")}`;
+                              return (
+                                <img key={index} src={avatarUrl} className="w-4.5 h-4.5 rounded-full border border-black object-cover" alt="" />
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                      <span>Activity</span>
+                      <span className="text-white/40 font-mono">{(activeStory.views || []).length}</span>
                     </button>
                   </div>
-
-                  {activeStory.user_id === currentUser?.id && (() => {
-                    const storyViewers = (activeStory.viewers || [])
-                      .map((viewerId: string) => profiles.find((p) => p.id === viewerId))
-                      .filter(Boolean);
-
-                    return (
-                      <div className="border-t border-white/5 pt-2">
-                        <span className="text-[8px] uppercase tracking-widest text-white/40 block mb-1">Seen by ({storyViewers.length})</span>
-                        {storyViewers.length > 0 ? (
-                          <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-1">
-                            {storyViewers.map((v: any, index: number) => (
-                              <div key={v.id || index} className="w-6 h-6 rounded-full overflow-hidden border border-white/10 bg-neutral-800 flex items-center justify-center text-[9px] shrink-0" title={v.full_name}>
-                                {v.avatar_url ? <img src={v.avatar_url} className="w-full h-full object-cover" alt="" /> : v.full_name?.substring(0, 2).toUpperCase()}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-[8px] text-white/30">No views yet</span>
-                        )}
+                ) : (
+                  /* --- TEAMMATE STORY REPLY & LIKING --- */
+                  <div className="relative z-20 p-4 flex items-center justify-between gap-3 w-full bg-[#09090b] border-t border-white/10">
+                    {captionText && (
+                      <div className="absolute bottom-full mb-3 left-4 right-4 text-center">
+                        <p className="text-white text-xs font-semibold px-4 py-2 bg-black/40 backdrop-blur-md border border-white/5 rounded-2xl max-w-[95%] mx-auto shadow-lg leading-relaxed">
+                          {captionText}
+                        </p>
                       </div>
-                    );
-                  })()}
-                </div>
+                    )}
 
+                    <input
+                      type="text"
+                      placeholder="Send message..."
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const val = (e.target as HTMLInputElement).value;
+                          if (val.trim()) {
+                            let channel = chatChannels.find((c: any) => 
+                              !c.is_group && c.chat_channel_members?.some((m: any) => m.user_id === activeStory.user_id)
+                            );
+                            const textPayload = `💬 Replied to your story: "${val}"`;
+                            if (channel) {
+                              sendChatMessage(channel.id, textPayload);
+                            } else {
+                              createChatChannel("Direct Message", false, [activeStory.user_id]).then(newChanId => {
+                                if (newChanId) sendChatMessage(newChanId, textPayload);
+                              });
+                            }
+                            alert(`Story reply successfully sent to ${author?.full_name || "Teammate"}!`);
+                            (e.target as HTMLInputElement).value = "";
+                          }
+                        }
+                      }}
+                      className="flex-1 bg-transparent border border-white/30 rounded-full px-4 py-2 text-xs text-white placeholder-white/60 focus:outline-none focus:border-white focus:bg-black/40 transition-all h-9"
+                    />
+
+                    <button
+                      onClick={() => likeStory(activeStory.id)}
+                      className={`w-9 h-9 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md text-white transition-all cursor-pointer hover:scale-110 ${hasLiked ? "text-[#e0245e]" : "text-white/70 hover:text-white"}`}
+                      title="Like Story"
+                    >
+                      <svg viewBox="0 0 24 24" fill={hasLiked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
+                {/* --- SLIDE-UP VIEWER LIST DRAWER (IMAGE 1 SCREENSHOT) --- */}
+                {isViewerListOpen && (
+                  <div 
+                    className="absolute inset-x-0 bottom-0 z-40 bg-[#0c0d12] border-t border-white/10 rounded-t-[24px] h-[75%] flex flex-col justify-between text-white animate-slideup"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Handle indicator */}
+                    <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-3 shrink-0 cursor-pointer" onClick={() => setIsViewerListOpen(false)} />
+
+                    {/* Header Stats Bar */}
+                    <div className="px-4 py-2 flex items-center justify-between border-b border-white/5 shrink-0">
+                      <div className="flex items-center gap-4">
+                        <button className="text-white/60 hover:text-white">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-5 h-5">
+                            <line x1="18" y1="20" x2="18" y2="10" />
+                            <line x1="12" y1="20" x2="12" y2="4" />
+                            <line x1="6" y1="20" x2="6" y2="14" />
+                          </svg>
+                        </button>
+
+                        <div className="flex items-center gap-1.5 text-[#0095f6] font-bold text-sm">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="w-4.5 h-4.5">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                          <span>{(activeStory.views || []).length}</span>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={() => {
+                          if (confirm("Delete this story?")) {
+                            handleDeleteStory(activeStory.id);
+                            setIsViewerListOpen(false);
+                          }
+                        }}
+                        className="p-1.5 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer"
+                        title="Delete Story"
+                      >
+                        <Trash2 className="w-4.5 h-4.5" />
+                      </button>
+                    </div>
+
+                    {/* Viewers list */}
+                    <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4">
+                      <span className="text-[12px] uppercase tracking-wider text-white/40 font-bold block text-left">
+                        Who viewed your story
+                      </span>
+                      {(() => {
+                        const storyViewersList = (activeStory.views || [])
+                          .map((v: any) => {
+                            const viewerId = typeof v === "string" ? v : v?.id;
+                            return profiles.find(p => p.id === viewerId);
+                          })
+                          .filter(Boolean);
+
+                        if (storyViewersList.length === 0) {
+                          return (
+                            <div className="text-center py-12 text-xs text-white/30 italic">
+                              No views yet
+                            </div>
+                          );
+                        }
+
+                        return storyViewersList.map((viewer: any) => {
+                          const viewerAvatar = viewer.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(viewer.full_name || "Viewer")}&backgroundColor=030712&textColor=ffffff`;
+                          const isViewerLiked = (activeStory.likes || []).includes(viewer.id);
+                          const handle = viewer.full_name?.toLowerCase().replace(/\s+/g, ".") || "viewer";
+
+                          return (
+                            <div key={viewer.id} className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className="relative">
+                                  <img src={viewerAvatar} className="w-10 h-10 rounded-full object-cover border border-white/10" alt="" />
+                                  {isViewerLiked && (
+                                    <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 bg-[#e0245e] rounded-full border border-black flex items-center justify-center text-white shadow-md animate-pulse">
+                                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-2.5 h-2.5">
+                                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                                      </svg>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="text-left">
+                                  <span className="text-xs font-bold text-white block leading-none">{handle}</span>
+                                  <span className="text-[10px] text-white/50 block mt-0.5">{viewer.full_name}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <button className="p-1.5 hover:bg-white/5 text-white/40 hover:text-white rounded-full">
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    setIsStoryViewerOpen(false);
+                                    setActiveStoryUser(null);
+                                    setIsViewerListOpen(false);
+                                  }}
+                                  className="p-1.5 hover:bg-white/5 text-white/40 hover:text-[#0095f6] rounded-full transition-colors"
+                                >
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 rotate-[15deg]">
+                                    <line x1="22" y1="2" x2="11" y2="13" />
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
