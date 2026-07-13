@@ -1335,248 +1335,8 @@ export const DashboardView: React.FC = () => {
               </div>
             );
           })}
-        </div>
-      </div>
 
-      {/* 1. ACTIVE MEMBERS */}
-      <div className="space-y-3">
-        <h3 className="text-[10px] uppercase font-mono tracking-wider font-bold text-white/40">Active Crew</h3>
-        <div className="flex items-center gap-5 overflow-x-auto pt-24 pb-4 px-4 no-scrollbar scroll-smooth">
-          
-          {/* First circle: Logged-in user's profile */}
-          {(() => {
-            return (
-              <div className="relative flex flex-col items-center w-20 flex-shrink-0 select-none">
-                {/* Speech Bubble */}
-                {currentUserNote ? (
-                  currentUserNote.song_name ? (
-                    <div 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setYourNoteOptionsOpen(true);
-                      }}
-                      className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 z-20 bg-[#3b82f6]/25 border border-[#3b82f6]/40 shadow-[0_8px_24px_rgba(59,130,246,0.2)] backdrop-blur-md text-white rounded-2xl p-2 text-center text-[9.5px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-24 whitespace-normal flex flex-col items-center gap-0.5 animate-fade-in"
-                    >
-                      <div className="flex items-center gap-1 text-[8.5px] font-bold text-blue-300">
-                        {playingNoteId === currentUserNote.id ? (
-                          <span className="flex items-end gap-[1.5px] h-2 w-2.5 shrink-0">
-                            <span className="w-[1px] bg-blue-400 animate-eq-bounce-1 h-0.5" />
-                            <span className="w-[1px] bg-blue-400 animate-eq-bounce-2 h-2" />
-                            <span className="w-[1px] bg-blue-400 animate-eq-bounce-3 h-1" />
-                          </span>
-                        ) : (
-                          <span className="font-extrabold tracking-wider">lıı</span>
-                        )}
-                        <span className="truncate max-w-[70px] text-[9px] text-white font-semibold">{currentUserNote.song_name}</span>
-                      </div>
-                      <div className="text-[7.5px] text-blue-200/70 truncate max-w-[75px]">{currentUserNote.song_artist}</div>
-                      {currentUserNote.content && (
-                        <div className="text-[7.5px] text-white/80 border-t border-white/10 pt-0.5 mt-0.5 truncate max-w-[80px]">
-                          {currentUserNote.content}
-                        </div>
-                      )}
-                      <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#152746] border-r border-b border-[#3b82f6]/40 rotate-45" />
-                    </div>
-                  ) : (
-                    <div 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setYourNoteOptionsOpen(true);
-                      }}
-                      className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 z-20 bg-[#202124] text-white rounded-2xl px-2.5 py-1.5 text-center text-[9.5px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-24 whitespace-normal flex flex-col items-center gap-0.5 shadow-lg animate-fade-in"
-                    >
-                      <span className="font-medium text-center truncate max-w-[80px]">{currentUserNote.content}</span>
-                      <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#202124] rotate-45" />
-                    </div>
-                  )
-                ) : (
-                  <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsNoteComposerOpen(true);
-                    }}
-                    className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 z-20 bg-[#202124] text-white/60 text-[9px] px-2.5 py-1 rounded-full shadow-lg cursor-pointer hover:scale-105 active:scale-95 hover:text-white transition-all whitespace-nowrap"
-                  >
-                    Today's vibe...
-                    <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#202124] rotate-45" />
-                  </div>
-                )}
-
-                {/* Avatar Container */}
-                <div 
-                  onClick={() => {
-                    if (currentUserNote) {
-                      setYourNoteOptionsOpen(true);
-                    } else {
-                      setIsNoteComposerOpen(true);
-                    }
-                  }}
-                  className="relative w-16 h-16 cursor-pointer"
-                >
-                  {userProfile?.avatar_url ? (
-                    <img
-                      src={currentUserAvatar}
-                      alt="Your avatar"
-                      className="w-16 h-16 object-cover rounded-full border border-white/10 ring-2 ring-primary/10 hover:opacity-85 transition-opacity"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center font-bold text-black text-lg border border-white/10 ring-2 ring-primary/10 hover:opacity-85 transition-opacity">
-                      {userProfile?.full_name?.[0]?.toUpperCase() || "U"}
-                    </div>
-                  )}
-                  {!currentUserNote && (
-                    <span className="absolute bottom-0 right-0 w-4 h-4 bg-[#22d3ee] border border-[#09090B] rounded-full flex items-center justify-center text-black font-extrabold text-[10px]">
-                      +
-                    </span>
-                  )}
-                </div>
-
-                {/* Label */}
-                <span 
-                  onClick={() => {
-                    if (currentUserNote) {
-                      setYourNoteOptionsOpen(true);
-                    } else {
-                      setIsNoteComposerOpen(true);
-                    }
-                  }}
-                  className="text-[10px] text-white/80 font-medium mt-2 truncate w-full text-center cursor-pointer hover:text-white"
-                >
-                  Your note
-                </span>
-                {/* Location tag below "Your note" if set */}
-                {currentUserNote?.location && (
-                  <span 
-                    onClick={() => {
-                      if (currentUserNote) {
-                        setYourNoteOptionsOpen(true);
-                      } else {
-                        setIsNoteComposerOpen(true);
-                      }
-                    }}
-                    className="text-[9px] text-[#22d3ee] flex items-center gap-0.5 mt-0.5 truncate max-w-[80px] cursor-pointer"
-                  >
-                    📍 {currentUserNote.location}
-                  </span>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Following circles: Other team profiles */}
-          {allProfiles.filter((p) => p.id !== userProfile?.id).map((p) => {
-            const isOnline = onlineUsers.some((u: any) => u.id === p.id);
-            const note = notes.find((n) => n.user_id === p.id);
-            const firstName = getFirstName(p.full_name || "User");
-            const avatarPlaceholder = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-              p.full_name || "User"
-            )}&backgroundColor=030712&textColor=ffffff`;
-
-            return (
-              <div key={p.id} className="relative flex flex-col items-center w-20 flex-shrink-0 select-none group">
-                {note && (
-                  note.song_name ? (
-                    <div 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenNoteDetail(note);
-                      }}
-                      className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 z-20 bg-[#3b82f6]/25 border border-[#3b82f6]/40 shadow-[0_8px_24px_rgba(59,130,246,0.2)] backdrop-blur-md text-white rounded-2xl p-2 text-center text-[9.5px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-24 whitespace-normal flex flex-col items-center gap-0.5 animate-fade-in"
-                    >
-                      <div className="flex items-center gap-1 text-[8.5px] font-bold text-blue-300">
-                        {playingNoteId === note.id ? (
-                          <span className="flex items-end gap-[1.5px] h-2 w-2.5 shrink-0">
-                            <span className="w-[1px] bg-blue-400 animate-eq-bounce-1 h-0.5" />
-                            <span className="w-[1px] bg-blue-400 animate-eq-bounce-2 h-2" />
-                            <span className="w-[1px] bg-blue-400 animate-eq-bounce-3 h-1" />
-                          </span>
-                        ) : (
-                          <span className="font-extrabold tracking-wider">lıı</span>
-                        )}
-                        <span className="truncate max-w-[70px] text-[9px] text-white font-semibold">{note.song_name}</span>
-                      </div>
-                      <div className="text-[7.5px] text-blue-200/70 truncate max-w-[75px]">{note.song_artist}</div>
-                      {note.content && (
-                        <div className="text-[7.5px] text-white/80 border-t border-white/10 pt-0.5 mt-0.5 truncate max-w-[80px]">
-                          {note.content}
-                        </div>
-                      )}
-                      <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#152746] border-r border-b border-[#3b82f6]/40 rotate-45" />
-                    </div>
-                  ) : (
-                    <div 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenNoteDetail(note);
-                      }}
-                      className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 z-20 bg-[#202124] text-white rounded-2xl px-2.5 py-1.5 text-center text-[9.5px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-24 whitespace-normal flex flex-col items-center gap-0.5 shadow-lg animate-fade-in"
-                    >
-                      <span className="font-medium text-center truncate max-w-[80px]">{note.content}</span>
-                      {playingNoteId === note.id && (
-                        <span className="flex items-end gap-[1.5px] h-2 w-2.5 shrink-0 mt-0.5">
-                          <span className="w-[1px] bg-[#22d3ee] animate-eq-bounce-1 h-0.5" />
-                          <span className="w-[1px] bg-[#22d3ee] animate-eq-bounce-2 h-2" />
-                          <span className="w-[1px] bg-[#22d3ee] animate-eq-bounce-3 h-1" />
-                        </span>
-                      )}
-                      <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#202124] rotate-45" />
-                    </div>
-                  )
-                )}
-
-                {/* Avatar Container */}
-                <div 
-                  onClick={() => {
-                    if (note) {
-                      handleOpenNoteDetail(note);
-                    }
-                  }}
-                  className={`relative w-16 h-16 ${note ? "cursor-pointer hover:opacity-85 transition-opacity" : ""}`}
-                >
-                  {p.avatar_url ? (
-                    <img
-                      src={p.avatar_url}
-                      alt={p.full_name}
-                      className="w-16 h-16 object-cover rounded-full border border-white/10 ring-2 ring-primary/10"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center font-bold text-black text-lg border border-white/10 ring-2 ring-primary/10">
-                      {p.full_name?.[0]?.toUpperCase() || "U"}
-                    </div>
-                  )}
-                  {isOnline && (
-                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#3ecf8e] border-2 border-[#09090B] rounded-full animate-pulse" />
-                  )}
-                </div>
-
-                {/* Label */}
-                <span 
-                  onClick={() => {
-                    if (note) {
-                      handleOpenNoteDetail(note);
-                    }
-                  }}
-                  className={`text-[10px] text-white/80 font-medium mt-2 truncate w-full text-center ${note ? "cursor-pointer hover:text-white" : ""}`}
-                >
-                  {firstName}
-                </span>
-                {/* Location tag below name if set */}
-                {note?.location && (
-                  <span 
-                    onClick={() => {
-                      if (note) {
-                        handleOpenNoteDetail(note);
-                      }
-                    }}
-                    className="text-[9px] text-[#22d3ee] flex items-center gap-0.5 mt-0.5 truncate max-w-[80px] cursor-pointer hover:text-cyan-400"
-                  >
-                    📍 {note.location}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-
+          {/* Invite button */}
           <button
             onClick={() => {
               const email = prompt("Enter team member's email to invite to workspace:");
@@ -1587,12 +1347,13 @@ export const DashboardView: React.FC = () => {
             className="flex flex-col items-center gap-1.5 shrink-0 text-center cursor-pointer select-none group"
           >
             <div className="w-16 h-16 rounded-full border border-dashed border-white/20 hover:border-[#22d3ee]/50 flex items-center justify-center bg-white/5 group-hover:bg-[#22d3ee]/10 transition-all duration-200">
-              <Plus className="w-6 h-6 text-text-secondary group-hover:text-[#22d3ee] transition-colors" />
+              <Plus className="w-5 h-5 text-white/50 group-hover:text-[#22d3ee] transition-colors" />
             </div>
-            <span className="text-[10px] font-bold text-text-secondary group-hover:text-[#22d3ee] transition-colors">
+            <span className="text-[10px] font-bold text-white/40 group-hover:text-[#22d3ee] transition-colors mt-0.5">
               Invite
             </span>
           </button>
+
         </div>
       </div>
 
@@ -1721,7 +1482,7 @@ export const DashboardView: React.FC = () => {
       </div>
 
       {/* --- LIQUID GLASS NOTE COMPOSER MODAL --- */}
-      {isNoteComposerOpen && (
+      {false && isNoteComposerOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="w-[420px] bg-neutral-900 border border-white/10 rounded-[28px] p-6 shadow-2xl space-y-4 text-white">
             <div className="flex justify-between items-center border-b border-white/10 pb-2">
@@ -1953,7 +1714,7 @@ export const DashboardView: React.FC = () => {
       )}
 
       {/* --- YOUR NOTE OPTIONS MODAL --- */}
-      {yourNoteOptionsOpen && currentUserNote && (
+      {false && yourNoteOptionsOpen && currentUserNote && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 backdrop-blur-sm">
           <div className="w-[360px] bg-neutral-900 border border-white/10 rounded-[28px] p-6 shadow-2xl space-y-6 text-white text-center">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#22d3ee]">Your Note</h3>
@@ -2060,7 +1821,7 @@ export const DashboardView: React.FC = () => {
       )}
 
       {/* --- INTERACTIVE NOTES DETAIL POPUP OVERLAY --- */}
-      {activeNoteDetail && (
+      {false && activeNoteDetail && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 backdrop-blur-sm">
           <div className="w-[380px] bg-neutral-900 border border-white/10 rounded-[28px] p-6 shadow-2xl space-y-6 text-white relative">
             {/* Close Button */}

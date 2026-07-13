@@ -165,6 +165,7 @@ export const ChatView: React.FC = () => {
   const [isStoryViewerOpen, setIsStoryViewerOpen] = useState(false);
   
   const [activeNote, setActiveNote] = useState<any>(null);
+  const [noteDetailReplyText, setNoteDetailReplyText] = useState("");
   const [activeStoryUser, setActiveStoryUser] = useState<string | null>(null);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number>(0);
   
@@ -315,6 +316,21 @@ export const ChatView: React.FC = () => {
     fetchNotes();
     fetchStories();
   }, []);
+
+  // View tracker for notes in ChatView
+  useEffect(() => {
+    if (isNoteViewerOpen && activeNote && currentUser) {
+      if (activeNote.user_id !== currentUser.id) {
+        const currentViewers = activeNote.viewers || [];
+        if (!currentViewers.includes(currentUser.id)) {
+          const updatedViewers = [...currentViewers, currentUser.id];
+          supabase.from("notes").update({ viewers: updatedViewers }).eq("id", activeNote.id).then(() => {
+            fetchNotes();
+          });
+        }
+      }
+    }
+  }, [isNoteViewerOpen, activeNote]);
 
   // Initialize some channels in general and requests lists so they are populated
   useEffect(() => {
@@ -949,6 +965,45 @@ export const ChatView: React.FC = () => {
     if (diffHours < 24) return `${diffHours}h`;
     if (diffDays < 7) return `${diffDays}d`;
     return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  };
+
+  const handleLikeNote = async (note: any) => {
+    if (!currentUser) return;
+    const currentLikes = note.likes || [];
+    let updatedLikes;
+    if (currentLikes.includes(currentUser.id)) {
+      updatedLikes = currentLikes.filter((id: string) => id !== currentUser.id);
+    } else {
+      updatedLikes = [...currentLikes, currentUser.id];
+    }
+    const { error } = await supabase.from("notes").update({ likes: updatedLikes }).eq("id", note.id);
+    if (!error) {
+      setActiveNote({ ...note, likes: updatedLikes });
+      fetchNotes();
+    }
+  };
+
+  const handleSendNoteReaction = async (targetUserId: string, text: string) => {
+    try {
+      let channel = chatChannels.find((c: any) => 
+        !c.is_group && c.chat_channel_members?.some((m: any) => m.user_id === targetUserId)
+      );
+      let channelId = channel?.id;
+      if (!channelId) {
+        channelId = await createChatChannel("Direct Message", false, [targetUserId]);
+      }
+      if (!channelId) {
+        alert("Could not start message thread.");
+        return;
+      }
+      await sendChatMessage(channelId, text, undefined);
+      setIsNoteViewerOpen(false);
+      setActiveNote(null);
+      setNoteDetailReplyText("");
+      alert("Reaction sent!");
+    } catch (err: any) {
+      alert("Error sending reaction: " + err.message);
+    }
   };
 
   const getLastMessagePreview = (channelId: string) => {
@@ -2020,10 +2075,10 @@ export const ChatView: React.FC = () => {
                 if (ownNote) {
                   return (
                     <div 
-                      onClick={() => {
-                        if (confirm("Delete your current note?")) {
-                          deleteNote(ownNote.id);
-                        }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveNote(ownNote);
+                        setIsNoteViewerOpen(true);
                       }}
                       className="absolute -top-7 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center group/note animate-fadein"
                     >
@@ -2104,7 +2159,14 @@ export const ChatView: React.FC = () => {
                   <div key={p.id} className="flex flex-col items-center gap-1.5 shrink-0 relative select-none group">
                     {/* Note bubble */}
                     {userNote && (
-                      <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center animate-fadein">
+                      <div 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveNote(userNote);
+                          setIsNoteViewerOpen(true);
+                        }}
+                        className="absolute -top-7 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center animate-fadein cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+                      >
                         <div className="bg-[#262626] border border-white/15 px-2.5 py-1 rounded-[16px] max-w-[80px] shadow-[0_4px_12px_rgba(0,0,0,0.5)] text-center text-[10px] leading-tight text-white select-none relative">
                           {userNote.song_name && (
                             <div className="flex items-center justify-center gap-0.5 mb-0.5 text-[8px] text-cyan-300 truncate">
@@ -3549,6 +3611,103 @@ export const ChatView: React.FC = () => {
 
               </div>
             )}
+
+            {/* Note Interactivity Section */}
+            <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-2">
+              <span className="text-[10px] text-white/40 font-mono">
+                {(activeNote.likes || []).length} {((activeNote.likes || []).length) === 1 ? "like" : "likes"}
+              </span>
+              <button
+                onClick={() => handleLikeNote(activeNote)}
+                className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full border transition-all ${
+                  (activeNote.likes || []).includes(currentUser?.id) 
+                    ? "bg-red-500/10 border-red-500/30 text-red-500" 
+                    : "bg-white/5 border-white/10 text-white/60 hover:text-white"
+                }`}
+              >
+                <Heart className={`w-3.5 h-3.5 ${(activeNote.likes || []).includes(currentUser?.id) ? "fill-current" : ""}`} />
+                <span>{(activeNote.likes || []).includes(currentUser?.id) ? "Liked" : "Like"}</span>
+              </button>
+            </div>
+
+            <div className="space-y-2 text-left">
+              <span className="text-[9px] text-white/40 uppercase tracking-wider block">Quick React</span>
+              <div className="grid grid-cols-8 gap-1 bg-black/20 p-2 rounded-2xl border border-white/5">
+                {["😂", "😮", "😢", "😍", "👏", "🔥", "🎉", "💯"].map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => handleSendNoteReaction(activeNote.user_id, emoji)}
+                    className="text-lg hover:scale-125 transition-transform p-1 cursor-pointer flex items-center justify-center"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2 text-left">
+              <span className="text-[9px] text-white/40 uppercase tracking-wider block">Reply with message</span>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={noteDetailReplyText}
+                  onChange={(e) => setNoteDetailReplyText(e.target.value)}
+                  placeholder="Send a direct message..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && noteDetailReplyText.trim()) {
+                      handleSendNoteReaction(activeNote.user_id, `💬 Replied to your note: ${noteDetailReplyText}`);
+                    }
+                  }}
+                  className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee] h-9"
+                />
+                <button
+                  onClick={() => {
+                    if (noteDetailReplyText.trim()) {
+                      handleSendNoteReaction(activeNote.user_id, `💬 Replied to your note: ${noteDetailReplyText}`);
+                    }
+                  }}
+                  disabled={!noteDetailReplyText.trim()}
+                  className="px-3 py-2 bg-[#22d3ee] hover:bg-cyan-400 disabled:opacity-40 disabled:hover:bg-[#22d3ee] text-black font-bold rounded-2xl text-xs transition-colors cursor-pointer"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+
+            {activeNote.user_id === currentUser?.id && (() => {
+              const noteViewers = (activeNote.viewers || [])
+                .map((viewerId: string) => profiles.find((p) => p.id === viewerId))
+                .filter(Boolean);
+
+              return (
+                <div className="space-y-2 text-left bg-black/20 p-3 rounded-2xl border border-white/5">
+                  <span className="text-[9px] uppercase tracking-wider text-white/40 font-bold block">
+                    Viewers ({noteViewers.length})
+                  </span>
+                  {noteViewers.length > 0 ? (
+                    <div className="flex gap-3 overflow-x-auto py-1 no-scrollbar">
+                      {noteViewers.map((viewer: any) => {
+                        const viewerAvatar = viewer.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(viewer.full_name || "Viewer")}&backgroundColor=030712&textColor=ffffff`;
+                        return (
+                          <div key={viewer.id} className="flex flex-col items-center shrink-0 w-12 text-center select-none">
+                            <img
+                              src={viewerAvatar}
+                              alt={viewer.full_name}
+                              className="w-8 h-8 rounded-full object-cover border border-white/10"
+                            />
+                            <span className="text-[8px] text-white/70 truncate w-full mt-1">
+                              {viewer.full_name?.split(" ")[0]}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-[9px] text-white/40 italic py-1">No views yet</div>
+                  )}
+                </div>
+              );
+            })()}
 
             {activeNote.user_id === currentUser?.id && (
               <button
