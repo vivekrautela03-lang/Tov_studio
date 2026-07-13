@@ -1087,6 +1087,7 @@ export const DashboardView: React.FC = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setStoryPreview(reader.result as string);
+        setIsStoryUploaderOpen(true);
       };
       reader.readAsDataURL(file);
     }
