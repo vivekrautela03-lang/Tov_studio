@@ -682,7 +682,8 @@ export const DashboardView: React.FC = () => {
     addStory,
     viewStory,
     likeStory,
-    uploadChatAttachment
+    uploadChatAttachment,
+    fetchNotifications
   } = useProjectStore();
 
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -975,6 +976,22 @@ export const DashboardView: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [fetchStories]);
+
+  // Real-time Notifications subscription to update alerts instantly
+  useEffect(() => {
+    fetchNotifications();
+
+    const channel = supabase
+      .channel("notifications-realtime-listener")
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => {
+        fetchNotifications();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchNotifications]);
 
   const handleDeleteNote = async (noteId: string) => {
     try {

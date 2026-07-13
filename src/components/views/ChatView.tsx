@@ -124,7 +124,8 @@ export const ChatView: React.FC = () => {
     pinChatMessage,
     unpinChatMessage,
     notes,
-    stories
+    stories,
+    fetchNotifications
   } = useProjectStore();
 
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -1004,6 +1005,22 @@ export const ChatView: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [fetchStories]);
+
+  // Real-time Notifications subscription in ChatView
+  useEffect(() => {
+    fetchNotifications();
+
+    const channel = supabase
+      .channel("chat-notifications-realtime-listener")
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => {
+        fetchNotifications();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchNotifications]);
 
   // Sync active channel DMs
   useEffect(() => {

@@ -388,9 +388,10 @@ interface ProjectStoreState {
   setCastAttendance: (projectId: string, castId: string, attendance: CastMember["attendance"]) => Promise<void>;
   updateEquipmentStatus: (projectId: string, equipId: string, status: Equipment["status"], assignedTo?: string) => void;
   addChatMessage: (message: Omit<ChatMessage, "id" | "timestamp">) => void;
-  addNotification: (notification: Omit<NotificationItem, "id" | "read" | "time">) => void;
-  markNotificationRead: (id: string) => void;
-  clearNotifications: () => void;
+  addNotification: (notification: Omit<NotificationItem, "id" | "read" | "time">) => Promise<void>;
+  markNotificationRead: (id: string) => Promise<void>;
+  clearNotifications: () => Promise<void>;
+  fetchNotifications: () => Promise<void>;
   setSearchQuery: (query: string) => void;
   setSearchOpen: (open: boolean) => void;
   generateAICaption: (projectId: string, campaignId: string) => void;
@@ -733,6 +734,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       useProjectStore.getState().fetchChatChannels();
       useProjectStore.getState().fetchNotes();
       useProjectStore.getState().fetchStories();
+      useProjectStore.getState().fetchNotifications();
     }
 
     // 1. Fetch productions from Supabase
@@ -1800,23 +1802,77 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     };
   }),
 
-  addNotification: (notification) => set((state) => {
-    const newNotif: NotificationItem = {
-      ...notification,
-      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      read: false
-    };
-    return {
-      notifications: [newNotif, ...state.notifications]
-    };
-  }),
+  fetchNotifications: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("recipient_id", user.id)
+      .order("created_at", { ascending: false });
 
-  markNotificationRead: (id) => set((state) => ({
-    notifications: state.notifications.map((n) => n.id === id ? { ...n, read: true } : n)
-  })),
+    if (error) {
+      console.error("Error fetching notifications:", error);
+      return;
+    }
 
-  clearNotifications: () => set({ notifications: [] }),
+    const mapped = (data || []).map((n: any) => ({
+      id: n.id,
+      title: n.title,
+      message: n.message,
+      type: n.type || "info",
+      read: n.read,
+      time: new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }));
+
+    set({ notifications: mapped });
+  },
+
+  addNotification: async (notification) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase
+      .from("notifications")
+      .insert({
+        recipient_id: user.id,
+        user_id: user.id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type || "info",
+        read: false
+      });
+
+    if (error) {
+      console.error("Error inserting notification:", error);
+    }
+    await useProjectStore.getState().fetchNotifications();
+  },
+
+  markNotificationRead: async (id) => {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error marking notification read:", error);
+    }
+    await useProjectStore.getState().fetchNotifications();
+  },
+
+  clearNotifications: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("recipient_id", user.id);
+
+    if (error) {
+      console.error("Error clearing notifications:", error);
+    }
+    set({ notifications: [] });
+  },
   setSearchQuery: (query) => set({ searchQuery: query }),
   setSearchOpen: (open) => set({ isSearchOpen: open }),
 
