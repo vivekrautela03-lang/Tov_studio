@@ -35,7 +35,13 @@ import {
   CloudLightning,
   Snowflake,
   CloudFog,
-  Timer
+  Timer,
+  Music,
+  Loader2,
+  Pause,
+  Mic,
+  X,
+  MessageSquare
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -408,6 +414,19 @@ const GoogleWeatherDashboard: React.FC = () => {
         .animate-bird-fly-2 {
           animation: bird-fly-2 15s ease-in-out infinite;
         }
+        @keyframes eq-bounce {
+          0%, 100% { height: 4px; }
+          50% { height: 12px; }
+        }
+        .animate-eq-bounce-1 {
+          animation: eq-bounce 0.8s ease-in-out infinite 0.1s;
+        }
+        .animate-eq-bounce-2 {
+          animation: eq-bounce 0.8s ease-in-out infinite 0.3s;
+        }
+        .animate-eq-bounce-3 {
+          animation: eq-bounce 0.8s ease-in-out infinite 0.5s;
+        }
       `}</style>
 
       {/* Main Meteorological Console */}
@@ -654,6 +673,43 @@ export const DashboardView: React.FC = () => {
   const [allProfiles, setAllProfiles] = useState<any[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
 
+  // Notes state, note composer state, playing audio state, refs
+  const [notes, setNotes] = useState<any[]>([]);
+  const [isNoteComposerOpen, setIsNoteComposerOpen] = useState(false);
+  const [noteContentInput, setNoteContentInput] = useState("");
+  const [noteLocationInput, setNoteLocationInput] = useState("");
+  const [selectedSong, setSelectedSong] = useState<any>(null);
+  const [itunesSearchQuery, setItunesSearchQuery] = useState("");
+  const [itunesSongs, setItunesSongs] = useState<any[]>([]);
+  const [isSearchingItunes, setIsSearchingItunes] = useState(false);
+  const [playingNoteId, setPlayingNoteId] = useState<string | null>(null);
+  const [playingSongId, setPlayingSongId] = useState<string | null>(null);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [voiceRecordDuration, setVoiceRecordDuration] = useState(0);
+
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const audioPreviewRef = React.useRef<HTMLAudioElement | null>(null);
+  const voiceIntervalRef = React.useRef<any>(null);
+
+  const getFirstName = (fullName: string) => {
+    if (!fullName) return "";
+    return fullName.trim().split(/\s+/)[0];
+  };
+
+  const fetchNotes = async () => {
+    try {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from("notes")
+        .select("*")
+        .gt("created_at", twentyFourHoursAgo)
+        .order("created_at", { ascending: false });
+      if (data) setNotes(data);
+    } catch (err) {
+      console.error("Error fetching active notes:", err);
+    }
+  };
+
   // 1. Fetch user profile and all team profiles
   useEffect(() => {
     const fetchData = async () => {
@@ -672,11 +728,26 @@ export const DashboardView: React.FC = () => {
           .from("profiles")
           .select("id, full_name, avatar_url, role");
         if (profilesList) setAllProfiles(profilesList);
+
+        // Fetch active notes
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { data: notesList } = await supabase
+          .from("notes")
+          .select("*")
+          .gt("created_at", twentyFourHoursAgo)
+          .order("created_at", { ascending: false });
+        if (notesList) setNotes(notesList);
       } catch (err) {
         console.error("Error loading dashboard data:", err);
       }
     };
     fetchData();
+
+    return () => {
+      if (audioPreviewRef.current) audioPreviewRef.current.pause();
+      if (audioRef.current) audioRef.current.pause();
+      if (voiceIntervalRef.current) clearInterval(voiceIntervalRef.current);
+    };
   }, []);
 
   // 2. Supabase Real-time Presence Subscription
@@ -752,36 +823,330 @@ export const DashboardView: React.FC = () => {
     };
   }, []);
 
+  const handlePlayNote = (note: any) => {
+    const previewUrl = note.song_preview_url || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+    if (!previewUrl) return;
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    if (playingNoteId === note.id) {
+      setPlayingNoteId(null);
+      return;
+    }
+
+    const audio = new Audio(previewUrl);
+    audio.volume = 0.5;
+    audioRef.current = audio;
+    setPlayingNoteId(note.id);
+    audio.play();
+
+    audio.onended = () => {
+      setPlayingNoteId(null);
+    };
+  };
+
+  const handleSearchItunes = async (query: string) => {
+    if (!query.trim()) {
+      setItunesSongs([]);
+      return;
+    }
+    setIsSearchingItunes(true);
+    try {
+      const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=15`);
+      const data = await response.json();
+      const formatted = (data.results || []).map((track: any) => ({
+        id: track.trackId?.toString() || Math.random().toString(),
+        name: track.trackName || "Unknown Song",
+        artist: track.artistName || "Unknown Artist",
+        artwork: track.artworkUrl100 || "",
+        preview_url: track.previewUrl || ""
+      }));
+      setItunesSongs(formatted);
+    } catch (error) {
+      console.error("iTunes search error:", error);
+    } finally {
+      setIsSearchingItunes(false);
+    }
+  };
+
+  const handlePlayPreview = (song: any) => {
+    if (!song.preview_url) return;
+
+    if (audioPreviewRef.current) {
+      audioPreviewRef.current.pause();
+    }
+
+    if (playingSongId === song.id) {
+      setPlayingSongId(null);
+      return;
+    }
+
+    const audio = new Audio(song.preview_url);
+    audio.volume = 0.5;
+    audioPreviewRef.current = audio;
+    setPlayingSongId(song.id);
+    audio.play();
+
+    audio.onended = () => {
+      setPlayingSongId(null);
+    };
+  };
+
+  const handleToggleVoiceRecord = () => {
+    if (isRecordingVoice) {
+      if (voiceIntervalRef.current) {
+        clearInterval(voiceIntervalRef.current);
+      }
+      setIsRecordingVoice(false);
+      setNoteContentInput(`🎙️ Voice Note (${voiceRecordDuration}s)`);
+    } else {
+      setVoiceRecordDuration(0);
+      setIsRecordingVoice(true);
+      voiceIntervalRef.current = setInterval(() => {
+        setVoiceRecordDuration((prev) => {
+          if (prev >= 60) {
+            clearInterval(voiceIntervalRef.current);
+            setIsRecordingVoice(false);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    }
+  };
+
+  const handleShareNote = async () => {
+    if (!userProfile) {
+      alert("You must be logged in to share notes.");
+      return;
+    }
+    if (!noteContentInput.trim() && !selectedSong) {
+      alert("Please enter note content or select a song.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("notes")
+        .insert({
+          user_id: userProfile.id,
+          content: noteContentInput.trim(),
+          audience: "everyone",
+          song_id: selectedSong?.id || null,
+          song_name: selectedSong?.name || null,
+          song_artist: selectedSong?.artist || null,
+          song_artwork: selectedSong?.artwork || null,
+          song_preview_url: selectedSong?.preview_url || null,
+          location: noteLocationInput.trim() || null
+        });
+
+      if (error) throw error;
+      
+      setNoteContentInput("");
+      setNoteLocationInput("");
+      setSelectedSong(null);
+      setItunesSearchQuery("");
+      setItunesSongs([]);
+      setIsNoteComposerOpen(false);
+      
+      fetchNotes();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-fade-in pb-16 text-xs">
       
       {/* 1. ACTIVE MEMBERS */}
       <div className="space-y-3">
         <h3 className="text-[10px] uppercase font-mono tracking-wider font-bold text-white/40">Active Crew</h3>
-        <div className="flex items-center gap-4 overflow-x-auto pb-2 pt-1 no-scrollbar">
-          {allProfiles.map((p) => {
-            const isOnline = onlineUsers.some((u: any) => u.id === p.id);
+        <div className="flex items-center gap-8 overflow-x-auto pt-24 pb-4 px-4 no-scrollbar scroll-smooth">
+          
+          {/* First circle: Logged-in user's profile */}
+          {(() => {
+            const currentUserNote = notes.find((n) => n.user_id === userProfile?.id);
+            const currentUserAvatar = userProfile?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(userProfile?.full_name || "You")}&backgroundColor=030712&textColor=ffffff`;
+
             return (
-              <div key={p.id} className="flex flex-col items-center gap-1.5 shrink-0 text-center select-none group">
-                <div className="relative">
-                  <div className={`p-[3px] rounded-full ${isOnline ? "bg-gradient-to-tr from-[#22d3ee] to-[#3ecf8e]" : "bg-neutral-800"} ring-1 ring-white/5`}>
-                    {p.avatar_url ? (
-                      <img
-                        src={p.avatar_url}
-                        className="w-16 h-16 rounded-full object-cover border-2 border-[#121212] bg-neutral-900"
-                        alt=""
-                      />
-                    ) : (
-                      <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center font-bold text-black text-lg border-2 border-[#121212] select-none">
-                        {p.full_name?.[0].toUpperCase() || "U"}
+              <div className="relative flex flex-col items-center w-20 flex-shrink-0 select-none">
+                {/* Speech Bubble */}
+                {currentUserNote ? (
+                  currentUserNote.song_name ? (
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePlayNote(currentUserNote);
+                      }}
+                      className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-20 bg-[#3b82f6]/25 border border-[#3b82f6]/40 shadow-[0_8px_24px_rgba(59,130,246,0.2)] backdrop-blur-md text-white rounded-2xl p-2.5 text-center text-[10px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-28 whitespace-normal flex flex-col items-center gap-1 animate-fade-in"
+                    >
+                      <div className="flex items-center gap-1 text-[9px] font-bold text-blue-300">
+                        {playingNoteId === currentUserNote.id ? (
+                          <span className="flex items-end gap-[1.5px] h-2.5 w-3 shrink-0">
+                            <span className="w-[1.5px] bg-blue-400 animate-eq-bounce-1 h-1" />
+                            <span className="w-[1.5px] bg-blue-400 animate-eq-bounce-2 h-3" />
+                            <span className="w-[1.5px] bg-blue-400 animate-eq-bounce-3 h-2" />
+                          </span>
+                        ) : (
+                          <span className="font-extrabold tracking-wider">lıı</span>
+                        )}
+                        <span className="truncate max-w-[80px] text-[10px] text-white font-semibold">{currentUserNote.song_name}</span>
                       </div>
-                    )}
+                      <div className="text-[8px] text-blue-200/70 truncate max-w-[90px]">{currentUserNote.song_artist}</div>
+                      {currentUserNote.content && (
+                        <div className="text-[8px] text-white/80 border-t border-white/10 pt-1 mt-1 truncate max-w-[95px]">
+                          {currentUserNote.content}
+                        </div>
+                      )}
+                      <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#152746] border-r border-b border-[#3b82f6]/40 rotate-45" />
+                    </div>
+                  ) : (
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsNoteComposerOpen(true);
+                      }}
+                      className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-20 bg-[#202124] text-white rounded-2xl px-3 py-2 text-center text-[10px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-28 whitespace-normal flex flex-col items-center gap-1 shadow-lg animate-fade-in"
+                    >
+                      <span className="font-medium text-center">{currentUserNote.content}</span>
+                      <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#202124] rotate-45" />
+                    </div>
+                  )
+                ) : (
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsNoteComposerOpen(true);
+                    }}
+                    className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-20 bg-[#202124] text-white/60 text-[10px] px-3 py-1.5 rounded-full shadow-lg cursor-pointer hover:scale-105 active:scale-95 hover:text-white transition-all whitespace-nowrap"
+                  >
+                    Today's vibe...
+                    <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#202124] rotate-45" />
                   </div>
-                  <span className={`absolute bottom-0 right-1 w-3.5 h-3.5 rounded-full ring-2 ring-[#121212] ${isOnline ? "bg-[#3ecf8e]" : "bg-text-secondary/40"}`} />
+                )}
+
+                {/* Avatar Container */}
+                <div 
+                  onClick={() => setIsNoteComposerOpen(true)}
+                  className="relative w-14 h-14 cursor-pointer"
+                >
+                  {userProfile?.avatar_url ? (
+                    <img
+                      src={currentUserAvatar}
+                      alt="Your avatar"
+                      className="w-14 h-14 object-cover rounded-full border border-white/10 ring-2 ring-primary/10 hover:opacity-85 transition-opacity"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center font-bold text-black text-lg border border-white/10 ring-2 ring-primary/10 hover:opacity-85 transition-opacity">
+                      {userProfile?.full_name?.[0]?.toUpperCase() || "U"}
+                    </div>
+                  )}
+                  {!currentUserNote && (
+                    <span className="absolute bottom-0 right-0 w-4 h-4 bg-[#22d3ee] border border-[#09090B] rounded-full flex items-center justify-center text-black font-extrabold text-[10px]">
+                      +
+                    </span>
+                  )}
                 </div>
-                <span className="text-[10px] font-bold text-text-secondary group-hover:text-white truncate max-w-[80px]">
-                  {p.full_name?.split(" ")[0]}
+
+                {/* Label */}
+                <span className="text-[10px] text-white/80 font-medium mt-2 truncate w-full text-center">
+                  Your note
                 </span>
+                {/* Location tag below "Your note" if set */}
+                {currentUserNote?.location && (
+                  <span className="text-[9px] text-[#22d3ee] flex items-center gap-0.5 mt-0.5 truncate max-w-[80px]">
+                    📍 {currentUserNote.location}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Following circles: Other team profiles */}
+          {allProfiles.filter((p) => p.id !== userProfile?.id).map((p) => {
+            const isOnline = onlineUsers.some((u: any) => u.id === p.id);
+            const note = notes.find((n) => n.user_id === p.id);
+            const firstName = getFirstName(p.full_name || "User");
+            const avatarPlaceholder = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+              p.full_name || "User"
+            )}&backgroundColor=030712&textColor=ffffff`;
+
+            return (
+              <div key={p.id} className="relative flex flex-col items-center w-20 flex-shrink-0 select-none group">
+                {note && (
+                  note.song_name ? (
+                    <div 
+                      onClick={() => handlePlayNote(note)}
+                      className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-20 bg-[#3b82f6]/25 border border-[#3b82f6]/40 shadow-[0_8px_24px_rgba(59,130,246,0.2)] backdrop-blur-md text-white rounded-2xl p-2.5 text-center text-[10px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-28 whitespace-normal flex flex-col items-center gap-1 animate-fade-in"
+                    >
+                      <div className="flex items-center gap-1 text-[9px] font-bold text-blue-300">
+                        {playingNoteId === note.id ? (
+                          <span className="flex items-end gap-[1.5px] h-2.5 w-3 shrink-0">
+                            <span className="w-[1.5px] bg-blue-400 animate-eq-bounce-1 h-1" />
+                            <span className="w-[1.5px] bg-blue-400 animate-eq-bounce-2 h-3" />
+                            <span className="w-[1.5px] bg-blue-400 animate-eq-bounce-3 h-2" />
+                          </span>
+                        ) : (
+                          <span className="font-extrabold tracking-wider">lıı</span>
+                        )}
+                        <span className="truncate max-w-[80px] text-[10px] text-white font-semibold">{note.song_name}</span>
+                      </div>
+                      <div className="text-[8px] text-blue-200/70 truncate max-w-[90px]">{note.song_artist}</div>
+                      {note.content && (
+                        <div className="text-[8px] text-white/80 border-t border-white/10 pt-1 mt-1 truncate max-w-[95px]">
+                          {note.content}
+                        </div>
+                      )}
+                      <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#152746] border-r border-b border-[#3b82f6]/40 rotate-45" />
+                    </div>
+                  ) : (
+                    <div 
+                      onClick={() => handlePlayNote(note)}
+                      className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-20 bg-[#202124] text-white rounded-2xl px-3 py-2 text-center text-[10px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-28 whitespace-normal flex flex-col items-center gap-1 shadow-lg animate-fade-in"
+                    >
+                      <span className="font-medium text-center">{note.content}</span>
+                      {playingNoteId === note.id && (
+                        <span className="flex items-end gap-[1.5px] h-2.5 w-3 shrink-0 mt-1">
+                          <span className="w-[1.5px] bg-[#22d3ee] animate-eq-bounce-1 h-1" />
+                          <span className="w-[1.5px] bg-[#22d3ee] animate-eq-bounce-2 h-3" />
+                          <span className="w-[1.5px] bg-[#22d3ee] animate-eq-bounce-3 h-2" />
+                        </span>
+                      )}
+                      <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#202124] rotate-45" />
+                    </div>
+                  )
+                )}
+
+                {/* Avatar Container */}
+                <div className="relative w-14 h-14">
+                  {p.avatar_url ? (
+                    <img
+                      src={p.avatar_url}
+                      alt={p.full_name}
+                      className="w-14 h-14 object-cover rounded-full border border-white/10 ring-2 ring-primary/10"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center font-bold text-black text-lg border border-white/10 ring-2 ring-primary/10">
+                      {p.full_name?.[0]?.toUpperCase() || "U"}
+                    </div>
+                  )}
+                  {isOnline && (
+                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#3ecf8e] border-2 border-[#09090B] rounded-full animate-pulse" />
+                  )}
+                </div>
+
+                {/* Label */}
+                <span className="text-[10px] text-white/80 font-medium mt-2 truncate w-full text-center">
+                  {firstName}
+                </span>
+                {/* Location tag below name if set */}
+                {note?.location && (
+                  <span className="text-[9px] text-[#22d3ee] flex items-center gap-0.5 mt-0.5 truncate max-w-[80px]">
+                    📍 {note.location}
+                  </span>
+                )}
               </div>
             );
           })}
@@ -795,7 +1160,7 @@ export const DashboardView: React.FC = () => {
             }}
             className="flex flex-col items-center gap-1.5 shrink-0 text-center cursor-pointer select-none group"
           >
-            <div className="w-[72px] h-[72px] rounded-full border border-dashed border-white/20 hover:border-[#22d3ee]/50 flex items-center justify-center bg-white/5 group-hover:bg-[#22d3ee]/10 transition-all duration-200">
+            <div className="w-14 h-14 rounded-full border border-dashed border-white/20 hover:border-[#22d3ee]/50 flex items-center justify-center bg-white/5 group-hover:bg-[#22d3ee]/10 transition-all duration-200">
               <Plus className="w-6 h-6 text-text-secondary group-hover:text-[#22d3ee] transition-colors" />
             </div>
             <span className="text-[10px] font-bold text-text-secondary group-hover:text-[#22d3ee] transition-colors">
@@ -929,6 +1294,199 @@ export const DashboardView: React.FC = () => {
         </div>
       </div>
 
+      {/* --- LIQUID GLASS NOTE COMPOSER MODAL --- */}
+      {isNoteComposerOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="w-[420px] bg-neutral-900 border border-white/10 rounded-[28px] p-6 shadow-2xl space-y-4 text-white">
+            <div className="flex justify-between items-center border-b border-white/10 pb-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#22d3ee]">Compose Note</span>
+              <button 
+                onClick={() => {
+                  setIsNoteComposerOpen(false);
+                  setSelectedSong(null);
+                  setItunesSearchQuery("");
+                  setItunesSongs([]);
+                  setNoteContentInput("");
+                  setNoteLocationInput("");
+                  if (isRecordingVoice) {
+                    clearInterval(voiceIntervalRef.current);
+                    setIsRecordingVoice(false);
+                  }
+                }} 
+                className="p-1 rounded hover:bg-white/10 text-white/50 hover:text-white font-bold cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] uppercase text-white/50 mb-1">Your Note (Max 60 chars)</label>
+                <textarea
+                  maxLength={60}
+                  rows={2}
+                  value={noteContentInput}
+                  placeholder="What's on your mind?..."
+                  onChange={(e) => setNoteContentInput(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-[#22d3ee] resize-none"
+                />
+                <div className="flex justify-between items-center mt-1">
+                  {/* Simulated voice note button */}
+                  <button
+                    type="button"
+                    onClick={handleToggleVoiceRecord}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all ${
+                      isRecordingVoice 
+                        ? "bg-red-500/20 border-red-500 text-red-400 animate-pulse" 
+                        : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <Mic className="w-3.5 h-3.5" />
+                    <span>
+                      {isRecordingVoice 
+                        ? `Recording... (${voiceRecordDuration}s) [Tap Stop]` 
+                        : "Simulate Voice Note"}
+                    </span>
+                  </button>
+
+                  <span className="text-[9px] text-white/40 font-mono">
+                    {noteContentInput.length}/60
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase text-white/50 mb-1">Location (Optional)</label>
+                <input
+                  type="text"
+                  list="locations-list-dashboard"
+                  placeholder="e.g. Majri, Burbank Studio"
+                  value={noteLocationInput}
+                  onChange={(e) => setNoteLocationInput(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-2xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                />
+                <datalist id="locations-list-dashboard">
+                  <option value="Majri" />
+                  <option value="Burbank Studio" />
+                  <option value="On Set" />
+                  <option value="Main Stage" />
+                  <option value="Home" />
+                </datalist>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {["Majri", "Burbank Studio", "On Set", "Home"].map((loc) => (
+                    <button
+                      key={loc}
+                      type="button"
+                      onClick={() => setNoteLocationInput(loc)}
+                      className={`text-[9px] px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                        noteLocationInput === loc
+                          ? "bg-[#22d3ee]/20 border-[#22d3ee] text-[#22d3ee]"
+                          : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      {loc}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* iTunes attachment */}
+              <div className="border border-white/10 rounded-2xl p-3 bg-black/30 space-y-3">
+                <label className="block text-[10px] uppercase text-white/50 font-bold">Attach Music (Optional)</label>
+                {selectedSong ? (
+                  <div className="flex items-center justify-between p-2 bg-neutral-900 border border-white/10 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <img src={selectedSong.artwork} className="w-8 h-8 rounded object-cover" alt="" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-bold text-white block truncate">{selectedSong.name}</span>
+                        <span className="text-[9px] text-white/40 block truncate">{selectedSong.artist}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handlePlayPreview(selectedSong)}
+                        className="p-1 rounded bg-white/5 hover:bg-white/10 text-white"
+                      >
+                        {playingSongId === selectedSong.id ? <Pause className="w-3.5 h-3.5 text-[#22d3ee]" /> : <Play className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSong(null)}
+                        className="px-2 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Search songs..."
+                        value={itunesSearchQuery}
+                        onChange={(e) => setItunesSearchQuery(e.target.value)}
+                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#22d3ee]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSearchItunes(itunesSearchQuery)}
+                        className="px-3 py-1 bg-white/5 hover:bg-[#22d3ee] hover:text-black border border-white/10 rounded-lg text-xs font-bold cursor-pointer shrink-0 transition-all"
+                      >
+                        Search
+                      </button>
+                    </div>
+
+                    {isSearchingItunes ? (
+                      <div className="text-center py-2 flex items-center justify-center gap-1.5 text-[10px] text-white/40 font-mono uppercase">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-[#22d3ee]" /> Searching...
+                      </div>
+                    ) : itunesSongs.length > 0 ? (
+                      <div className="max-h-28 overflow-y-auto no-scrollbar space-y-1.5 bg-black/40 rounded-lg p-2 border border-white/5">
+                        {itunesSongs.map(song => (
+                          <div key={song.id} className="flex items-center justify-between p-1.5 hover:bg-white/5 rounded transition-colors">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <img src={song.artwork} className="w-6 h-6 rounded object-cover" alt="" />
+                              <div className="min-w-0">
+                                <span className="text-[10px] font-bold text-white block truncate">{song.name}</span>
+                                <span className="text-[8px] text-white/40 block truncate">{song.artist}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handlePlayPreview(song)}
+                                className="p-1 rounded bg-white/5 hover:bg-white/10 text-white shrink-0"
+                              >
+                                {playingSongId === song.id ? <Pause className="w-3 h-3 text-[#22d3ee]" /> : <Play className="w-3 h-3" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedSong(song)}
+                                className="px-2 py-0.5 rounded bg-[#22d3ee] text-black font-bold text-[9px] hover:bg-cyan-400 shrink-0"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={handleShareNote}
+                className="w-full py-2.5 rounded-2xl bg-gradient-to-br from-[#22d3ee] to-cyan-500 hover:from-cyan-400 hover:to-cyan-600 text-black font-bold text-xs cursor-pointer transition-all shadow-md shadow-cyan-400/10"
+              >
+                Share Note
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
