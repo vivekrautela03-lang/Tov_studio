@@ -2349,12 +2349,7 @@ export const ChatView: React.FC = () => {
 
               <div 
                 onClick={() => {
-                  const ownNote = notes.find(n => n.user_id === currentUser?.id);
-                  if (ownNote) {
-                    setIsStoryUploaderOptionsOpen(true);
-                  } else {
-                    setIsAddNoteOptionsOpen(true);
-                  }
+                  setIsNoteComposerOpen(true);
                 }}
                 className="relative"
               >
