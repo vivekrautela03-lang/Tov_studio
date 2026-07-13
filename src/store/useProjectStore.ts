@@ -271,6 +271,8 @@ export interface Note {
   audience?: "everyone" | "followers" | "close_friends" | "team";
   location?: string;
   created_at: string;
+  likes?: string[];
+  viewers?: string[];
   profiles?: {
     id: string;
     full_name: string;
@@ -291,6 +293,7 @@ export interface Story {
   caption?: string;
   audience?: "everyone" | "close_friends";
   views: any; // JSONB array
+  viewers?: string[]; // array of user IDs
   likes: string[]; // array of user IDs
   created_at: string;
   profiles?: {

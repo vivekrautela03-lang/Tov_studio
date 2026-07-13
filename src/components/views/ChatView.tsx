@@ -976,7 +976,29 @@ export const ChatView: React.FC = () => {
     setStoryProgress(0);
     // Reset stamp interactive state when shifting slides
     setPollVoted(null);
-  }, [activeStoryIndex, activeStoryUser]);
+
+    const markStoryAsViewed = async () => {
+      if (!activeStoryUser || !currentUser) return;
+      const userStories = stories.filter((s: any) => s.user_id === activeStoryUser);
+      const activeStory = userStories[activeStoryIndex];
+      if (activeStory && activeStory.user_id !== currentUser.id) {
+        const viewers = activeStory.viewers || [];
+        if (!viewers.includes(currentUser.id)) {
+          const updatedViewers = [...viewers, currentUser.id];
+          const { error } = await supabase
+            .from("stories")
+            .update({ viewers: updatedViewers })
+            .eq("id", activeStory.id);
+          if (!error) {
+            fetchStories();
+          } else {
+            console.error("Error updating story viewers:", error);
+          }
+        }
+      }
+    };
+    markStoryAsViewed();
+  }, [activeStoryIndex, activeStoryUser, stories, currentUser]);
 
   // Audio preview cleanup on unmount
   useEffect(() => {
@@ -1085,6 +1107,33 @@ export const ChatView: React.FC = () => {
     setActiveStoryUser(null);
     setActiveStoryIndex(0);
     setStoryProgress(0);
+  };
+
+  const handleDeleteStory = async (storyId: string) => {
+    try {
+      const { error } = await supabase
+        .from("stories")
+        .delete()
+        .eq("id", storyId);
+      
+      if (error) throw error;
+      
+      await fetchStories();
+      
+      if (!activeStoryUser) return;
+      const userStoriesAfterDelete = stories.filter((s: any) => s.user_id === activeStoryUser && s.id !== storyId);
+      
+      if (userStoriesAfterDelete.length === 0) {
+        handleCloseStoryViewer();
+      } else if (activeStoryIndex >= userStoriesAfterDelete.length) {
+        setActiveStoryIndex(userStoriesAfterDelete.length - 1);
+        setStoryProgress(0);
+      } else {
+        setStoryProgress(0);
+      }
+    } catch (err: any) {
+      alert("Error deleting story: " + err.message);
+    }
   };
 
   // Story Quick Reply
@@ -3185,9 +3234,23 @@ export const ChatView: React.FC = () => {
                     </div>
                   </div>
                   
-                  <button onClick={handleCloseStoryViewer} className="p-1 rounded-full bg-black/40 hover:bg-black/80 text-white cursor-pointer">
-                    <X className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {activeStory.user_id === currentUser?.id && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteStory(activeStory.id);
+                        }}
+                        className="p-1 rounded-full bg-black/40 hover:bg-black/80 text-red-400 hover:text-red-500 cursor-pointer"
+                        title="Delete Story"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button onClick={handleCloseStoryViewer} className="p-1 rounded-full bg-black/40 hover:bg-black/80 text-white cursor-pointer">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Click zones */}
@@ -3339,22 +3402,28 @@ export const ChatView: React.FC = () => {
                     </button>
                   </div>
 
-                  {activeStory.user_id === currentUser?.id && (
-                    <div className="border-t border-white/5 pt-2">
-                      <span className="text-[8px] uppercase tracking-widest text-white/40 block mb-1">Seen by ({activeStory.views?.length || 0})</span>
-                      {activeStory.views && activeStory.views.length > 0 ? (
-                        <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-1">
-                          {activeStory.views.map((v: any, index: number) => (
-                            <div key={index} className="w-6 h-6 rounded-full overflow-hidden border border-white/10 bg-neutral-800 flex items-center justify-center text-[9px] shrink-0" title={v.full_name}>
-                              {v.avatar_url ? <img src={v.avatar_url} className="w-full h-full object-cover" alt="" /> : v.full_name?.substring(0, 2).toUpperCase()}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-[8px] text-white/30">No views yet</span>
-                      )}
-                    </div>
-                  )}
+                  {activeStory.user_id === currentUser?.id && (() => {
+                    const storyViewers = (activeStory.viewers || [])
+                      .map((viewerId: string) => profiles.find((p) => p.id === viewerId))
+                      .filter(Boolean);
+
+                    return (
+                      <div className="border-t border-white/5 pt-2">
+                        <span className="text-[8px] uppercase tracking-widest text-white/40 block mb-1">Seen by ({storyViewers.length})</span>
+                        {storyViewers.length > 0 ? (
+                          <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-1">
+                            {storyViewers.map((v: any, index: number) => (
+                              <div key={v.id || index} className="w-6 h-6 rounded-full overflow-hidden border border-white/10 bg-neutral-800 flex items-center justify-center text-[9px] shrink-0" title={v.full_name}>
+                                {v.avatar_url ? <img src={v.avatar_url} className="w-full h-full object-cover" alt="" /> : v.full_name?.substring(0, 2).toUpperCase()}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-[8px] text-white/30">No views yet</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
               </div>

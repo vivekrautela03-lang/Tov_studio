@@ -869,6 +869,26 @@ export const DashboardView: React.FC = () => {
     }
   };
 
+  const handleOpenNoteDetail = async (note: any) => {
+    setActiveNoteDetail(note);
+    if (userProfile && note.user_id !== userProfile.id) {
+      const viewers = note.viewers || [];
+      if (!viewers.includes(userProfile.id)) {
+        const updatedViewers = [...viewers, userProfile.id];
+        const { error } = await supabase
+          .from("notes")
+          .update({ viewers: updatedViewers })
+          .eq("id", note.id);
+        if (!error) {
+          setActiveNoteDetail((prev: any) => prev && prev.id === note.id ? { ...prev, viewers: updatedViewers } : prev);
+          fetchNotes();
+        } else {
+          console.error("Error updating note viewers:", error);
+        }
+      }
+    }
+  };
+
   const handleSendNoteReaction = async (recipientId: string, text: string) => {
     try {
       const channelId = await createChatChannel("Direct Message", false, [recipientId]);
@@ -1109,16 +1129,16 @@ export const DashboardView: React.FC = () => {
                       setIsNoteComposerOpen(true);
                     }
                   }}
-                  className="relative w-14 h-14 cursor-pointer"
+                  className="relative w-16 h-16 cursor-pointer"
                 >
                   {userProfile?.avatar_url ? (
                     <img
                       src={currentUserAvatar}
                       alt="Your avatar"
-                      className="w-14 h-14 object-cover rounded-full border border-white/10 ring-2 ring-primary/10 hover:opacity-85 transition-opacity"
+                      className="w-16 h-16 object-cover rounded-full border border-white/10 ring-2 ring-primary/10 hover:opacity-85 transition-opacity"
                     />
                   ) : (
-                    <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center font-bold text-black text-lg border border-white/10 ring-2 ring-primary/10 hover:opacity-85 transition-opacity">
+                    <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center font-bold text-black text-lg border border-white/10 ring-2 ring-primary/10 hover:opacity-85 transition-opacity">
                       {userProfile?.full_name?.[0]?.toUpperCase() || "U"}
                     </div>
                   )}
@@ -1177,7 +1197,7 @@ export const DashboardView: React.FC = () => {
                     <div 
                       onClick={(e) => {
                         e.stopPropagation();
-                        setActiveNoteDetail(note);
+                        handleOpenNoteDetail(note);
                       }}
                       className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 z-20 bg-[#3b82f6]/25 border border-[#3b82f6]/40 shadow-[0_8px_24px_rgba(59,130,246,0.2)] backdrop-blur-md text-white rounded-2xl p-2 text-center text-[9.5px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-24 whitespace-normal flex flex-col items-center gap-0.5 animate-fade-in"
                     >
@@ -1205,7 +1225,7 @@ export const DashboardView: React.FC = () => {
                     <div 
                       onClick={(e) => {
                         e.stopPropagation();
-                        setActiveNoteDetail(note);
+                        handleOpenNoteDetail(note);
                       }}
                       className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 z-20 bg-[#202124] text-white rounded-2xl px-2.5 py-1.5 text-center text-[9.5px] cursor-pointer hover:scale-105 active:scale-95 transition-all w-24 whitespace-normal flex flex-col items-center gap-0.5 shadow-lg animate-fade-in"
                     >
@@ -1226,19 +1246,19 @@ export const DashboardView: React.FC = () => {
                 <div 
                   onClick={() => {
                     if (note) {
-                      setActiveNoteDetail(note);
+                      handleOpenNoteDetail(note);
                     }
                   }}
-                  className={`relative w-14 h-14 ${note ? "cursor-pointer hover:opacity-85 transition-opacity" : ""}`}
+                  className={`relative w-16 h-16 ${note ? "cursor-pointer hover:opacity-85 transition-opacity" : ""}`}
                 >
                   {p.avatar_url ? (
                     <img
                       src={p.avatar_url}
                       alt={p.full_name}
-                      className="w-14 h-14 object-cover rounded-full border border-white/10 ring-2 ring-primary/10"
+                      className="w-16 h-16 object-cover rounded-full border border-white/10 ring-2 ring-primary/10"
                     />
                   ) : (
-                    <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center font-bold text-black text-lg border border-white/10 ring-2 ring-primary/10">
+                    <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center font-bold text-black text-lg border border-white/10 ring-2 ring-primary/10">
                       {p.full_name?.[0]?.toUpperCase() || "U"}
                     </div>
                   )}
@@ -1251,7 +1271,7 @@ export const DashboardView: React.FC = () => {
                 <span 
                   onClick={() => {
                     if (note) {
-                      setActiveNoteDetail(note);
+                      handleOpenNoteDetail(note);
                     }
                   }}
                   className={`text-[10px] text-white/80 font-medium mt-2 truncate w-full text-center ${note ? "cursor-pointer hover:text-white" : ""}`}
@@ -1263,7 +1283,7 @@ export const DashboardView: React.FC = () => {
                   <span 
                     onClick={() => {
                       if (note) {
-                        setActiveNoteDetail(note);
+                        handleOpenNoteDetail(note);
                       }
                     }}
                     className="text-[9px] text-[#22d3ee] flex items-center gap-0.5 mt-0.5 truncate max-w-[80px] cursor-pointer hover:text-cyan-400"
@@ -1284,7 +1304,7 @@ export const DashboardView: React.FC = () => {
             }}
             className="flex flex-col items-center gap-1.5 shrink-0 text-center cursor-pointer select-none group"
           >
-            <div className="w-14 h-14 rounded-full border border-dashed border-white/20 hover:border-[#22d3ee]/50 flex items-center justify-center bg-white/5 group-hover:bg-[#22d3ee]/10 transition-all duration-200">
+            <div className="w-16 h-16 rounded-full border border-dashed border-white/20 hover:border-[#22d3ee]/50 flex items-center justify-center bg-white/5 group-hover:bg-[#22d3ee]/10 transition-all duration-200">
               <Plus className="w-6 h-6 text-text-secondary group-hover:text-[#22d3ee] transition-colors" />
             </div>
             <span className="text-[10px] font-bold text-text-secondary group-hover:text-[#22d3ee] transition-colors">
@@ -1691,6 +1711,42 @@ export const DashboardView: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {/* Note Viewers Horizontal Reel */}
+            {(() => {
+              const noteViewers = (currentUserNote?.viewers || [])
+                .map((viewerId: string) => allProfiles.find((p) => p.id === viewerId))
+                .filter(Boolean);
+
+              return (
+                <div className="space-y-2 text-left bg-black/20 p-3 rounded-2xl border border-white/5">
+                  <span className="text-[10px] uppercase tracking-wider text-text-secondary/60 font-bold block">
+                    Viewers ({noteViewers.length})
+                  </span>
+                  {noteViewers.length > 0 ? (
+                    <div className="flex gap-3 overflow-x-auto py-1 no-scrollbar">
+                      {noteViewers.map((viewer: any) => {
+                        const viewerAvatar = viewer.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(viewer.full_name || "Viewer")}&backgroundColor=030712&textColor=ffffff`;
+                        return (
+                          <div key={viewer.id} className="flex flex-col items-center shrink-0 w-12 text-center">
+                            <img
+                              src={viewerAvatar}
+                              alt={viewer.full_name}
+                              className="w-8 h-8 rounded-full object-cover border border-white/10"
+                            />
+                            <span className="text-[8px] text-white/70 truncate w-full mt-1">
+                              {getFirstName(viewer.full_name)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-white/40 italic py-1">No views yet</div>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="flex flex-col gap-2.5">
               <button
