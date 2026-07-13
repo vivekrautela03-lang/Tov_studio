@@ -672,6 +672,8 @@ export const DashboardView: React.FC = () => {
     projects,
     setActiveProjectId,
     setActiveView,
+    activeChannelId,
+    setActiveChannelId,
     createChatChannel,
     sendChatMessage,
     chatChannels,
@@ -959,6 +961,20 @@ export const DashboardView: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  // Real-time Stories subscription to update views, likes, and content instantly
+  useEffect(() => {
+    const channel = supabase
+      .channel("stories-realtime-listener")
+      .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => {
+        fetchStories();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchStories]);
 
   const handleDeleteNote = async (noteId: string) => {
     try {
@@ -1411,62 +1427,83 @@ export const DashboardView: React.FC = () => {
             );
           })()}
 
-          {/* Other team members stories */}
-          {allProfiles.filter(p => p.id !== userProfile?.id && stories.some(s => s.user_id === p.id)).map(p => {
-            const userStories = stories.filter(s => s.user_id === p.id);
-            const hasUnseen = userStories.some(s => !s.viewers?.includes(userProfile?.id));
-            const isOnline = onlineUsers.includes(p.id);
+          {/* Other team members stories and users list */}
+          {[...allProfiles]
+            .filter(p => p.id !== userProfile?.id)
+            .sort((a, b) => {
+              const aStories = stories.filter(s => s.user_id === a.id);
+              const bStories = stories.filter(s => s.user_id === b.id);
+              const aHasStories = aStories.length > 0;
+              const bHasStories = bStories.length > 0;
+              
+              if (aHasStories && !bHasStories) return -1;
+              if (!aHasStories && bHasStories) return 1;
+              
+              if (aHasStories && bHasStories) {
+                const aHasUnseen = aStories.some(s => !s.viewers?.includes(userProfile?.id));
+                const bHasUnseen = bStories.some(s => !s.viewers?.includes(userProfile?.id));
+                if (aHasUnseen && !bHasUnseen) return -1;
+                if (!aHasUnseen && bHasUnseen) return 1;
+                
+                const aTime = Math.max(...aStories.map(s => new Date(s.created_at).getTime()));
+                const bTime = Math.max(...bStories.map(s => new Date(s.created_at).getTime()));
+                return bTime - aTime;
+              }
+              
+              const aOnline = onlineUsers.includes(a.id);
+              const bOnline = onlineUsers.includes(b.id);
+              if (aOnline && !bOnline) return -1;
+              if (!aOnline && bOnline) return 1;
+              
+              return (a.full_name || "").localeCompare(b.full_name || "");
+            })
+            .map(p => {
+              const userStories = stories.filter(s => s.user_id === p.id);
+              const hasStories = userStories.length > 0;
+              const hasUnseen = hasStories && userStories.some(s => !s.viewers?.includes(userProfile?.id));
+              const isOnline = onlineUsers.includes(p.id);
 
-            return (
-              <div key={p.id} className="flex flex-col items-center gap-1.5 shrink-0 relative select-none group">
-                <div 
-                  onClick={() => {
-                    setActiveStoryUser(p.id);
-                    setActiveStoryIndex(0);
-                    setIsStoryViewerOpen(true);
-                  }}
-                  className={`w-[84px] h-[84px] rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all relative ${
-                    hasUnseen
-                      ? "bg-gradient-to-tr from-[#3897f0] via-[#a80077] to-[#b12a5b] p-[2.5px]" 
-                      : "bg-[#262626] p-[1.5px]" 
-                  }`}
-                >
-                  <div className="w-full h-full rounded-full bg-black p-[2px] overflow-hidden flex items-center justify-center font-bold text-sm text-cyan-400">
-                    {p.avatar_url ? (
-                      <img src={p.avatar_url} className="w-full h-full object-cover" alt="" />
-                    ) : (
-                      p.full_name?.substring(0, 2).toUpperCase() || "U"
+              return (
+                <div key={p.id} className="flex flex-col items-center gap-1.5 shrink-0 relative select-none group">
+                  <div 
+                    onClick={() => {
+                      if (hasStories) {
+                        setActiveStoryUser(p.id);
+                        setActiveStoryIndex(0);
+                        setIsStoryViewerOpen(true);
+                      } else {
+                        createChatChannel("Direct Message", false, [p.id]).then((chanId) => {
+                          if (chanId) setActiveChannelId(chanId);
+                          setActiveView("chat");
+                        });
+                      }
+                    }}
+                    className={`w-[84px] h-[84px] rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all relative ${
+                      hasStories
+                        ? hasUnseen
+                          ? "bg-gradient-to-tr from-[#3897f0] via-[#a80077] to-[#b12a5b] p-[2.5px]" 
+                          : "bg-neutral-800 p-[1.5px]" 
+                        : "border border-white/10 p-[1px]"
+                    }`}
+                  >
+                    <div className="w-full h-full rounded-full bg-black p-[2px] overflow-hidden flex items-center justify-center font-bold text-sm text-cyan-400">
+                      {p.avatar_url ? (
+                        <img src={p.avatar_url} className="w-full h-full object-cover rounded-full" alt="" />
+                      ) : (
+                        p.full_name?.substring(0, 2).toUpperCase() || "U"
+                      )}
+                    </div>
+                    {/* Online presence dot */}
+                    {isOnline && (
+                      <span className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-[#4ed840] rounded-full border-2 border-black shadow-[0_0_4px_#4ed840]" />
                     )}
                   </div>
-                  {/* Online presence dot */}
-                  {isOnline && (
-                    <span className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-[#4ed840] rounded-full border-2 border-black shadow-[0_0_4px_#4ed840]" />
-                  )}
+                  <span className="text-[11px] text-[#8e8e8e] truncate max-w-[76px] mt-1 font-semibold">
+                    {p.full_name || "User"}
+                  </span>
                 </div>
-                <span className="text-[11px] text-[#8e8e8e] truncate max-w-[76px] mt-1 font-semibold">
-                  {p.full_name || "User"}
-                </span>
-              </div>
-            );
-          })}
-
-          {/* Invite button */}
-          <button
-            onClick={() => {
-              const email = prompt("Enter team member's email to invite to workspace:");
-              if (email) {
-                alert(`Invite successfully sent to: ${email}`);
-              }
-            }}
-            className="flex flex-col items-center gap-1.5 shrink-0 text-center cursor-pointer select-none group"
-          >
-            <div className="w-[84px] h-[84px] rounded-full border border-dashed border-white/20 hover:border-[#22d3ee]/50 flex items-center justify-center bg-white/5 group-hover:bg-[#22d3ee]/10 transition-all duration-200">
-              <Plus className="w-7 h-7 text-white/50 group-hover:text-[#22d3ee] transition-colors" />
-            </div>
-            <span className="text-[10px] font-bold text-white/40 group-hover:text-[#22d3ee] transition-colors mt-0.5">
-              Invite
-            </span>
-          </button>
+              );
+            })}
 
         </div>
       </div>

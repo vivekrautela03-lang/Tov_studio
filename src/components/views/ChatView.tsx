@@ -867,6 +867,20 @@ export const ChatView: React.FC = () => {
     };
   }, [currentUser, activeChannelId]);
 
+  // Real-time Stories subscription in ChatView
+  useEffect(() => {
+    const channel = supabase
+      .channel("chat-stories-realtime-listener")
+      .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => {
+        fetchStories();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchStories]);
+
   // Sync active channel DMs
   useEffect(() => {
     if (!activeChannelId || !currentUser) return;
@@ -2227,15 +2241,35 @@ export const ChatView: React.FC = () => {
             {/* Crew members circles */}
             {(() => {
               const otherProfiles = profiles.filter(p => p.id !== currentUser?.id);
-              const activeMembers = otherProfiles.filter(p => {
-                const hasNote = notes.some(n => n.user_id === p.id);
-                const hasStories = stories.some(s => s.user_id === p.id);
-                const isOnline = onlineUsers.includes(p.id);
-                return hasNote || hasStories || isOnline;
+              const sortedMembers = [...otherProfiles].sort((a, b) => {
+                const aStories = stories.filter(s => s.user_id === a.id);
+                const bStories = stories.filter(s => s.user_id === b.id);
+                const aHasStories = aStories.length > 0;
+                const bHasStories = bStories.length > 0;
+                
+                if (aHasStories && !bHasStories) return -1;
+                if (!aHasStories && bHasStories) return 1;
+                
+                if (aHasStories && bHasStories) {
+                  const aHasUnseen = aStories.some(s => !s.viewers?.includes(currentUser?.id));
+                  const bHasUnseen = bStories.some(s => !s.viewers?.includes(currentUser?.id));
+                  if (aHasUnseen && !bHasUnseen) return -1;
+                  if (!aHasUnseen && bHasUnseen) return 1;
+                  
+                  const aTime = Math.max(...aStories.map(s => new Date(s.created_at).getTime()));
+                  const bTime = Math.max(...bStories.map(s => new Date(s.created_at).getTime()));
+                  return bTime - aTime;
+                }
+                
+                const aOnline = onlineUsers.includes(a.id);
+                const bOnline = onlineUsers.includes(b.id);
+                if (aOnline && !bOnline) return -1;
+                if (!aOnline && bOnline) return 1;
+                
+                return (a.full_name || "").localeCompare(b.full_name || "");
               });
-              const rowMembers = activeMembers.length > 0 ? activeMembers : otherProfiles.slice(0, 10);
 
-              return rowMembers.map(p => {
+              return sortedMembers.map(p => {
                 const userStories = stories.filter((s: any) => s.user_id === p.id);
                 const hasActiveStories = userStories.length > 0;
                 const hasUnseen = hasActiveStories && userStories.some((s: any) => !s.viewers?.includes(currentUser?.id));
