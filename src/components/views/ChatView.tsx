@@ -2271,8 +2271,8 @@ export const ChatView: React.FC = () => {
         </div>
 
         {/* STORIES & NOTES ROW */}
-        <div className="px-5 py-2.5 border-b border-white/5 bg-[#0b0b0d] shrink-0">
-          <div className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth items-start py-2">
+        <div className="px-5 py-2 border-b border-white/5 bg-[#0b0b0d] shrink-0">
+          <div className="flex gap-4.5 overflow-x-auto no-scrollbar scroll-smooth items-start pt-11 pb-2 px-1">
             
             {/* First circle: "Your note" / Me */}
             <div className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0 relative select-none">
@@ -2287,19 +2287,28 @@ export const ChatView: React.FC = () => {
                         setActiveNote(ownNote);
                         setIsNoteViewerOpen(true);
                       }}
-                      className="absolute -top-7 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center group/note animate-fadein"
+                      className="absolute -top-10 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center group/note animate-fadein"
                     >
-                      <div className="bg-[#262626] border border-white/15 px-2.5 py-1 rounded-[16px] max-w-[80px] shadow-[0_4px_12px_rgba(0,0,0,0.5)] text-center text-[10px] leading-tight text-white select-none relative group-hover/note:bg-red-950/90 transition-colors">
-                        {ownNote.song_name && (
-                          <div className="flex items-center justify-center gap-0.5 mb-0.5 text-[8px] text-cyan-300 truncate">
-                            <span>🎵</span>
-                            <span className="truncate max-w-[40px]">{ownNote.song_name}</span>
+                      <div className="bg-[#262626] border border-white/10 px-3 py-1.5 rounded-[18px] min-w-[75px] max-w-[110px] shadow-[0_4px_16px_rgba(0,0,0,0.6)] text-center text-[10px] leading-tight text-white select-none relative group-hover/note:bg-red-950/90 transition-colors">
+                        {ownNote.song_name ? (
+                          <div className="flex flex-col items-center">
+                            <div className="flex items-center justify-center gap-1 mb-0.5 text-[9px] font-bold text-white truncate max-w-full">
+                              <span className="text-[8px] text-white/70">|||</span>
+                              <span className="truncate">{ownNote.song_name}</span>
+                            </div>
+                            <span className="text-[7.5px] text-white/50 truncate max-w-full block">
+                              {ownNote.song_artist || "Unknown Artist"}
+                            </span>
                           </div>
+                        ) : (
+                          <p className="font-medium text-white break-words text-[9.5px] max-h-[36px] overflow-hidden text-ellipsis line-clamp-2 px-0.5">
+                            {ownNote.content}
+                          </p>
                         )}
-                        <p className="truncate max-w-[65px] font-medium">{ownNote.content}</p>
+                        
+                        {/* Speech Bubble Arrow pointing down */}
+                        <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-[#262626] border-r border-b border-white/10 rotate-45 z-[1] group-hover/note:bg-red-950/90 transition-colors" />
                       </div>
-                      <div className="w-1.5 h-1.5 bg-[#262626] border border-white/10 rounded-full -mt-0.5 group-hover/note:bg-red-950" />
-                      <div className="w-0.5 h-0.5 bg-[#262626] border border-white/10 rounded-full mt-0.5 group-hover/note:bg-red-950" />
                     </div>
                   );
                 }
@@ -2392,19 +2401,28 @@ export const ChatView: React.FC = () => {
                           setActiveNote(userNote);
                           setIsNoteViewerOpen(true);
                         }}
-                        className="absolute -top-7 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center animate-fadein cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+                        className="absolute -top-10 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center animate-fadein cursor-pointer hover:scale-105 active:scale-95 transition-transform"
                       >
-                        <div className="bg-[#262626] border border-white/15 px-2.5 py-1 rounded-[16px] max-w-[80px] shadow-[0_4px_12px_rgba(0,0,0,0.5)] text-center text-[10px] leading-tight text-white select-none relative">
-                          {userNote.song_name && (
-                            <div className="flex items-center justify-center gap-0.5 mb-0.5 text-[8px] text-cyan-300 truncate">
-                              <span>🎵</span>
-                              <span className="truncate max-w-[40px]">{userNote.song_name}</span>
+                        <div className="bg-[#262626] border border-white/10 px-3 py-1.5 rounded-[18px] min-w-[75px] max-w-[110px] shadow-[0_4px_16px_rgba(0,0,0,0.6)] text-center text-[10px] leading-tight text-white select-none relative">
+                          {userNote.song_name ? (
+                            <div className="flex flex-col items-center">
+                              <div className="flex items-center justify-center gap-1 mb-0.5 text-[9px] font-bold text-white truncate max-w-full">
+                                <span className="text-[8px] text-white/70">|||</span>
+                                <span className="truncate">{userNote.song_name}</span>
+                              </div>
+                              <span className="text-[7.5px] text-white/50 truncate max-w-full block">
+                                {userNote.song_artist || "Unknown Artist"}
+                              </span>
                             </div>
+                          ) : (
+                            <p className="font-medium text-white break-words text-[9.5px] max-h-[36px] overflow-hidden text-ellipsis line-clamp-2 px-0.5">
+                              {userNote.content}
+                            </p>
                           )}
-                          <p className="truncate max-w-[65px] font-medium">{userNote.content}</p>
+                          
+                          {/* Speech Bubble Arrow pointing down */}
+                          <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-[#262626] border-r border-b border-white/10 rotate-45 z-[1]" />
                         </div>
-                        <div className="w-1.5 h-1.5 bg-[#262626] border border-white/10 rounded-full -mt-0.5" />
-                        <div className="w-0.5 h-0.5 bg-[#262626] border border-white/10 rounded-full mt-0.5" />
                       </div>
                     )}
 
