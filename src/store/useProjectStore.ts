@@ -269,6 +269,7 @@ export interface Note {
   song_artwork?: string;
   song_preview_url?: string;
   audience?: "everyone" | "followers" | "close_friends" | "team";
+  location?: string;
   created_at: string;
   profiles?: {
     id: string;
