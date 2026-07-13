@@ -372,7 +372,7 @@ export const ChatView: React.FC = () => {
     fetchStories();
   }, []);
 
-  // View tracker for notes in ChatView
+  // View tracker for notes in ChatView & Auto-play note soundtrack preview on loop
   useEffect(() => {
     if (isNoteViewerOpen && activeNote && currentUser) {
       if (activeNote.user_id !== currentUser.id) {
@@ -383,6 +383,24 @@ export const ChatView: React.FC = () => {
             fetchNotes();
           });
         }
+      }
+
+      // Auto-play music preview on loop
+      if (activeNote.song_preview_url) {
+        if (audioPreviewRef.current) {
+          audioPreviewRef.current.pause();
+        }
+        const audio = new Audio(activeNote.song_preview_url);
+        audio.volume = 0.5;
+        audio.loop = true; // loop non-stop
+        audioPreviewRef.current = audio;
+        setPlayingSongId(activeNote.song_id || activeNote.id);
+        audio.play().catch(e => console.warn("Auto-play blocked until user interaction:", e));
+      }
+    } else {
+      if (!isNoteViewerOpen && audioPreviewRef.current) {
+        audioPreviewRef.current.pause();
+        setPlayingSongId(null);
       }
     }
   }, [isNoteViewerOpen, activeNote]);
@@ -1472,6 +1490,20 @@ export const ChatView: React.FC = () => {
         </div>
       </div>
     );
+  };
+
+  // Get elapsed relative time for notes
+  const getElapsedTime = (created_at: string) => {
+    try {
+      const diff = Date.now() - new Date(created_at).getTime();
+      const mins = Math.floor(diff / (1000 * 60));
+      if (mins < 60) return `${Math.max(1, mins)}m`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h`;
+      return `${Math.floor(hrs / 24)}d`;
+    } catch (e) {
+      return "3h";
+    }
   };
 
   // Format Call Timer
@@ -3892,225 +3924,206 @@ export const ChatView: React.FC = () => {
         </div>
       )}
 
-      {/* --- VISUALIZE NOTE VIEW MODAL (APPLE MUSIC MINI PLAYER STYLING) --- */}
+      {/* --- VISUALIZE NOTE DETAILS INSTAGRAM BOTTOM SHEET --- */}
       {isNoteViewerOpen && activeNote && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/85 backdrop-blur-sm animate-fadein">
-          <div className="w-[380px] bg-[#0c0d12]/90 border border-white/20 rounded-[32px] p-6 shadow-2xl text-white text-center space-y-5 relative">
-            <button 
+        <div 
+          onClick={() => {
+            setIsNoteViewerOpen(false);
+            setActiveNote(null);
+          }}
+          className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm animate-fadein flex items-end justify-center"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-[#121212]/95 border-t border-white/10 rounded-t-[28px] p-5 pb-8 shadow-2xl text-white z-[125] flex flex-col justify-between animate-slideup"
+          >
+            {/* Drag handle */}
+            <div 
+              className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 cursor-pointer" 
               onClick={() => {
                 setIsNoteViewerOpen(false);
                 setActiveNote(null);
-                if (audioPreviewRef.current) audioPreviewRef.current.pause();
-                setPlayingSongId(null);
               }} 
-              className="absolute top-4 right-4 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            />
 
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-12 h-12 rounded-full overflow-hidden border border-white/10 bg-neutral-800 flex items-center justify-center text-[#22d3ee] font-bold text-sm">
+            {/* Header with avatar, username, and time */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-11 h-11 rounded-full overflow-hidden border border-white/10 shrink-0 bg-neutral-800 flex items-center justify-center font-bold text-cyan-400 text-xs">
                 {activeNote.profiles?.avatar_url ? (
                   <img src={activeNote.profiles.avatar_url} className="w-full h-full object-cover" alt="" />
                 ) : (
                   activeNote.profiles?.full_name?.substring(0, 2).toUpperCase() || "UN"
                 )}
               </div>
-              <div>
-                <h4 className="text-xs font-bold text-white">{activeNote.profiles?.full_name || "Workspace Member"}</h4>
-                <span className="text-[9px] text-white/40 font-mono">Shared Note</span>
+              <div className="min-w-0">
+                <h4 className="text-[13px] font-bold text-white leading-tight">
+                  {activeNote.profiles?.full_name?.toLowerCase().replace(/\s+/g, '_') || "collaborator"}
+                  <span className="text-white/40 font-normal text-[11px] ml-1.5 font-sans">
+                    {getElapsedTime(activeNote.created_at)}
+                  </span>
+                </h4>
+                <span className="text-[10px] text-white/40 block mt-0.5 font-medium">Shared a note</span>
               </div>
             </div>
 
-            {/* Note text bubble */}
-            <div className="relative p-4 rounded-[20px] bg-white/[0.05] border border-white/10 shadow-lg text-xs text-white leading-relaxed">
-              "{activeNote.content}"
-              <div className="absolute bottom-[-5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-white/[0.05] border-r border-b border-white/10 rotate-45" />
-            </div>
+            {/* Note & Song display pill */}
+            <div className="space-y-4 mb-6">
+              {/* If normal text note, show text note box */}
+              {!activeNote.song_name && (
+                <div className="relative p-3.5 rounded-[18px] bg-white/[0.06] border border-white/5 shadow-md text-xs text-white max-w-sm leading-relaxed">
+                  "{activeNote.content}"
+                </div>
+              )}
 
-            {/* APPLE-STYLED MINI PLAYER */}
-            {activeNote.song_name && (
-              <div className="p-4 bg-white/[0.05] border border-white/15 rounded-[24px] space-y-4">
-                
-                {/* Album artwork */}
-                <div className="relative w-36 h-36 mx-auto rounded-2xl overflow-hidden border border-white/15 shadow-2xl">
-                  <img 
-                    src={activeNote.song_artwork || ""} 
-                    className={`w-full h-full object-cover ${playingSongId === activeNote.song_id ? "animate-spin-slow" : ""}`}
-                    alt="" 
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-2 justify-center">
-                    <MusicIcon className="w-5 h-5 text-cyan-300" />
+              {/* If song, show note content and the music pill */}
+              {activeNote.song_name && (
+                <div className="space-y-3">
+                  {activeNote.content && (
+                    <div className="text-[12px] text-white/90 px-1 font-medium">
+                      "{activeNote.content}"
+                    </div>
+                  )}
+
+                  {/* Music pill matching Instagram */}
+                  <div 
+                    onClick={() => {
+                      if (activeNote.song_preview_url) {
+                        if (playingSongId === (activeNote.song_id || activeNote.id)) {
+                          if (audioPreviewRef.current) audioPreviewRef.current.pause();
+                          setPlayingSongId(null);
+                        } else {
+                          if (audioPreviewRef.current) audioPreviewRef.current.pause();
+                          const audio = new Audio(activeNote.song_preview_url);
+                          audio.volume = 0.5;
+                          audio.loop = true;
+                          audioPreviewRef.current = audio;
+                          setPlayingSongId(activeNote.song_id || activeNote.id);
+                          audio.play();
+                        }
+                      }
+                    }}
+                    className="flex items-center gap-3 bg-white/[0.08] hover:bg-white/[0.12] border border-white/5 rounded-full pl-3 pr-5 py-2.5 w-fit max-w-[340px] cursor-pointer transition-all active:scale-[0.98] select-none"
+                  >
+                    {/* Play status icon */}
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white text-black shrink-0 shadow-md">
+                      {playingSongId === (activeNote.song_id || activeNote.id) ? (
+                        <div className="flex gap-0.5 items-end h-2.5">
+                          <span className="w-[1.5px] h-2 bg-black rounded-full animate-wave" style={{ animationDuration: '0.4s' }} />
+                          <span className="w-[1.5px] h-3 bg-black rounded-full animate-wave" style={{ animationDuration: '0.6s' }} />
+                          <span className="w-[1.5px] h-1.5 bg-black rounded-full animate-wave" style={{ animationDuration: '0.5s' }} />
+                        </div>
+                      ) : (
+                        <Play className="w-2.5 h-2.5 fill-black pl-[1.5px]" />
+                      )}
+                    </div>
+                    
+                    {/* Song title and artist */}
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[11px] font-bold text-white block truncate leading-snug">
+                        {activeNote.song_name}
+                      </span>
+                      <span className="text-[9.5px] text-white/50 block truncate leading-none mt-0.5">
+                        {activeNote.song_artist || "Unknown Artist"}
+                      </span>
+                    </div>
                   </div>
                 </div>
+              )}
+            </div>
 
-                <div className="text-center">
-                  <span className="text-xs font-bold text-white block truncate">{activeNote.song_name}</span>
-                  <span className="text-[10px] text-white/50 block truncate">{activeNote.song_artist}</span>
-                </div>
-
-                {/* Animated Waveform Visualizer */}
-                <div className="flex items-end justify-center gap-[3px] h-8 my-2">
-                  {Array.from({ length: 24 }).map((_, i) => (
-                    <span
-                      key={i}
-                      className={`w-[2.5px] bg-cyan-400 rounded-full transition-all duration-300 ${
-                        playingSongId === activeNote.song_id ? "animate-wave" : "h-1.5"
-                      }`}
-                      style={{
-                        animationDelay: `${i * 0.05}s`,
-                        animationDuration: `${0.5 + Math.random() * 0.7}s`
+            {/* Note Reply Input with quick reactions & heart */}
+            <div className="space-y-4">
+              {/* Quick react emoji bar */}
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <span className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Quick React</span>
+                <div className="flex gap-3">
+                  {["😂", "😮", "😢", "😍", "👏", "🔥", "🎉", "💯"].map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => {
+                        handleSendNoteReaction(activeNote.user_id, emoji);
+                        setIsNoteViewerOpen(false);
                       }}
-                    />
+                      className="text-lg hover:scale-125 transition-transform cursor-pointer flex items-center justify-center"
+                    >
+                      {emoji}
+                    </button>
                   ))}
                 </div>
-
-                {/* Real Time Progress Bar */}
-                <div className="space-y-1">
-                  <div className="relative w-full h-1 bg-white/10 rounded-full overflow-hidden cursor-pointer">
-                    <div 
-                      className="absolute top-0 left-0 h-full bg-cyan-400 transition-all duration-100" 
-                      style={{ width: `${(audioTime / audioDuration) * 100}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-[8px] text-white/40 font-mono">
-                    <span>{formatTimer(Math.floor(audioTime))}</span>
-                    <span>{formatTimer(Math.floor(audioDuration))}</span>
-                  </div>
-                </div>
-
-                {/* Lyrics Visualizer */}
-                <div className="h-20 overflow-y-auto no-scrollbar border-t border-white/5 pt-2 text-[10px] font-medium text-white/40 space-y-1.5 text-center">
-                  {(() => {
-                    const lName = activeNote.song_name.toLowerCase();
-                    let lyrics = MOCK_LYRICS.default;
-                    if (lName.includes("blind")) lyrics = MOCK_LYRICS.blinding;
-                    else if (lName.includes("stay")) lyrics = MOCK_LYRICS.stay;
-                    else if (lName.includes("starboy")) lyrics = MOCK_LYRICS.starboy;
-
-                    // Compute active lyric line based on current play time
-                    const activeIndex = Math.min(lyrics.length - 1, Math.floor((audioTime / audioDuration) * lyrics.length));
-
-                    return lyrics.map((line, idx) => (
-                      <p 
-                        key={idx} 
-                        className={`transition-all duration-300 ${idx === activeIndex ? "text-cyan-300 scale-105 font-bold drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" : "text-white/40"}`}
-                      >
-                        {line}
-                      </p>
-                    ));
-                  })()}
-                </div>
-
-                {/* Playback Controls */}
-                <div className="flex justify-center items-center gap-4 border-t border-white/5 pt-3">
-                  <button
-                    onClick={() => handlePlayPreview({
-                      id: activeNote.song_id,
-                      preview_url: activeNote.song_preview_url
-                    })}
-                    className="p-3.5 rounded-full bg-cyan-400 text-black hover:scale-105 transition-transform shadow-lg cursor-pointer"
-                  >
-                    {playingSongId === activeNote.song_id ? <Pause className="w-5 h-5 fill-black" /> : <Play className="w-5 h-5 fill-black" />}
-                  </button>
-                </div>
-
               </div>
-            )}
 
-            {/* Note Interactivity Section */}
-            <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-2">
-              <span className="text-[10px] text-white/40 font-mono">
-                {(activeNote.likes || []).length} {((activeNote.likes || []).length) === 1 ? "like" : "likes"}
-              </span>
-              <button
-                onClick={() => handleLikeNote(activeNote)}
-                className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full border transition-all ${
-                  (activeNote.likes || []).includes(currentUser?.id) 
-                    ? "bg-red-500/10 border-red-500/30 text-red-500" 
-                    : "bg-white/5 border-white/10 text-white/60 hover:text-white"
-                }`}
-              >
-                <Heart className={`w-3.5 h-3.5 ${(activeNote.likes || []).includes(currentUser?.id) ? "fill-current" : ""}`} />
-                <span>{(activeNote.likes || []).includes(currentUser?.id) ? "Liked" : "Like"}</span>
-              </button>
-            </div>
+              {/* Input feed & Heart */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 flex items-center bg-white/[0.06] border border-white/5 rounded-full px-4.5 py-2.5">
+                  <input
+                    type="text"
+                    value={noteDetailReplyText}
+                    onChange={(e) => setNoteDetailReplyText(e.target.value)}
+                    placeholder={`Message ${activeNote.profiles?.full_name?.toLowerCase().replace(/\s+/g, '_') || "collaborator"}`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && noteDetailReplyText.trim()) {
+                        handleSendNoteReaction(activeNote.user_id, `💬 Replied to your note: ${noteDetailReplyText}`);
+                        setNoteDetailReplyText("");
+                        setIsNoteViewerOpen(false);
+                      }
+                    }}
+                    className="flex-1 bg-transparent border-none outline-none text-xs text-white placeholder-white/35 focus:ring-0 p-0 h-5"
+                  />
+                  {noteDetailReplyText.trim() && (
+                    <button
+                      onClick={() => {
+                        handleSendNoteReaction(activeNote.user_id, `💬 Replied to your note: ${noteDetailReplyText}`);
+                        setNoteDetailReplyText("");
+                        setIsNoteViewerOpen(false);
+                      }}
+                      className="text-cyan-400 text-xs font-bold hover:text-cyan-300 ml-2 cursor-pointer transition-colors"
+                    >
+                      Send
+                    </button>
+                  )}
+                </div>
 
-            <div className="space-y-2 text-left">
-              <span className="text-[9px] text-white/40 uppercase tracking-wider block">Quick React</span>
-              <div className="grid grid-cols-8 gap-1 bg-black/20 p-2 rounded-2xl border border-white/5">
-                {["😂", "😮", "😢", "😍", "👏", "🔥", "🎉", "💯"].map((emoji) => (
-                  <button
-                    key={emoji}
-                    onClick={() => handleSendNoteReaction(activeNote.user_id, emoji)}
-                    className="text-lg hover:scale-125 transition-transform p-1 cursor-pointer flex items-center justify-center"
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2 text-left">
-              <span className="text-[9px] text-white/40 uppercase tracking-wider block">Reply with message</span>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={noteDetailReplyText}
-                  onChange={(e) => setNoteDetailReplyText(e.target.value)}
-                  placeholder="Send a direct message..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && noteDetailReplyText.trim()) {
-                      handleSendNoteReaction(activeNote.user_id, `💬 Replied to your note: ${noteDetailReplyText}`);
-                    }
-                  }}
-                  className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white focus:outline-none focus:border-[#22d3ee] h-9"
-                />
+                {/* Heart like button */}
                 <button
-                  onClick={() => {
-                    if (noteDetailReplyText.trim()) {
-                      handleSendNoteReaction(activeNote.user_id, `💬 Replied to your note: ${noteDetailReplyText}`);
-                    }
-                  }}
-                  disabled={!noteDetailReplyText.trim()}
-                  className="px-3 py-2 bg-[#22d3ee] hover:bg-cyan-400 disabled:opacity-40 disabled:hover:bg-[#22d3ee] text-black font-bold rounded-2xl text-xs transition-colors cursor-pointer"
+                  onClick={() => handleLikeNote(activeNote)}
+                  className={`p-2.5 rounded-full border transition-all cursor-pointer ${
+                    (activeNote.likes || []).includes(currentUser?.id)
+                      ? "bg-red-500/10 border-red-500/30 text-red-500 hover:scale-105"
+                      : "bg-white/5 border-white/10 text-white/70 hover:text-white"
+                  }`}
+                  title="Like Note"
                 >
-                  Send
+                  <Heart className={`w-4.5 h-4.5 ${(activeNote.likes || []).includes(currentUser?.id) ? "fill-current" : ""}`} />
                 </button>
               </div>
             </div>
 
+            {/* Note Views list for own notes */}
             {activeNote.user_id === currentUser?.id && (() => {
               const noteViewers = (activeNote.viewers || [])
                 .map((viewerId: string) => profiles.find((p) => p.id === viewerId))
                 .filter(Boolean);
 
+              if (noteViewers.length === 0) return null;
+
               return (
-                <div className="space-y-2 text-left bg-black/20 p-3 rounded-2xl border border-white/5">
+                <div className="mt-5 border-t border-white/5 pt-4 space-y-2">
                   <span className="text-[9px] uppercase tracking-wider text-white/40 font-bold block">
-                    Viewers ({noteViewers.length})
+                    Viewed By ({noteViewers.length})
                   </span>
-                  {noteViewers.length > 0 ? (
-                    <div className="flex gap-3 overflow-x-auto py-1 no-scrollbar">
-                      {noteViewers.map((viewer: any) => {
-                        const viewerAvatar = viewer.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(viewer.full_name || "Viewer")}&backgroundColor=030712&textColor=ffffff`;
-                        return (
-                          <div key={viewer.id} className="flex flex-col items-center shrink-0 w-12 text-center select-none">
-                            <img
-                              src={viewerAvatar}
-                              alt={viewer.full_name}
-                              className="w-8 h-8 rounded-full object-cover border border-white/10"
-                            />
-                            <span className="text-[8px] text-white/70 truncate w-full mt-1">
-                              {viewer.full_name?.split(" ")[0]}
-                            </span>
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                    {noteViewers.map((viewer: any) => (
+                      <div key={viewer.id} className="w-8 h-8 rounded-full overflow-hidden border border-white/10 bg-neutral-800 shrink-0" title={viewer.full_name}>
+                        {viewer.avatar_url ? (
+                          <img src={viewer.avatar_url} className="w-full h-full object-cover" alt="" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center font-bold text-[10px] text-cyan-400">
+                            {viewer.full_name?.substring(0, 2).toUpperCase()}
                           </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-[9px] text-white/40 italic py-1">No views yet</div>
-                  )}
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               );
             })()}
@@ -4124,7 +4137,7 @@ export const ChatView: React.FC = () => {
                     setActiveNote(null);
                   }
                 }}
-                className="text-[10px] text-red-400 hover:underline font-bold mt-2 cursor-pointer block mx-auto"
+                className="text-[10px] text-red-400 hover:underline font-bold mt-3.5 cursor-pointer block mx-auto shrink-0"
               >
                 Delete Note
               </button>
