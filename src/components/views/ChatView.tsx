@@ -213,6 +213,60 @@ export const ChatView: React.FC = () => {
 
   // Audio preview helper
   const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
+  const viewerDrawingCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (!isStoryViewerOpen || !activeStoryUser) return;
+    const userStories = stories.filter((s: any) => s.user_id === activeStoryUser);
+    const activeStory = userStories[activeStoryIndex];
+    if (!activeStory) return;
+
+    let parsedLayers: any = null;
+    try {
+      if (activeStory.caption) {
+        const parsed = JSON.parse(activeStory.caption);
+        parsedLayers = parsed.layers;
+      }
+    } catch (e) {}
+
+    const canvas = viewerDrawingCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (parsedLayers && parsedLayers.drawings) {
+      parsedLayers.drawings.forEach((stroke: any) => {
+        if (stroke.points.length < 1) return;
+        ctx.beginPath();
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = stroke.size;
+        ctx.globalAlpha = stroke.opacity;
+
+        if (stroke.type === "eraser") {
+          ctx.globalCompositeOperation = "destination-out";
+        } else {
+          ctx.globalCompositeOperation = "source-over";
+        }
+
+        if (stroke.type === "neon") {
+          ctx.strokeStyle = "#ffffff";
+          ctx.shadowColor = stroke.color;
+          ctx.shadowBlur = 12;
+        } else {
+          ctx.strokeStyle = stroke.color;
+          ctx.shadowBlur = 0;
+        }
+
+        ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        for (let i = 1; i < stroke.points.length; i++) {
+          ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+        }
+        ctx.stroke();
+      });
+    }
+  }, [isStoryViewerOpen, activeStoryUser, activeStoryIndex, stories]);
 
   // AI Assistant states
   const [isAiMenuOpen, setIsAiMenuOpen] = useState(false);
@@ -3777,11 +3831,13 @@ export const ChatView: React.FC = () => {
             // Parse caption JSON and custom text overlay
             let captionText = "";
             let textOverlayText = "";
+            let parsedLayers: any = null;
             try {
               if (activeStory.caption) {
                 const parsed = JSON.parse(activeStory.caption);
                 captionText = parsed.textCaption || "";
                 textOverlayText = parsed.textOverlay || "";
+                parsedLayers = parsed.layers || null;
               }
             } catch (e) {
               captionText = activeStory.caption || "";
@@ -3873,22 +3929,94 @@ export const ChatView: React.FC = () => {
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden select-none">
+                <div className="flex-1 bg-black flex items-center justify-center relative overflow-hidden select-none pointer-events-none">
                   {activeStory.media_type === "video" ? (
                     <video src={activeStory.media_url} className="w-full h-full object-contain pointer-events-none" autoPlay muted loop />
                   ) : (
                     <img src={activeStory.media_url} className="w-full h-full object-contain pointer-events-none" alt="" />
                   )}
 
-                  {/* Floating custom text overlay */}
-                  {textOverlayText && (
+                  {/* Custom Text layers */}
+                  {parsedLayers && parsedLayers.texts && parsedLayers.texts.map((l: any) => (
+                    <div
+                      key={l.id}
+                      style={{
+                        left: l.x,
+                        top: l.y,
+                        transform: `translate(-50%, -50%) scale(${l.scale}) rotate(${l.rotation}deg)`,
+                        color: l.color,
+                        fontFamily: l.font,
+                        fontSize: "24px"
+                      }}
+                      className={`absolute z-10 px-3 py-1.5 font-bold whitespace-nowrap select-none text-center ${
+                        l.bgHighlight ? (l.color === "#ffffff" ? "bg-black text-white" : "bg-white text-black") : ""
+                      } rounded-lg`}
+                    >
+                      {l.text}
+                    </div>
+                  ))}
+
+                  {/* Custom Sticker layers */}
+                  {parsedLayers && parsedLayers.stickers && parsedLayers.stickers.map((s: any) => (
+                    <div
+                      key={s.id}
+                      style={{
+                        left: s.x,
+                        top: s.y,
+                        transform: `translate(-50%, -50%) scale(${s.scale}) rotate(${s.rotation}deg)`
+                      }}
+                      className="absolute z-10 select-none"
+                    >
+                      {s.type === "emoji" && (
+                        <span className="text-[72px] leading-none block">{s.data.emoji}</span>
+                      )}
+                      
+                      {s.type === "gif" && s.src && (
+                        <img src={s.src} className="w-28 h-28 object-contain" alt="" />
+                      )}
+
+                      {s.type === "location" && (
+                        <div className="bg-white text-[#0095f6] font-bold text-xs px-4 py-2 rounded-full shadow-lg border border-white/20 whitespace-nowrap">
+                          📍 {s.data.name}
+                        </div>
+                      )}
+
+                      {s.type === "countdown" && (
+                        <div className="bg-black/90 border border-white/10 rounded-2xl p-3 text-center w-40 shadow-xl">
+                          <span className="text-[10px] text-white/50 block font-bold uppercase">{s.data.title}</span>
+                          <span className="text-[14px] text-[#00ffcc] font-mono font-bold block mt-1">23h : 45m : 10s</span>
+                        </div>
+                      )}
+
+                      {s.type === "poll" && (
+                        <div className="bg-white rounded-2xl p-3 text-center w-48 shadow-xl text-black">
+                          <p className="text-[11px] font-bold leading-tight">{s.data.question}</p>
+                          <div className="flex gap-1.5 mt-2.5">
+                            <div className="flex-1 py-2 bg-neutral-100 rounded-xl text-[10px] font-bold">{s.data.optA}</div>
+                            <div className="flex-1 py-2 bg-neutral-100 rounded-xl text-[10px] font-bold">{s.data.optB}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Drawing strokes Canvas */}
+                  <canvas 
+                    ref={viewerDrawingCanvasRef}
+                    width={380}
+                    height={640}
+                    className="absolute inset-0 z-10 pointer-events-none"
+                  />
+
+                  {/* Legacy/Standard text overlay fallback */}
+                  {!parsedLayers && textOverlayText && (
                     <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 px-4 py-2.5 bg-black/60 border border-white/20 rounded-2xl text-center max-w-[85%] font-extrabold text-[20px] tracking-wide text-white drop-shadow-md select-none">
                       {textOverlayText}
                     </div>
                   )}
 
-                  {/* Attached song sticker */}
-                  {activeStory.song_name && (
+                  {/* Legacy/Standard soundtrack sticker fallback */}
+                  {!parsedLayers && activeStory.song_name && (
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 p-3 bg-neutral-900/90 border border-white/10 backdrop-blur-md rounded-2xl flex items-center gap-2.5 shadow-xl max-w-[80%] select-none">
                       <img src={activeStory.song_artwork || "https://api.dicebear.com/7.x/initials/svg?seed=Music"} className="w-10 h-10 rounded-xl object-cover shrink-0" alt="" />
                       <div className="min-w-0 flex-1 text-left">
