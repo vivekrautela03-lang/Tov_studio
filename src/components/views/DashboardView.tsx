@@ -1209,8 +1209,8 @@ export const DashboardView: React.FC = () => {
     <div className="space-y-8 animate-fade-in pb-16 text-xs">
       
       {/* INSTAGRAM STYLED STORIES ROW */}
-      <div className="bg-[#0b0b0d] border border-white/5 rounded-3xl p-4 shadow-2xl overflow-x-auto no-scrollbar scroll-smooth">
-        <div className="flex gap-4 items-center py-1">
+      <div className="overflow-x-auto no-scrollbar scroll-smooth py-4 px-1">
+        <div className="flex gap-5 items-center py-1">
           {/* Creator's own story circle */}
           {(() => {
             const myStories = stories.filter(s => s.user_id === userProfile?.id);
@@ -1219,30 +1219,36 @@ export const DashboardView: React.FC = () => {
             
             return (
               <div className="flex flex-col items-center gap-1.5 shrink-0 relative select-none">
-                <div 
-                  onClick={() => {
-                    if (hasStories) {
-                      setActiveStoryUser(userProfile.id);
-                      setActiveStoryIndex(0);
-                      setIsStoryViewerOpen(true);
-                    } else {
-                      setIsStoryUploaderOpen(true);
-                    }
-                  }}
-                  className={`w-16 h-16 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all ${
-                    hasStories 
-                      ? hasUnseen 
-                        ? "bg-gradient-to-tr from-[#3897f0] via-[#a80077] to-[#b12a5b] p-[2.5px]" 
-                        : "bg-neutral-800 p-[1.5px]"
-                      : "border border-white/10 p-[1px]"
-                  }`}
-                >
-                  <div className="w-full h-full rounded-full bg-black p-[2px] overflow-hidden flex items-center justify-center font-bold text-sm text-cyan-400">
-                    {userProfile?.avatar_url ? (
-                      <img src={userProfile.avatar_url} className="w-full h-full object-cover rounded-full" alt="" />
-                    ) : (
-                      userProfile?.full_name?.substring(0, 2).toUpperCase() || "ME"
-                    )}
+                <div className="relative">
+                  <div 
+                    onClick={() => {
+                      if (hasStories) {
+                        setActiveStoryUser(userProfile.id);
+                        setActiveStoryIndex(0);
+                        setIsStoryViewerOpen(true);
+                      } else {
+                        setIsStoryUploaderOpen(true);
+                      }
+                    }}
+                    className={`w-[84px] h-[84px] rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all ${
+                      hasStories 
+                        ? hasUnseen 
+                          ? "bg-gradient-to-tr from-[#3897f0] via-[#a80077] to-[#b12a5b] p-[2.5px]" 
+                          : "bg-neutral-800 p-[1.5px]"
+                        : "border border-white/10 p-[1px]"
+                    }`}
+                  >
+                    <div className="w-full h-full rounded-full bg-black p-[2px] overflow-hidden flex items-center justify-center font-bold text-sm text-cyan-400">
+                      {userProfile?.avatar_url ? (
+                        <img src={userProfile.avatar_url} className="w-full h-full object-cover rounded-full" alt="" />
+                      ) : (
+                        userProfile?.full_name?.substring(0, 2).toUpperCase() || "ME"
+                      )}
+                    </div>
+                  </div>
+                  {/* Plus badge on own story circle */}
+                  <div className="absolute bottom-0 right-0 w-6.5 h-6.5 bg-[#0095f6] border-2 border-[#0b0b0d] rounded-full flex items-center justify-center text-white font-extrabold text-[15px] shadow-md pointer-events-none select-none">
+                    +
                   </div>
                 </div>
                 <span className="text-[11px] text-[#8e8e8e] font-semibold mt-1">Your story</span>
@@ -1264,7 +1270,7 @@ export const DashboardView: React.FC = () => {
                     setActiveStoryIndex(0);
                     setIsStoryViewerOpen(true);
                   }}
-                  className={`w-16 h-16 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all relative ${
+                  className={`w-[84px] h-[84px] rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-all relative ${
                     hasUnseen
                       ? "bg-gradient-to-tr from-[#3897f0] via-[#a80077] to-[#b12a5b] p-[2.5px]" 
                       : "bg-[#262626] p-[1.5px]" 
@@ -1279,10 +1285,10 @@ export const DashboardView: React.FC = () => {
                   </div>
                   {/* Online presence dot */}
                   {isOnline && (
-                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#4ed840] rounded-full border-2 border-black shadow-[0_0_4px_#4ed840]" />
+                    <span className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-[#4ed840] rounded-full border-2 border-black shadow-[0_0_4px_#4ed840]" />
                   )}
                 </div>
-                <span className="text-[11px] text-[#8e8e8e] truncate max-w-[72px] mt-1 font-semibold">
+                <span className="text-[11px] text-[#8e8e8e] truncate max-w-[76px] mt-1 font-semibold">
                   {p.full_name || "User"}
                 </span>
               </div>
@@ -1299,8 +1305,8 @@ export const DashboardView: React.FC = () => {
             }}
             className="flex flex-col items-center gap-1.5 shrink-0 text-center cursor-pointer select-none group"
           >
-            <div className="w-16 h-16 rounded-full border border-dashed border-white/20 hover:border-[#22d3ee]/50 flex items-center justify-center bg-white/5 group-hover:bg-[#22d3ee]/10 transition-all duration-200">
-              <Plus className="w-5 h-5 text-white/50 group-hover:text-[#22d3ee] transition-colors" />
+            <div className="w-[84px] h-[84px] rounded-full border border-dashed border-white/20 hover:border-[#22d3ee]/50 flex items-center justify-center bg-white/5 group-hover:bg-[#22d3ee]/10 transition-all duration-200">
+              <Plus className="w-7 h-7 text-white/50 group-hover:text-[#22d3ee] transition-colors" />
             </div>
             <span className="text-[10px] font-bold text-white/40 group-hover:text-[#22d3ee] transition-colors mt-0.5">
               Invite
