@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TOV Studio</string>
+    <string name="title_activity_main">TOV Studio</string>
+    <string name="package_name">com.tovstudio.app</string>
+    <string name="custom_url_scheme">com.tovstudio.app</string>
+</resources>
