@@ -22,7 +22,8 @@ import {
   Bookmark,
   Grid,
   Archive,
-  Compass
+  Compass,
+  Send
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,10 @@ export const ProfileView: React.FC = () => {
 
   // Avatar Resizer / Drag States
   const [isEditAvatarOpen, setIsEditAvatarOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<any | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentInput, setCommentInput] = useState("");
+  const [loadingComments, setLoadingComments] = useState(false);
   const [tempImageSrc, setTempImageSrc] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -155,6 +160,118 @@ export const ProfileView: React.FC = () => {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (!selectedPost) {
+      setComments([]);
+      return;
+    }
+    setLoadingComments(true);
+    supabase
+      .from("post_comments")
+      .select("*, profiles(full_name, avatar_url)")
+      .eq("post_id", selectedPost.id)
+      .order("created_at", { ascending: true })
+      .then(({ data, error }) => {
+        setLoadingComments(false);
+        if (error) console.error("Error fetching comments:", error);
+        else if (data) setComments(data);
+      });
+  }, [selectedPost]);
+
+  const handleSubmitComment = async () => {
+    const { userProfile } = useProjectStore.getState() as any;
+    if (!selectedPost || !commentInput.trim() || !user) return;
+    const newCommentText = commentInput;
+    setCommentInput("");
+
+    const tempComment = {
+      id: Math.random().toString(),
+      post_id: selectedPost.id,
+      user_id: user.id,
+      content: newCommentText,
+      created_at: new Date().toISOString(),
+      profiles: {
+        full_name: userProfile?.full_name || user.email,
+        avatar_url: userProfile?.avatar_url || ""
+      }
+    };
+
+    setComments(prev => [...prev, tempComment]);
+
+    const { data, error } = await supabase
+      .from("post_comments")
+      .insert({
+        post_id: selectedPost.id,
+        user_id: user.id,
+        content: newCommentText
+      })
+      .select("*, profiles(full_name, avatar_url)")
+      .single();
+
+    if (error) {
+      console.error("Error submitting comment:", error);
+      setComments(prev => prev.filter(c => c.id !== tempComment.id));
+    } else if (data) {
+      setComments(prev => prev.map(c => c.id === tempComment.id ? data : c));
+    }
+  };
+
+  const handleLikePortfolio = async (id: string) => {
+    setPortfolio((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          const likesList = item.likes || [];
+          const newLikes = likesList.includes(user?.id)
+            ? likesList.filter((uid: string) => uid !== user?.id)
+            : [...likesList, user?.id];
+          return { ...item, likes: newLikes };
+        }
+        return item;
+      })
+    );
+
+    if (selectedPost && selectedPost.id === id) {
+      setSelectedPost((prev: any) => {
+        if (!prev) return null;
+        const likesList = prev.likes || [];
+        const newLikes = likesList.includes(user?.id)
+          ? likesList.filter((uid: string) => uid !== user?.id)
+          : [...likesList, user?.id];
+        return { ...prev, likes: newLikes };
+      });
+    }
+
+    await likePortfolioItem(id);
+  };
+
+  const handleBookmarkPortfolio = async (id: string) => {
+    setPortfolio((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          const bookmarksList = item.bookmarks || [];
+          const newBookmarks = bookmarksList.includes(user?.id)
+            ? bookmarksList.filter((uid: string) => uid !== user?.id)
+            : [...bookmarksList, user?.id];
+          return { ...item, bookmarks: newBookmarks };
+        }
+        return item;
+      })
+    );
+
+    if (selectedPost && selectedPost.id === id) {
+      setSelectedPost((prev: any) => {
+        if (!prev) return null;
+        const bookmarksList = prev.bookmarks || [];
+        const newBookmarks = bookmarksList.includes(user?.id)
+          ? bookmarksList.filter((uid: string) => uid !== user?.id)
+          : [...bookmarksList, user?.id];
+        return { ...prev, bookmarks: newBookmarks };
+      });
+    }
+
+    await bookmarkPortfolioItem(id);
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -634,6 +751,7 @@ export const ProfileView: React.FC = () => {
                     setViewedPortfolioIds((prev) => [...prev, item.id]);
                   }
                 }}
+                onClick={() => setSelectedPost(item)}
                 className="relative aspect-square rounded-lg overflow-hidden border border-white/5 group cursor-pointer bg-neutral-900"
               >
                 <img src={item.thumbnail_url} className="w-full h-full object-cover" alt="" />
@@ -662,7 +780,7 @@ export const ProfileView: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          likePortfolioItem(item.id);
+                          handleLikePortfolio(item.id);
                         }}
                         className={`flex items-center gap-1 transition-transform active:scale-110 cursor-pointer ${
                           (item.likes || []).includes(user?.id) ? "text-red-500 font-bold" : "text-white/60 hover:text-white"
@@ -672,12 +790,12 @@ export const ProfileView: React.FC = () => {
                         <Heart className={`w-3.5 h-3.5 ${(item.likes || []).includes(user?.id) ? "fill-current" : ""}`} />
                         <span className="text-[8.5px]">{(item.likes || []).length}</span>
                       </button>
-
+ 
                       {/* Bookmark button */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          bookmarkPortfolioItem(item.id);
+                          handleBookmarkPortfolio(item.id);
                         }}
                         className={`transition-transform active:scale-110 cursor-pointer ${
                           (item.bookmarks || []).includes(user?.id) ? "text-yellow-400" : "text-white/60 hover:text-white"
@@ -686,7 +804,7 @@ export const ProfileView: React.FC = () => {
                       >
                         <Bookmark className={`w-3.5 h-3.5 ${(item.bookmarks || []).includes(user?.id) ? "fill-current" : ""}`} />
                       </button>
-
+ 
                       {/* Views count */}
                       <div className="flex items-center gap-1 text-white/50 ml-1" title="Views">
                         <Eye className="w-3.5 h-3.5" />
@@ -1044,6 +1162,144 @@ export const ProfileView: React.FC = () => {
                 <Button type="submit" variant="primary" size="sm">Add Asset</Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* PORTFOLIO POST DETAILS & COMMENTS MODAL (INSTAGRAM-STYLE) */}
+      {selectedPost && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4" onClick={() => setSelectedPost(null)}>
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-4xl h-[85vh] bg-[#0c0c0e] border border-white/10 rounded-2xl flex flex-col md:flex-row overflow-hidden shadow-2xl animate-fade-in"
+          >
+            {/* Left Column: Media display */}
+            <div className="w-full md:w-3/5 h-2/5 md:h-full bg-black flex items-center justify-center relative border-r border-white/5">
+              <img 
+                src={selectedPost.thumbnail_url} 
+                className="w-full h-full object-contain" 
+                alt={selectedPost.title} 
+              />
+              <div className="absolute top-4 left-4 px-2.5 py-1 rounded-full bg-black/60 border border-white/10 text-[9px] text-cyan-400 uppercase tracking-widest font-black">
+                Asset Preview
+              </div>
+            </div>
+
+            {/* Right Column: Feed Details and comments stream */}
+            <div className="w-full md:w-2/5 h-3/5 md:h-full flex flex-col justify-between bg-[#08080a]">
+              {/* Header */}
+              <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 bg-neutral-800 flex items-center justify-center text-xs text-cyan-400 font-black">
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                      (profile?.full_name || "U").substring(0, 2).toUpperCase()
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="text-[11px] font-black text-white leading-tight">{profile?.full_name || "Creator"}</h4>
+                    <span className="text-[8px] text-text-secondary block">@{profile?.username || "username"}</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedPost(null)}
+                  className="p-1 rounded hover:bg-white/5 text-white/50 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Caption / Description */}
+              <div className="p-4 bg-white/[0.01] border-b border-white/5 text-[11px] space-y-1">
+                <h3 className="font-extrabold text-cyan-400">{selectedPost.title}</h3>
+                <p className="text-white/70 leading-relaxed">{selectedPost.description || "No description provided."}</p>
+              </div>
+
+              {/* Comments Feed Area */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
+                {loadingComments ? (
+                  <div className="flex flex-col items-center justify-center h-20 text-[10px] text-white/30 uppercase tracking-widest gap-2">
+                    <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                    <span>Loading Comments...</span>
+                  </div>
+                ) : comments.length === 0 ? (
+                  <div className="text-center py-8 text-white/20 text-[9px] uppercase tracking-widest">
+                    No comments yet. Start the conversation!
+                  </div>
+                ) : (
+                  comments.map((comment) => (
+                    <div key={comment.id} className="flex items-start gap-2.5 text-xs text-white/90">
+                      <div className="w-7 h-7 rounded-full overflow-hidden border border-white/10 bg-neutral-800 flex items-center justify-center text-[10px] text-cyan-400 font-bold shrink-0">
+                        {comment.profiles?.avatar_url ? (
+                          <img src={comment.profiles.avatar_url} className="w-full h-full object-cover" alt="" />
+                        ) : (
+                          (comment.profiles?.full_name || "C").substring(0, 2).toUpperCase()
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-2.5">
+                          <span className="font-bold text-white block mb-0.5 text-[10px]">{comment.profiles?.full_name || "Creator"}</span>
+                          <p className="text-[11px] text-white/80 leading-normal whitespace-pre-wrap">{comment.content}</p>
+                        </div>
+                        <span className="text-[7.5px] text-white/30 block mt-1 ml-1.5 font-mono">
+                          {new Date(comment.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Action Bar (Likes, Bookmarks, and Comments input) */}
+              <div className="p-4 border-t border-white/5 bg-[#050507]">
+                <div className="flex items-center justify-between mb-3 text-xs">
+                  <div className="flex items-center gap-4">
+                    {/* Likes button */}
+                    <button 
+                      onClick={() => handleLikePortfolio(selectedPost.id)}
+                      className={`flex items-center gap-1 transition-transform active:scale-110 cursor-pointer ${
+                        (selectedPost.likes || []).includes(user?.id) ? "text-red-500 font-bold" : "text-white/60 hover:text-white"
+                      }`}
+                    >
+                      <Heart className={`w-4 h-4 ${(selectedPost.likes || []).includes(user?.id) ? "fill-current" : ""}`} />
+                      <span className="text-[10px]">{(selectedPost.likes || []).length} likes</span>
+                    </button>
+                    {/* Bookmark button */}
+                    <button 
+                      onClick={() => handleBookmarkPortfolio(selectedPost.id)}
+                      className={`transition-transform active:scale-110 cursor-pointer ${
+                        (selectedPost.bookmarks || []).includes(user?.id) ? "text-yellow-400" : "text-white/60"
+                      }`}
+                    >
+                      <Bookmark className={`w-4 h-4 ${(selectedPost.bookmarks || []).includes(user?.id) ? "fill-current" : ""}`} />
+                    </button>
+                  </div>
+                  <span className="text-[9px] text-white/30 font-mono flex items-center gap-1">
+                    <Eye className="w-3.5 h-3.5 text-white/20" /> {selectedPost.views || 0} views
+                  </span>
+                </div>
+
+                {/* Input box */}
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    placeholder="Add a comment..."
+                    value={commentInput}
+                    onChange={(e) => setCommentInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSubmitComment()}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-full px-4 py-2 text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#22d3ee] focus:ring-0"
+                  />
+                  <button 
+                    onClick={handleSubmitComment}
+                    className="p-2 rounded-full bg-cyan-400 hover:bg-cyan-300 text-black transition-colors cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5 fill-black" />
+                  </button>
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
       )}
