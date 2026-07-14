@@ -6,7 +6,17 @@ import { Sparkles, Send, ArrowRight, HelpCircle, RefreshCw, Trash2, Mic, Papercl
 import { Button } from "@/components/ui/button";
 
 export const AIStudioView: React.FC = () => {
-  const { userProfile, projects, activeProjectId, setActiveView } = useProjectStore();
+  const { 
+    userProfile, 
+    projects, 
+    activeProjectId, 
+    setActiveView,
+    scripts,
+    tasks,
+    calendarEvents,
+    crew,
+    cast
+  } = useProjectStore();
   
   // Custom local state to store chat logs for Gemini-style conversation
   const [messages, setMessages] = useState<any[]>([
@@ -66,7 +76,20 @@ export const AIStudioView: React.FC = () => {
       } else if (lower.includes("poster") || lower.includes("idea") || lower.includes("teaser")) {
         response = `### 🎨 AI TEASER POSTER CONCEPT SCHEMATICS\n\n*   **Concept 1: The Cyber Eye (High Contrast)**\n    A extreme macro close up of Kael's face, splitting the frame. Left side is natural skin, right side is dark cybernetic armor with the eye glowing emerald green (\`#3ecf8e\`). The reflection in the eye shows the flickering neon skyscrapers.\n*   **Concept 2: Silhouette in the Rain**\n    A wide shot of Kael standing under a street light, seen from behind. Backlight from a neon billboard silhouette's Kael, creating long shadows on a wet street. Rain falls diagonally. Glowing blue plasma emitter smoke rises from Kael's hand.\n*   **Concept 3: Code stream**\n    A sleek, abstract dark design. Thin white lines representing screenplays and shoot schedules overlaying a faint silhouette of a camera lens. Minimal green typography centered: *TOV Studio Presents. The Midnight Code. Create. Shoot. Deliver.*`;
       } else {
-        response = `I have scanned the live production database for **${projectTitle}** to coordinate your query:\n\n*   **Script Scene Index:** Parsed 5 scene hooks.\n*   **Continuity Audits:** Synced with active shot plans.\n*   **Budget Overview:** Tracked under Pre-Production presets.\n\nPlease let me know if you would like me to draft call sheets, outline storyboard shot plans, or review scene continuity details based on this information!`;
+        const scriptsCount = Object.keys(scripts || {}).length;
+        const calendarCount = Object.values(calendarEvents || {}).flat().length;
+        const crewCount = (crew || []).length;
+        const castCount = (cast || []).length;
+        const activeTasks = Object.values(tasks || {}).flat().filter((t: any) => t.status !== "done");
+
+        response = `I have scanned the live production database for **${projectTitle}** to coordinate your query:
+
+*   **Active Scripts:** ${scriptsCount} screenplays registered in this workspace.
+*   **Active Tasks:** ${activeTasks.length} active tasks currently in progress.
+*   **Crew & Cast Roster:** ${crewCount} crew members and ${castCount} cast members onboarded.
+*   **Schedule Events:** ${calendarCount} production milestones scheduled on the calendar.
+
+Please let me know if you would like me to draft call sheets, outline storyboard shot plans, or review scene continuity details based on this information!`;
       }
 
       // Simulate Gemini Direct Typing Stream
