@@ -679,10 +679,9 @@ export const ProfileView: React.FC = () => {
       <div className="space-y-3 bg-black/20 p-4 rounded-xl border border-white/5">
         <h4 className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">BTS Highlights</h4>
         <div className="flex items-center gap-4 overflow-x-auto scrollbar-none py-1">
-          
-          {/* Add highlight circle trigger */}
+           {/* Add highlight circle trigger */}
           <button
-            onClick={() => setIsAddHighlightOpen(true)}
+            onClick={() => document.getElementById("highlight-file-trigger")?.click()}
             className="flex flex-col items-center gap-1.5 shrink-0 select-none group cursor-pointer"
           >
             <div className="w-14 h-14 rounded-full border-2 border-dashed border-white/20 group-hover:border-[#22d3ee] flex items-center justify-center bg-black/40 transition-colors">
@@ -690,7 +689,7 @@ export const ProfileView: React.FC = () => {
             </div>
             <span className="text-[9px] text-text-secondary group-hover:text-white font-medium">New BTS</span>
           </button>
-
+ 
           {/* Highlight Circles list */}
           {highlights.map((hl) => (
             <div
@@ -716,7 +715,7 @@ export const ProfileView: React.FC = () => {
           ))}
         </div>
       </div>
-
+ 
       {/* 3. PORTFOLIO GRID (Instagram Grid posts) */}
       <div className="space-y-4">
         <div className="flex justify-between items-center border-b border-white/5 pb-2">
@@ -725,7 +724,7 @@ export const ProfileView: React.FC = () => {
             <span>Creative Portfolio Grid</span>
           </div>
           <Button
-            onClick={() => setIsAddPortfolioOpen(true)}
+            onClick={() => document.getElementById("portfolio-file-trigger")?.click()}
             variant="primary"
             size="sm"
             className="flex items-center gap-1"
@@ -1314,6 +1313,41 @@ export const ProfileView: React.FC = () => {
         </div>
       )}
 
+      {/* Hidden file inputs for direct gallery triggers */}
+      <input
+        type="file"
+        id="portfolio-file-trigger"
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              setNewPortfolio((prev) => ({ ...prev, coverUrl: reader.result as string }));
+              setIsAddPortfolioOpen(true);
+            };
+            reader.readAsDataURL(file);
+          }
+        }}
+      />
+      <input
+        type="file"
+        id="highlight-file-trigger"
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              setNewHighlight((prev) => ({ ...prev, photoUrl: reader.result as string }));
+              setIsAddHighlightOpen(true);
+            };
+            reader.readAsDataURL(file);
+          }
+        }}
+      />
     </div>
   );
 };
