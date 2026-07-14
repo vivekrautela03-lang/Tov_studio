@@ -1242,7 +1242,7 @@ export const DashboardView: React.FC = () => {
             handleNextStory();
             return 0;
           }
-          return prev + 1.5;
+          return prev + (100 / 300);
         });
       }, 100);
     }

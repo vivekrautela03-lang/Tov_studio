@@ -1721,7 +1721,7 @@ export const ChatView: React.FC = () => {
           }, 0);
           return 0;
         }
-        return prev + 2;
+        return prev + (100 / 300);
       });
     }, 100);
 
