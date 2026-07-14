@@ -709,6 +709,19 @@ export const ChatView: React.FC = () => {
         receiverId: activeCall.partnerId
       }
     });
+
+    let callLogText = "";
+    if (activeCall.status === "connected") {
+      callLogText = `[Call] FaceTime ${activeCall.type === "video" ? "Video" : "Audio"} • Ended • ${formatTimer(callTimer)}`;
+    } else if (activeCall.status === "ringing-out") {
+      callLogText = `[Call] FaceTime ${activeCall.type === "video" ? "Video" : "Audio"} • Missed`;
+    } else if (activeCall.status === "ringing-in") {
+      callLogText = `[Call] FaceTime ${activeCall.type === "video" ? "Video" : "Audio"} • Declined`;
+    }
+    if (callLogText && activeCall.partnerId !== "mock-testing-partner-id") {
+      handleSendMessage(callLogText);
+    }
+
     handleHangUpCleanup();
   };
 
@@ -2956,6 +2969,7 @@ export const ChatView: React.FC = () => {
                   const isTask = decrypted.startsWith("[Task]");
                   const isReel = decrypted.startsWith("[Reel]");
                   const isVoiceNote = decrypted.startsWith("[Voice Note]");
+                  const isCall = decrypted.startsWith("[Call]");
                   const isRepliedStory = decrypted.startsWith("📸 Replied to story:");
 
                   return (
@@ -3098,6 +3112,32 @@ export const ChatView: React.FC = () => {
                             <div className="flex items-center justify-between text-[9px] text-white/50">
                               <span>15.2k Likes</span>
                               <span>284 Comments</span>
+                            </div>
+                          </div>
+                        ) : isCall ? (
+                          <div className="flex flex-col gap-2 p-2.5 bg-black/40 rounded-xl border border-white/10 min-w-[210px] select-none text-left">
+                            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                              <span className="text-[8px] text-[#22d3ee] uppercase tracking-widest font-extrabold flex items-center gap-1">
+                                <Video className="w-3 h-3 text-[#22d3ee]" /> FaceTime Call
+                              </span>
+                              <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[7px] font-extrabold uppercase">
+                                {decrypted.includes("Missed") ? "Missed" : decrypted.includes("Declined") ? "Declined" : "Ended"}
+                              </span>
+                            </div>
+                            <div className="flex flex-col gap-1.5 pt-1">
+                              <p className="text-[10px] text-white leading-tight font-semibold">
+                                {decrypted.replace("[Call]", "").trim()}
+                              </p>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const isVideo = decrypted.toLowerCase().includes("video");
+                                  handleInitiateCall(isVideo ? "video" : "voice");
+                                }}
+                                className="w-full py-1.5 mt-1 rounded-lg bg-cyan-400 hover:bg-cyan-300 active:scale-95 text-black text-[9px] font-extrabold uppercase tracking-wider text-center transition-all cursor-pointer"
+                              >
+                                Call Back
+                              </button>
                             </div>
                           </div>
                         ) : isVoiceNote ? (
