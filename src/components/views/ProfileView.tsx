@@ -540,10 +540,10 @@ export const ProfileView: React.FC = () => {
     <div className="max-w-3xl mx-auto space-y-8 animate-fade-in pb-20 text-white text-xs">
       
       {/* 1. INSTAGRAM PROFILE STYLE HEADER */}
-      <div className="flex flex-col md:flex-row items-start gap-8 bg-black/30 p-6 rounded-2xl border border-white/5 backdrop-blur-md">
+      <div className="flex flex-row items-start gap-4 sm:gap-8 bg-black/30 p-4 sm:p-6 rounded-2xl border border-white/5 backdrop-blur-md">
         
         {/* Avatar Container with Notes Bubble */}
-        <div className="relative shrink-0 mx-auto md:mx-0">
+        <div className="relative shrink-0">
           
           {/* Floating Notes Bubble */}
           <div
@@ -551,16 +551,16 @@ export const ProfileView: React.FC = () => {
               setNewNoteInput(note === "Note..." ? "" : note);
               setIsEditingNote(true);
             }}
-            className="absolute -top-4 -left-2 z-10 bg-neutral-900 border border-white/10 rounded-full px-3 py-1 text-[10px] text-text-secondary cursor-pointer shadow-lg hover:border-[#22d3ee] transition-all flex items-center gap-1 select-none"
+            className="absolute -top-4 -left-2 z-10 bg-neutral-900 border border-white/10 rounded-full px-2.5 py-0.5 text-[9px] sm:text-[10px] text-text-secondary cursor-pointer shadow-lg hover:border-[#22d3ee] transition-all flex items-center gap-1 select-none"
           >
             <span>{note}</span>
-            <span className="text-[8px] opacity-40">▼</span>
+            <span className="text-[7px] sm:text-[8px] opacity-40">▼</span>
           </div>
 
           {/* Interactive Instagram Style Avatar Container */}
           <div
             onClick={() => setIsEditAvatarOpen(true)}
-            className="w-28 h-28 rounded-full border border-white/10 ring-4 ring-neutral-900 flex items-center justify-center overflow-hidden bg-neutral-800 cursor-pointer group relative"
+            className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border border-white/10 ring-4 ring-neutral-900 flex items-center justify-center overflow-hidden bg-neutral-800 cursor-pointer group relative"
             title="Change Profile Photo"
           >
             <img
@@ -568,29 +568,29 @@ export const ProfileView: React.FC = () => {
               className="w-full h-full object-cover group-hover:opacity-70 transition-all duration-200"
               alt=""
             />
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all duration-200 text-[9px] font-bold text-[#22d3ee] uppercase tracking-wider gap-1">
-              <Camera className="w-4 h-4" />
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all duration-200 text-[8px] sm:text-[9px] font-bold text-[#22d3ee] uppercase tracking-wider gap-0.5 sm:gap-1">
+              <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Edit photo</span>
             </div>
           </div>
         </div>
 
         {/* Bio, Handle and Stats info */}
-        <div className="flex-1 space-y-4 text-center md:text-left">
+        <div className="flex-1 min-w-0 space-y-3 sm:space-y-4 text-left">
           
-          <div className="flex flex-col sm:flex-row items-center gap-3 justify-center md:justify-start">
-            <h2 className="text-xl font-bold tracking-tight flex items-center gap-1.5">
-              <span>{profile?.username || "psf_vivek"}</span>
-              <Settings className="w-4 h-4 text-text-secondary hover:text-white cursor-pointer" onClick={() => setIsEditing(true)} />
+          <div className="flex items-center gap-2 justify-start">
+            <h2 className="text-base sm:text-xl font-bold tracking-tight flex items-center gap-1.5 truncate">
+              <span className="truncate">{profile?.username || "psf_vivek"}</span>
+              <Settings className="w-4 h-4 text-text-secondary hover:text-white cursor-pointer shrink-0" onClick={() => setIsEditing(true)} />
             </h2>
           </div>
 
-          <p className="text-[11px] text-[#22d3ee] font-semibold">
+          <p className="text-[10px] sm:text-[11px] text-[#22d3ee] font-semibold truncate">
             {profile?.full_name || "vivekrautela_07"}
           </p>
 
           {/* Stats Roster */}
-          <div className="flex items-center justify-center md:justify-start gap-6 text-xs text-text-secondary">
+          <div className="flex flex-wrap items-center justify-start gap-x-4 gap-y-1 text-[10px] sm:text-xs text-text-secondary">
             <div>
               <span className="text-white font-bold">{portfolio.length}</span> posts
             </div>
@@ -606,29 +606,29 @@ export const ProfileView: React.FC = () => {
           </div>
 
           {/* Bio text block */}
-          <div className="text-[11px] text-text-secondary leading-relaxed whitespace-pre-line font-mono max-w-md">
+          <div className="text-[10px] sm:text-[11px] text-text-secondary leading-relaxed whitespace-pre-line font-mono max-w-md">
             {profile?.bio}
           </div>
 
           {/* Contact Details & Handles */}
-          <div className="space-y-1.5 text-[11px] text-text-secondary font-mono border-t border-white/5 pt-3">
-            <div className="flex justify-center md:justify-start items-center gap-2">
-              <Phone className="w-3.5 h-3.5 text-[#22d3ee]" />
-              <span className="text-white">{profile?.phone || "No phone contact"}</span>
+          <div className="space-y-1.5 text-[10px] sm:text-[11px] text-text-secondary font-mono border-t border-white/5 pt-3">
+            <div className="flex justify-start items-center gap-2">
+              <Phone className="w-3.5 h-3.5 text-[#22d3ee] shrink-0" />
+              <span className="text-white truncate">{profile?.phone || "No phone contact"}</span>
             </div>
-            <div className="flex justify-center md:justify-start items-center gap-2">
-              <Mail className="w-3.5 h-3.5 text-[#22d3ee]" />
-              <span className="text-white">{user?.email}</span>
+            <div className="flex justify-start items-center gap-2">
+              <Mail className="w-3.5 h-3.5 text-[#22d3ee] shrink-0" />
+              <span className="text-white truncate">{user?.email}</span>
             </div>
             
             {/* Clickable Social Tags */}
-            <div className="flex flex-wrap gap-2 pt-2 justify-center md:justify-start">
+            <div className="flex flex-wrap gap-2 pt-2 justify-start">
               {socials.instagram && (
                 <a
                   href={`https://instagram.com/${socials.instagram}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-2.5 py-0.5 rounded bg-pink-500/10 text-pink-400 border border-pink-500/20 hover:bg-pink-500 hover:text-white transition-all text-[9.5px] font-bold"
+                  className="px-2.5 py-0.5 rounded bg-pink-500/10 text-pink-400 border border-pink-500/20 hover:bg-pink-500 hover:text-white transition-all text-[9px] sm:text-[9.5px] font-bold"
                 >
                   📸 @{socials.instagram}
                 </a>
@@ -638,7 +638,7 @@ export const ProfileView: React.FC = () => {
                   href={socials.linkedin}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-2.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500 hover:text-white transition-all text-[9.5px] font-bold"
+                  className="px-2.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500 hover:text-white transition-all text-[9px] sm:text-[9.5px] font-bold"
                 >
                   💼 LinkedIn
                 </a>
@@ -648,7 +648,7 @@ export const ProfileView: React.FC = () => {
                   href={socials.facebook}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-2.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500 hover:text-white transition-all text-[9.5px] font-bold"
+                  className="px-2.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500 hover:text-white transition-all text-[9px] sm:text-[9.5px] font-bold"
                 >
                   👥 Facebook
                 </a>
@@ -657,16 +657,16 @@ export const ProfileView: React.FC = () => {
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-3 pt-2 justify-center md:justify-start">
+          <div className="flex flex-wrap gap-2 sm:gap-3 pt-2 justify-start">
             <button
               onClick={() => setIsEditing(true)}
-              className="flex-1 sm:flex-initial px-6 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold border border-white/10 transition-colors text-center text-xs cursor-pointer select-none"
+              className="px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold border border-white/10 transition-colors text-center text-[10px] sm:text-xs cursor-pointer select-none"
             >
               Edit profile
             </button>
             <button
               onClick={() => alert("Archive history is currently empty.")}
-              className="flex-1 sm:flex-initial px-6 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold border border-white/10 transition-colors text-center text-xs cursor-pointer select-none"
+              className="px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold border border-white/10 transition-colors text-center text-[10px] sm:text-xs cursor-pointer select-none"
             >
               View archive
             </button>
