@@ -783,8 +783,10 @@ export const ChatView: React.FC = () => {
           const remoteAud = document.getElementById("remote-audio-feed") as HTMLAudioElement;
           if (type === "video" && remoteVid) {
             remoteVid.srcObject = event.streams[0];
+            remoteVid.play().catch(err => console.warn("Remote video play failed:", err));
           } else if (type === "voice" && remoteAud) {
             remoteAud.srcObject = event.streams[0];
+            remoteAud.play().catch(err => console.warn("Remote audio play failed:", err));
           }
         }, 500);
       };
@@ -896,8 +898,10 @@ export const ChatView: React.FC = () => {
           const remoteAud = document.getElementById("remote-audio-feed") as HTMLAudioElement;
           if (type === "video" && remoteVid) {
             remoteVid.srcObject = event.streams[0];
+            remoteVid.play().catch(err => console.warn("Remote video play failed:", err));
           } else if (type === "voice" && remoteAud) {
             remoteAud.srcObject = event.streams[0];
+            remoteAud.play().catch(err => console.warn("Remote audio play failed:", err));
           }
         }, 500);
       };
@@ -3490,7 +3494,8 @@ export const ChatView: React.FC = () => {
                     {/* Slide to answer */}
                     <div className="w-64 h-12 bg-white/5 border border-white/15 rounded-full relative flex items-center justify-between px-2 overflow-hidden shadow-inner">
                       <div
-                        className="absolute inset-y-1 left-1 bg-green-500 text-black font-bold text-[10px] uppercase tracking-widest rounded-full flex items-center justify-center shadow-lg transition-transform cursor-grab"
+                        onClick={handleAcceptCall}
+                        className="absolute inset-y-1 left-1 bg-green-500 text-black font-bold text-[10px] uppercase tracking-widest rounded-full flex items-center justify-center shadow-lg transition-transform cursor-pointer"
                         style={{ transform: `translateX(${swipeX}px)`, width: "100px" }}
                         onTouchStart={handleTouchStartSwipe}
                         onTouchMove={handleTouchMoveSwipe}
