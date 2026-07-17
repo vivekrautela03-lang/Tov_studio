@@ -936,14 +936,24 @@ export const DashboardView: React.FC = () => {
   }, [userProfile]);
 
   const [timelineUpdates, setTimelineUpdates] = useState<any[]>([]);
+  const [timelineLimit, setTimelineLimit] = useState(10);
 
   useEffect(() => {
     const fetchTimelineUpdates = async () => {
       try {
         const { data, error } = await supabase
           .from("production_timeline_updates")
-          .select("*")
-          .order("created_at", { ascending: false });
+          .select(`
+            id,
+            created_at,
+            title,
+            time_label,
+            description,
+            type,
+            meta
+          `)
+          .order("created_at", { ascending: false })
+          .limit(timelineLimit);
         if (data) setTimelineUpdates(data);
       } catch (err) {
         console.error("Error loading timeline updates:", err);
@@ -961,7 +971,7 @@ export const DashboardView: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [timelineLimit]);
 
   // Real-time Stories subscription to update views, likes, and content instantly
   useEffect(() => {
@@ -1117,13 +1127,18 @@ export const DashboardView: React.FC = () => {
       const isVideo = file.type.startsWith("video/");
       
       if (isVideo) {
+        if (file.size > 5 * 1024 * 1024) {
+          alert("Video size exceeds 5MB! Stories are limited to a maximum of 5MB to optimize storage and bandwidth.");
+          e.target.value = "";
+          return;
+        }
         const tempVideo = document.createElement("video");
         tempVideo.preload = "metadata";
         tempVideo.src = URL.createObjectURL(file);
         tempVideo.onloadedmetadata = () => {
           URL.revokeObjectURL(tempVideo.src);
-          if (tempVideo.duration > 60.5) {
-            alert("Video duration exceeds 60 seconds! Stories are limited to a maximum of 60 seconds.");
+          if (tempVideo.duration > 15.5) {
+            alert("Video duration exceeds 15 seconds! Stories are limited to a maximum of 15 seconds.");
             e.target.value = "";
             return;
           }
@@ -1640,6 +1655,16 @@ export const DashboardView: React.FC = () => {
               </Card>
             </div>
           ))}
+
+          {/* Load More updates button */}
+          {timelineUpdates.length >= timelineLimit && (
+            <button 
+              onClick={() => setTimelineLimit(prev => prev + 10)}
+              className="w-full py-2.5 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] text-[10px] uppercase tracking-widest text-[#22d3ee] font-black transition-all cursor-pointer"
+            >
+              Load More Updates
+            </button>
+          )}
         </div>
       </div>
 

@@ -3035,18 +3035,37 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
   },
 
   fetchStories: async () => {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // Non-blocking trigger to purge expired stories and clean storage.objects rows
+    supabase.rpc("cleanup_expired_stories").then(({ error }) => {
+      if (error) console.error("Error running stories garbage collection:", error);
+    });
+
+    const nowStr = new Date().toISOString();
     const { data, error } = await supabase
       .from("stories")
       .select(`
-        *,
+        id,
+        user_id,
+        media_url,
+        media_type,
+        caption,
+        created_at,
+        expires_at,
+        song_id,
+        song_name,
+        song_artist,
+        song_artwork,
+        song_preview_url,
+        views,
+        viewers,
+        likes,
         profiles:user_id (
           id,
           full_name,
           avatar_url
         )
       `)
-      .gt("created_at", twentyFourHoursAgo)
+      .gt("expires_at", nowStr)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -3054,7 +3073,7 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       return;
     }
 
-    set({ stories: data || [] });
+    set({ stories: (data as any) || [] });
   },
 
   addStory: async (mediaUrl, mediaType, caption, song, audience) => {
